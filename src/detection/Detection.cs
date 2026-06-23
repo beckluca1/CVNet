@@ -2,7 +2,7 @@ using System.Numerics;
 
 namespace CVNet;
 
-class CVDetection
+public class CVDetection
 {
     private readonly byte Background = 0;
     private readonly byte Foreground = 255;
