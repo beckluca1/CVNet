@@ -20,7 +20,11 @@ public class CVCheckerboard
             src.Width,
             src.Height,
             src.ColorFormat,
-            src.DataFormat);
+            src.DataFormat,
+            src.ChannelFormat);
+
+        Span<float> srcSpan = src.BufferAs<float>();
+        Span<float> dstSpan = dst.BufferAs<float>();
 
         for (int y = 1; y < src.Height - 1; y++)
         {
@@ -33,12 +37,11 @@ public class CVCheckerboard
                     for (int i = -1; i <= 1; i++)
                     {
                         sum +=
-                            src.Get<float>(x + i, y + j) *
+                            srcSpan[(x + i) + (y + j) * src.Width] *
                             k[j + 1, i + 1];
                     }
                 }
-
-                dst.Set(x, y, sum);
+                dstSpan[x + y * dst.Width] = sum;
             }
         }
     }
@@ -58,7 +61,11 @@ public class CVCheckerboard
             src.Width,
             src.Height,
             src.ColorFormat,
-            src.DataFormat);
+            src.DataFormat,
+            src.ChannelFormat);
+
+        Span<float> srcSpan = src.BufferAs<float>();
+        Span<float> dstSpan = dst.BufferAs<float>();
 
         for (int y = 1; y < src.Height - 1; y++)
         {
@@ -71,12 +78,11 @@ public class CVCheckerboard
                     for (int i = -1; i <= 1; i++)
                     {
                         sum +=
-                            src.Get<float>(x + i, y + j) *
+                            srcSpan[(x + i) + (y + j) * src.Width] *
                             k[j + 1, i + 1];
                     }
                 }
-
-                dst.Set(x, y, sum);
+                dstSpan[x + y * dst.Width] = sum;
             }
         }
     }
@@ -89,8 +95,8 @@ public class CVCheckerboard
         int h = image.Height;
         int w = image.Width;
 
-        gradientX = CVImage.Create(image.Width, image.Height, image.ColorFormat, image.DataFormat);
-        gradientY = CVImage.Create(image.Width, image.Height, image.ColorFormat, image.DataFormat);
+        gradientX = CVImage.Create(image.Width, image.Height, image.ColorFormat, image.DataFormat, image.ChannelFormat);
+        gradientY = CVImage.Create(image.Width, image.Height, image.ColorFormat, image.DataFormat, image.ChannelFormat);
 
         int[,] sx =
         {
@@ -106,6 +112,10 @@ public class CVCheckerboard
             {  1,  2,  1 }
         };
 
+        Span<float> bufferSpan = image.BufferAs<float>();
+        Span<float> bgx = gradientX.BufferAs<float>();
+        Span<float> bgy = gradientY.BufferAs<float>();
+
         for (int y = 1; y < h - 1; y++)
             for (int x = 1; x < w - 1; x++)
             {
@@ -115,14 +125,13 @@ public class CVCheckerboard
                 for (int j = -1; j <= 1; j++)
                     for (int i = -1; i <= 1; i++)
                     {
-                        float p = image.Get<float>(x + i, y + j);
+                        float p = bufferSpan[(x + i) + (y + j) * image.Width];
 
                         sumX += p * sx[j + 1, i + 1];
                         sumY += p * sy[j + 1, i + 1];
                     }
-
-                gradientX.Set(x, y, sumX);
-                gradientY.Set(x, y, sumY);
+                bgx[x + y * gradientX.Width] = sumX;
+                bgy[x + y * gradientY.Width] = sumY;
             }
     }
 
@@ -144,13 +153,20 @@ public class CVCheckerboard
         var result =
             new List<Vector<double>>();
 
+        Span<float> bxx = ixx.BufferAs<float>();
+        Span<float> byy = iyy.BufferAs<float>();
+        Span<float> bxy = ixy.BufferAs<float>();
+
+        Span<float> bgx = gradientX.BufferAs<float>();
+        Span<float> bgy = gradientY.BufferAs<float>();
+
         for (int y = r; y < h - r; y++)
         {
             for (int x = r; x < w - r; x++)
             {
-                float hxx = ixx.Get<float>(x, y);
-                float hyy = iyy.Get<float>(x, y);
-                float hxy = ixy.Get<float>(x, y);
+                float hxx = bxx[x + y * ixx.Width];
+                float hyy = byy[x + y * iyy.Width];
+                float hxy = bxy[x + y * ixy.Width];
 
                 float det =
                     hxx * hyy -
@@ -167,15 +183,8 @@ public class CVCheckerboard
                 {
                     for (int dx = -r; dx <= r; dx++)
                     {
-                        float gx =
-                            gradientX.Get<float>(
-                                x + dx,
-                                y + dy);
-
-                        float gy =
-                            gradientY.Get<float>(
-                                x + dx,
-                                y + dy);
+                        float gx = bgx[(x + dx) + (y + dy) * gradientX.Width];
+                        float gy = bgy[(x + dx) + (y + dy) * gradientY.Width];
 
                         A += gx * gx;
                         B += gx * gy;
@@ -254,7 +263,7 @@ public class CVCheckerboard
     {
         CVImage gray = CVConvert.ConvertData(image, CVDataFormat.CV_F32);
         gray = CVMath.Divide(gray, 255f);
-        gray = CVConvert.RGBToGrayscale(gray);
+        gray = CVConvert.ToFormat(gray, CVChannelFormat.Grayscale());
         gray = CVProcessing.GaussianBlur(gray, 5);
 
         Sobel(gray, out CVImage gx, out CVImage gy);

@@ -188,7 +188,7 @@ public static class CVWarp
         dstPoints.Add(DenseVectorD.OfArray(new double[] { targetWidth - 1, targetHeight - 1 }));
         dstPoints.Add(DenseVectorD.OfArray(new double[] { 0.0, targetHeight - 1 }));
 
-        CVImage imageOut = CVImage.Create(targetWidth, targetHeight, image.ColorFormat, image.DataFormat);
+        CVImage imageOut = CVImage.Create(targetWidth, targetHeight, image.ColorFormat, image.DataFormat, image.ChannelFormat);
 
         H = GetPerspectiveTransform(srcPoints, dstPoints);
         MatrixD HInv = H.Inverse();

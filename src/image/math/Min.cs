@@ -116,7 +116,7 @@ public static class CVMin
 
     public static CVImage Min<TV>(CVImage image, TV arg1) where TV : struct
     {
-        CVImage outImage = CVImage.Create(image.Width, image.Height, image.ColorFormat, image.DataFormat);
+        CVImage outImage = CVImage.Create(image.Width, image.Height, image.ColorFormat, image.DataFormat, image.ChannelFormat);
 
         if (image.DataFormat == CVDataFormat.CV_U8) Min<byte, TV>(image, arg1, ref outImage);
         else if (image.DataFormat == CVDataFormat.CV_S8) Min<sbyte, TV>(image, arg1, ref outImage);
@@ -134,7 +134,7 @@ public static class CVMin
 
     public static CVImage Min<TV>(CVImage image, TV[] arg1) where TV : struct
     {
-        CVImage outImage = CVImage.Create(image.Width, image.Height, image.ColorFormat, image.DataFormat);
+        CVImage outImage = CVImage.Create(image.Width, image.Height, image.ColorFormat, image.DataFormat, image.ChannelFormat);
 
         if (image.DataFormat == CVDataFormat.CV_U8) Min<byte, TV>(image, arg1, ref outImage);
         else if (image.DataFormat == CVDataFormat.CV_S8) Min<sbyte, TV>(image, arg1, ref outImage);
@@ -152,7 +152,7 @@ public static class CVMin
 
     public static CVImage Min(CVImage image1, CVImage image2)
     {
-        CVImage outImage = CVImage.Create(image1.Width, image1.Height, image1.ColorFormat, image1.DataFormat);
+        CVImage outImage = CVImage.Create(image1.Width, image1.Height, image1.ColorFormat, image1.DataFormat, image1.ChannelFormat);
 
         if (image1.DataFormat == CVDataFormat.CV_U8) Min<byte>(image1, image2, ref outImage);
         else if (image1.DataFormat == CVDataFormat.CV_S8) Min<sbyte>(image1, image2, ref outImage);

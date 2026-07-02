@@ -28,11 +28,91 @@ public enum CVColorFormat
     CV_C4,
 }
 
+public enum CVChannel
+{
+    CV_NONE,
+    CV_R,
+    CV_G,
+    CV_B,
+    CV_A,
+
+    // Placeholders
+
+    // Averages
+    CV_AVG_RGB,
+    CV_AVG_RGBA,
+
+    // Fixed Values
+    CV_A_ZERO,
+    CV_A_ONE,
+    CV_A_255,
+}
+
+public struct CVChannelFormat
+{
+    public CVChannel[] Channels = new CVChannel[] { CVChannel.CV_NONE };
+
+    public CVChannelFormat()
+    {
+    }
+
+    public static CVChannelFormat None()
+    {
+        return new CVChannelFormat() { Channels = new CVChannel[] { CVChannel.CV_NONE } };
+    }
+
+    public static CVChannelFormat Grayscale()
+    {
+        return new CVChannelFormat() { Channels = new CVChannel[] { CVChannel.CV_AVG_RGB } };
+    }
+
+    public static CVChannelFormat R()
+    {
+        return new CVChannelFormat() { Channels = new CVChannel[] { CVChannel.CV_R } };
+    }
+
+    public static CVChannelFormat RGB()
+    {
+        return new CVChannelFormat() { Channels = new CVChannel[] { CVChannel.CV_R, CVChannel.CV_G, CVChannel.CV_B } };
+    }
+
+    public static CVChannelFormat RGBA()
+    {
+        return new CVChannelFormat() { Channels = new CVChannel[] { CVChannel.CV_R, CVChannel.CV_G, CVChannel.CV_B, CVChannel.CV_A } };
+    }
+
+    public static CVChannelFormat ARGB()
+    {
+        return new CVChannelFormat() { Channels = new CVChannel[] { CVChannel.CV_A, CVChannel.CV_R, CVChannel.CV_G, CVChannel.CV_B } };
+    }
+
+    public static CVChannelFormat BGR()
+    {
+        return new CVChannelFormat() { Channels = new CVChannel[] { CVChannel.CV_B, CVChannel.CV_G, CVChannel.CV_R } };
+    }
+
+    public static CVChannelFormat BGRA()
+    {
+        return new CVChannelFormat() { Channels = new CVChannel[] { CVChannel.CV_B, CVChannel.CV_G, CVChannel.CV_R, CVChannel.CV_A } };
+    }
+
+    public static CVChannelFormat ABGR()
+    {
+        return new CVChannelFormat() { Channels = new CVChannel[] { CVChannel.CV_A, CVChannel.CV_B, CVChannel.CV_G, CVChannel.CV_R } };
+    }
+
+    public static CVChannelFormat RRR255()
+    {
+        return new CVChannelFormat() { Channels = new CVChannel[] { CVChannel.CV_R, CVChannel.CV_R, CVChannel.CV_R, CVChannel.CV_A_255 } };
+    }
+}
 
 public enum CV_ResizeMode
 {
-    CV_STRETCH,
-    CV_CROP,
+    CV_STRETCH_NEAREST,
+    CV_STRETCH_LINEAR,
+    CV_CROP_NEAREST,
+    CV_CROP_LINEAR,
 }
 
 public class CVImage
@@ -48,11 +128,12 @@ public class CVImage
 
     public CVColorFormat ColorFormat;
     public CVDataFormat DataFormat;
+    public CVChannelFormat ChannelFormat;
 
     public int bufferSize;
     public byte[] buffer;
 
-    private CVImage(int width, int height, CVColorFormat colorFormat, CVDataFormat dataFormat)
+    private CVImage(int width, int height, CVColorFormat colorFormat, CVDataFormat dataFormat, CVChannelFormat channelFormat)
     {
         Width = width;
         Height = height;
@@ -76,29 +157,10 @@ public class CVImage
 
         ColorFormat = colorFormat;
         DataFormat = dataFormat;
+        ChannelFormat = channelFormat;
 
         bufferSize = Width * Height * Channels * Bytes;
         buffer = new byte[bufferSize];
-    }
-
-    public int XP(int x) { return x; }
-    public int YP(int y) { return y * Width; }
-    public int NP(int n) { return n; }
-    public int CP(int c) { return c * WidthHeight; }
-
-    public int CI(int c) { return c; }
-    public int XI(int x) { return x * Channels; }
-    public int YI(int y) { return y * ChannelsWidth; }
-    public int NI(int n) { return n * Channels; }
-
-    public int SpanIndex(int n, int c)
-    {
-        return n + c * Width * Height;
-    }
-
-    public int SpanIndex(int x, int y, int c)
-    {
-        return x + y * Width + c * Width * Height;
     }
 
     public Span<T> BufferAs<T>() where T : struct
@@ -151,43 +213,43 @@ public class CVImage
         bufferSpan.Fill(data);
     }
 
-    public static CVImage Create(int width = 0, int height = 0, CVColorFormat colorFormat = CVColorFormat.CV_NONE, CVDataFormat dataFormat = CVDataFormat.CV_NONE)
+    public static CVImage Create(int width = 0, int height = 0, CVColorFormat colorFormat = CVColorFormat.CV_NONE, CVDataFormat dataFormat = CVDataFormat.CV_NONE, CVChannelFormat channelFormat = default)
     {
-        CVImage image = new CVImage(width, height, colorFormat, dataFormat);
+        CVImage image = new CVImage(width, height, colorFormat, dataFormat, channelFormat);
 
         return image;
     }
 
-    public static CVImage Create<T>(int width, int height, CVColorFormat colorFormat, CVDataFormat dataFormat, T data) where T : struct
+    public static CVImage Create<T>(int width, int height, CVColorFormat colorFormat, CVDataFormat dataFormat, CVChannelFormat channelFormat, T data) where T : struct
     {
-        CVImage image = new CVImage(width, height, colorFormat, dataFormat);
+        CVImage image = new CVImage(width, height, colorFormat, dataFormat, channelFormat);
 
         image.Init(data);
 
         return image;
     }
 
-    public static CVImage Create<T>(int width, int height, CVColorFormat colorFormat, CVDataFormat dataFormat, T[] data) where T : struct
+    public static CVImage Create<T>(int width, int height, CVColorFormat colorFormat, CVDataFormat dataFormat, CVChannelFormat channelFormat, T[] data) where T : struct
     {
-        CVImage image = new CVImage(width, height, colorFormat, dataFormat);
+        CVImage image = new CVImage(width, height, colorFormat, dataFormat, channelFormat);
 
         image.Init(data);
 
         return image;
     }
 
-    public static CVImage CreatePlanar<T>(int width, int height, CVColorFormat colorFormat, CVDataFormat dataFormat, T[] data) where T : struct
+    public static CVImage CreatePlanar<T>(int width, int height, CVColorFormat colorFormat, CVDataFormat dataFormat, CVChannelFormat channelFormat, T[] data) where T : struct
     {
-        CVImage image = new CVImage(width, height, colorFormat, dataFormat);
+        CVImage image = new CVImage(width, height, colorFormat, dataFormat, channelFormat);
 
         image.InitPlanar(data);
 
         return image;
     }
 
-    public static CVImage CreateInterleaved<T>(int width, int height, CVColorFormat colorFormat, CVDataFormat dataFormat, T[] data) where T : struct
+    public static CVImage CreateInterleaved<T>(int width, int height, CVColorFormat colorFormat, CVDataFormat dataFormat, CVChannelFormat channelFormat, T[] data) where T : struct
     {
-        CVImage image = new CVImage(width, height, colorFormat, dataFormat);
+        CVImage image = new CVImage(width, height, colorFormat, dataFormat, channelFormat);
 
         image.InitInterleaved(data);
 
@@ -336,65 +398,7 @@ public class CVImage
 
     public CVImage Clone()
     {
-        return CreatePlanar(Width, Height, ColorFormat, DataFormat, buffer);
-    }
-
-    public T Get<OutT, T>(int x, int y, int c) where OutT : struct
-    {
-        if (x < 0 || x >= Width || y < 0 || y >= Height) throw new Exception($"CVImage Index out of Bounds");
-        if (c < 0 || c >= Channels) throw new Exception($"CVImage Channel out of Bounds");
-
-        Span<OutT> bufferSpan = BufferAs<OutT>();
-        return (T)Convert.ChangeType(bufferSpan[SpanIndex(x, y, c)], typeof(T));
-    }
-
-    public T Get<T>(int x, int y, int c) where T : struct
-    {
-        if (DataFormat == CVDataFormat.CV_U8) return Get<byte, T>(x, y, c);
-        else if (DataFormat == CVDataFormat.CV_S8) return Get<sbyte, T>(x, y, c);
-        else if (DataFormat == CVDataFormat.CV_U16) return Get<ushort, T>(x, y, c);
-        else if (DataFormat == CVDataFormat.CV_S16) return Get<short, T>(x, y, c);
-        else if (DataFormat == CVDataFormat.CV_U32) return Get<uint, T>(x, y, c);
-        else if (DataFormat == CVDataFormat.CV_S32) return Get<int, T>(x, y, c);
-        else if (DataFormat == CVDataFormat.CV_U64) return Get<ulong, T>(x, y, c);
-        else if (DataFormat == CVDataFormat.CV_S64) return Get<long, T>(x, y, c);
-        else if (DataFormat == CVDataFormat.CV_F32) return Get<float, T>(x, y, c);
-        else if (DataFormat == CVDataFormat.CV_F64) return Get<double, T>(x, y, c);
-
-        return default;
-    }
-
-    public T Get<T>(int x, int y) where T : struct
-    {
-        return Get<T>(x, y, 0);
-    }
-
-    public void Set<OutT, T>(int x, int y, int c, T val) where OutT : struct where T : struct
-    {
-        if (x < 0 || x >= Width || y < 0 || y >= Height) throw new Exception($"CVImage Index out of Bounds");
-        if (c < 0 || c >= Channels) throw new Exception($"CVImage Channel out of Bounds");
-
-        Span<OutT> bufferSpan = BufferAs<OutT>();
-        bufferSpan[SpanIndex(x, y, c)] = (OutT)System.Convert.ChangeType(val, typeof(OutT));
-    }
-
-    public void Set<T>(int x, int y, int c, T val) where T : struct
-    {
-        if (DataFormat == CVDataFormat.CV_U8) Set<byte, T>(x, y, c, val);
-        else if (DataFormat == CVDataFormat.CV_S8) Set<sbyte, T>(x, y, c, val);
-        else if (DataFormat == CVDataFormat.CV_U16) Set<ushort, T>(x, y, c, val);
-        else if (DataFormat == CVDataFormat.CV_S16) Set<short, T>(x, y, c, val);
-        else if (DataFormat == CVDataFormat.CV_U32) Set<uint, T>(x, y, c, val);
-        else if (DataFormat == CVDataFormat.CV_S32) Set<int, T>(x, y, c, val);
-        else if (DataFormat == CVDataFormat.CV_U64) Set<ulong, T>(x, y, c, val);
-        else if (DataFormat == CVDataFormat.CV_S64) Set<long, T>(x, y, c, val);
-        else if (DataFormat == CVDataFormat.CV_F32) Set<float, T>(x, y, c, val);
-        else if (DataFormat == CVDataFormat.CV_F64) Set<double, T>(x, y, c, val);
-    }
-
-    public void Set<T>(int x, int y, T val) where T : struct
-    {
-        Set<T>(x, y, 0, val);
+        return CreatePlanar(Width, Height, ColorFormat, DataFormat, ChannelFormat, buffer);
     }
 
     public static CVImage operator +(int val, CVImage image) { return CVMath.Add(image, val); }

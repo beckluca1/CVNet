@@ -1,3 +1,4 @@
+using System.Numerics;
 using System.Runtime.InteropServices;
 
 namespace CVNet;
@@ -75,7 +76,7 @@ public class CVConvert
 
     public static CVImage ConvertData(CVImage image, CVDataFormat dataFormat)
     {
-        CVImage imageOut = CVImage.Create(image.Width, image.Height, image.ColorFormat, dataFormat);
+        CVImage imageOut = CVImage.Create(image.Width, image.Height, image.ColorFormat, dataFormat, image.ChannelFormat);
 
         if (image.DataFormat == CVDataFormat.CV_U8) ConvertBuffer<byte>(image, imageOut);
         else if (image.DataFormat == CVDataFormat.CV_S8) ConvertBuffer<sbyte>(image, imageOut);
@@ -127,7 +128,7 @@ public class CVConvert
     {
         CVColorFormat format = (CVColorFormat)inChannels.Length;
 
-        CVImage outImage = CVImage.Create(image.Width, image.Height, format, image.DataFormat);
+        CVImage outImage = CVImage.Create(image.Width, image.Height, format, image.DataFormat, image.ChannelFormat);
 
         for (int i = 0; i < inChannels.Length; i++)
         {
@@ -137,186 +138,95 @@ public class CVConvert
         return outImage;
     }
 
-    public static CVImage RGBToBGR(CVImage image)
+    public static CVImage AverageChannels(CVImage image, CVChannelFormat channels)
     {
-        return ConvertColor(image, new int[] { 2, 1, 0 });
+        Dictionary<CVChannel, CVImage> uniqueChannels = new Dictionary<CVChannel, CVImage>();
+        for (int i = 0; i < channels.Channels.Length; i++)
+        {
+            if (uniqueChannels.ContainsKey(channels.Channels[i])) continue;
+
+            for (int j = 0; j < image.ChannelFormat.Channels.Length; j++)
+            {
+                if (channels.Channels[i] == image.ChannelFormat.Channels[j])
+                {
+                    uniqueChannels.Add(channels.Channels[i], ConvertColor(image, new int[] { j }));
+                    break;
+                }
+            }
+        }
+
+        if (uniqueChannels.Count == 0) throw new Exception("No RGB components found");
+
+        CVImage sum = uniqueChannels.Values.ElementAt(0);
+        for (int i = 1; i < uniqueChannels.Count; i++)
+        {
+            sum = CVAdd.Add(sum, uniqueChannels.Values.ElementAt(i));
+        }
+
+        return CVDivide.Divide(sum, uniqueChannels.Count);
     }
 
-    public static CVImage BGRToRGB(CVImage image)
+    public static void ToFormat<T>(CVImage image, ref CVImage imageOut) where T : struct, INumber<T>
     {
-        return ConvertColor(image, new int[] { 2, 1, 0 });
+        int[] requestedChannels = new int[imageOut.ChannelFormat.Channels.Length];
+        for (int i = 0; i < imageOut.ChannelFormat.Channels.Length; i++)
+            for (int j = 0; j < image.ChannelFormat.Channels.Length; j++)
+            {
+                if (imageOut.ChannelFormat.Channels[i] == image.ChannelFormat.Channels[j])
+                {
+                    requestedChannels[i] = j;
+                    break;
+                }
+            }
+
+        CVImage extractedImage = ConvertColor(image, requestedChannels);
+
+        for (int i = 0; i < imageOut.ChannelFormat.Channels.Length; i++)
+        {
+            if (imageOut.ChannelFormat.Channels[i] == CVChannel.CV_AVG_RGB)
+            {
+                CVImage average = AverageChannels(image, CVChannelFormat.RGB());
+                CopyChannel(average, imageOut, 0, i);
+            }
+            else if (imageOut.ChannelFormat.Channels[i] == CVChannel.CV_AVG_RGBA)
+            {
+                CVImage average = AverageChannels(image, CVChannelFormat.RGBA());
+                CopyChannel(average, imageOut, 0, i);
+            }
+            else if (imageOut.ChannelFormat.Channels[i] == CVChannel.CV_A_ZERO)
+                FillChannel(extractedImage, i, 0);
+            else if (imageOut.ChannelFormat.Channels[i] == CVChannel.CV_A_ONE)
+                FillChannel(extractedImage, i, 1);
+            else if (imageOut.ChannelFormat.Channels[i] == CVChannel.CV_A_255)
+                FillChannel(extractedImage, i, 255);
+        }
+
+        // Replace Placeholder Channel Types
+        for (int i = 0; i < imageOut.ChannelFormat.Channels.Length; i++)
+        {
+            if (imageOut.ChannelFormat.Channels[i] >= CVChannel.CV_AVG_RGB && imageOut.ChannelFormat.Channels[i] <= CVChannel.CV_AVG_RGBA)
+                imageOut.ChannelFormat.Channels[i] = CVChannel.CV_R;
+            else if (imageOut.ChannelFormat.Channels[i] >= CVChannel.CV_A_ZERO && imageOut.ChannelFormat.Channels[i] <= CVChannel.CV_A_255)
+                imageOut.ChannelFormat.Channels[i] = CVChannel.CV_A;
+        }
     }
 
-    public static CVImage RGBAToBGR(CVImage image)
+    public static CVImage ToFormat(CVImage image, CVChannelFormat channelFormat)
     {
-        return ConvertColor(image, new int[] { 2, 1, 0 });
-    }
+        CVImage imageOut = CVImage.Create(image.Width, image.Height, image.ColorFormat, image.DataFormat, channelFormat);
 
-    public static CVImage BGRAToRGB(CVImage image)
-    {
-        return ConvertColor(image, new int[] { 2, 1, 0 });
-    }
+        if (image.DataFormat == CVDataFormat.CV_U8) ToFormat<byte>(image, ref imageOut);
+        else if (image.DataFormat == CVDataFormat.CV_S8) ToFormat<sbyte>(image, ref imageOut);
+        else if (image.DataFormat == CVDataFormat.CV_U16) ToFormat<ushort>(image, ref imageOut);
+        else if (image.DataFormat == CVDataFormat.CV_S16) ToFormat<short>(image, ref imageOut);
+        else if (image.DataFormat == CVDataFormat.CV_U32) ToFormat<uint>(image, ref imageOut);
+        else if (image.DataFormat == CVDataFormat.CV_S32) ToFormat<int>(image, ref imageOut);
+        else if (image.DataFormat == CVDataFormat.CV_U64) ToFormat<ulong>(image, ref imageOut);
+        else if (image.DataFormat == CVDataFormat.CV_S64) ToFormat<long>(image, ref imageOut);
+        else if (image.DataFormat == CVDataFormat.CV_F32) ToFormat<float>(image, ref imageOut);
+        else if (image.DataFormat == CVDataFormat.CV_F64) ToFormat<double>(image, ref imageOut);
 
-    public static CVImage RGBAToRGB(CVImage image)
-    {
-        return ConvertColor(image, new int[] { 0, 1, 2 });
-    }
-
-    public static CVImage BGRAToBGR(CVImage image)
-    {
-        return ConvertColor(image, new int[] { 0, 1, 2 });
-    }
-
-    public static CVImage RGBToBGRA<T>(CVImage image, T a) where T : struct
-    {
-        CVImage swappedImage = ConvertColor(image, new int[] { 2, 1, 0, 0 });
-
-        FillChannel(swappedImage, 3, a);
-
-        return swappedImage;
-    }
-
-    public static CVImage RGBToABGR<T>(CVImage image, T a) where T : struct
-    {
-        CVImage swappedImage = ConvertColor(image, new int[] { 0, 2, 1, 0 });
-
-        FillChannel(swappedImage, 0, a);
-
-        return swappedImage;
-    }
-
-    public static CVImage BGRToRGBA<T>(CVImage image, T a) where T : struct
-    {
-        CVImage swappedImage = ConvertColor(image, new int[] { 2, 1, 0, 0 });
-
-        FillChannel(swappedImage, 3, a);
-
-        return swappedImage;
-    }
-
-    public static CVImage BGRToARGB<T>(CVImage image, T a) where T : struct
-    {
-        CVImage swappedImage = ConvertColor(image, new int[] { 0, 2, 1, 0 });
-
-        FillChannel(swappedImage, 0, a);
-
-        return swappedImage;
-    }
-
-    public static CVImage RGBToRGBA<T>(CVImage image, T a) where T : struct
-    {
-        CVImage swappedImage = ConvertColor(image, new int[] { 0, 1, 2, 0 });
-
-        FillChannel(swappedImage, 3, a);
-
-        return swappedImage;
-    }
-
-    public static CVImage RGBToARGB<T>(CVImage image, T a) where T : struct
-    {
-        CVImage swappedImage = ConvertColor(image, new int[] { 0, 0, 1, 2 });
-
-        FillChannel(swappedImage, 0, a);
-
-        return swappedImage;
-    }
-
-    public static CVImage BGRToBGRA<T>(CVImage image, T a) where T : struct
-    {
-        CVImage swappedImage = ConvertColor(image, new int[] { 0, 1, 2, 0 });
-
-        FillChannel(swappedImage, 3, a);
-
-        return swappedImage;
-    }
-
-    public static CVImage BGRToABGR<T>(CVImage image, T a) where T : struct
-    {
-        CVImage swappedImage = ConvertColor(image, new int[] { 0, 0, 1, 2 });
-
-        FillChannel(swappedImage, 0, a);
-
-        return swappedImage;
-    }
-
-    public static CVImage BGRAToGrayscale(CVImage image)
-    {
-        CVImage R = ConvertColor(image, new int[] { 2 });
-        CVImage G = ConvertColor(image, new int[] { 1 });
-        CVImage B = ConvertColor(image, new int[] { 0 });
-
-        R = CVDivide.Divide(R, 3);
-        G = CVDivide.Divide(G, 3);
-        B = CVDivide.Divide(B, 3);
-
-        CVImage RGB = CVAdd.Add(CVAdd.Add(R, G), B);
-
-        return RGB;
-    }
-
-    public static CVImage BGRToGrayscale(CVImage image)
-    {
-        CVImage R = ConvertColor(image, new int[] { 2 });
-        CVImage G = ConvertColor(image, new int[] { 1 });
-        CVImage B = ConvertColor(image, new int[] { 0 });
-
-        CVImage RGB = CVDivide.Divide(CVAdd.Add(CVAdd.Add(R, G), B), 3);
-
-        return RGB;
-    }
-
-    public static CVImage RGBAToGrayscale(CVImage image)
-    {
-        CVImage R = ConvertColor(image, new int[] { 0 });
-        CVImage G = ConvertColor(image, new int[] { 1 });
-        CVImage B = ConvertColor(image, new int[] { 2 });
-
-        CVImage RGB = CVDivide.Divide(CVAdd.Add(CVAdd.Add(R, G), B), 3);
-
-        return RGB;
-    }
-
-    public static CVImage RGBToGrayscale(CVImage image)
-    {
-        CVImage R = ConvertColor(image, new int[] { 0 });
-        CVImage G = ConvertColor(image, new int[] { 1 });
-        CVImage B = ConvertColor(image, new int[] { 2 });
-
-        CVImage RGB = CVDivide.Divide(CVAdd.Add(CVAdd.Add(R, G), B), 3);
-
-        return RGB;
-    }
-
-    public static CVImage GrayscaleToRGBA<T>(CVImage image, T a) where T : struct
-    {
-        CVImage RGB = ConvertColor(image, new int[] { 0, 0, 0, 0 });
-
-        FillChannel(RGB, 3, a);
-
-        return RGB;
-    }
-
-    public static CVImage GrayscaleToRGB(CVImage image)
-    {
-        CVImage RGB = ConvertColor(image, new int[] { 0, 0, 0 });
-
-        return RGB;
-    }
-
-    public static CVImage GrayscaleToBGRA<T>(CVImage image, T a) where T : struct
-    {
-        CVImage RGB = ConvertColor(image, new int[] { 0, 0, 0, 0 });
-
-        FillChannel(RGB, 3, a);
-
-        return RGB;
-    }
-
-    public static CVImage GrayscaleToBGR(CVImage image)
-    {
-        CVImage RGB = ConvertColor(image, new int[] { 0, 0, 0 });
-
-        return RGB;
+        return imageOut;
     }
 
 }

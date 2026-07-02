@@ -2,7 +2,52 @@ using System.Numerics;
 
 namespace CVNet;
 
-public static class CVContour
+public class CVContour
+{
+    public List<(int, int)> points;
+    public double perimeter;
+    public int depth;
+    public int parent;
+    public List<int> closeContours = new();
+    public int ID;
+    public double confidence;
+
+    public CVContour()
+    {
+        points = new();
+    }
+
+    public CVContour(List<(int, int)> inPoints)
+    {
+        points = inPoints;
+        setPerimeter();
+    }
+
+    public void setPerimeter()
+    {
+        perimeter = 0.0;
+
+        if (points.Count == 0) return;
+
+        (int, int) lastI = points[0];
+
+        for (int i = 1; i < points.Count; i++)
+        {
+            (int, int) currentI = points[i];
+            int dX = (currentI.Item1 - lastI.Item1);
+            int dY = (currentI.Item2 - lastI.Item2);
+            perimeter += Math.Sqrt(dX * dX + dY * dY);
+            lastI = currentI;
+        }
+
+        (int, int) currentEI = points[0];
+        int dEX = (currentEI.Item1 - lastI.Item1);
+        int dEY = (currentEI.Item2 - lastI.Item2);
+        perimeter += Math.Sqrt(dEX * dEX + dEY * dEY);
+    }
+}
+
+public static class CVContourTrace
 {
     private static readonly byte BACKGROUND = 0;
     private static readonly byte VISITED_OUTER_RIGHT = 100;
@@ -78,7 +123,7 @@ public static class CVContour
         }
     }
 
-    private static bool traceContour(byte[] imageState, List<(int, int)> contour, int startX, int startY, int width, int height, bool isExternal)
+    private static bool traceContour(byte[] imageState, CVContour contour, int startX, int startY, int width, int height, bool isExternal)
     {
         int startIndex = startX + width * startY;
 
@@ -114,7 +159,7 @@ public static class CVContour
         // 3. TRACING LOOP
         for (int c = 0; c < 10000; c++)
         {
-            contour.Add((currentX - 1, currentY - 1));
+            contour.points.Add((currentX - 1, currentY - 1));
             // Check neighbors
             for (int n = 0; n < 8; ++n)
             {
@@ -184,7 +229,7 @@ public static class CVContour
         return j;
     }
 
-    public static List<List<(int, int)>> TraceContours<T1, T2>(CVImage image, T2 foreground, ref List<List<(int, int)>> contours) where T1 : struct, IEqualityOperators<T1, T1, bool> where T2 : struct
+    public static void TraceContours<T1, T2>(CVImage image, T2 foreground, ref List<CVContour> contours) where T1 : struct, IEqualityOperators<T1, T1, bool> where T2 : struct
     {
         Span<T1> buffer = image.BufferAs<T1>();
 
@@ -223,7 +268,7 @@ public static class CVContour
                 // 2. CHECK: Only process if actually FOREGROUND (redundancy check)
                 if (imageState[yOffset + x] == FOREGROUND && y < height - 1)
                 {
-                    List<(int, int)> contour = new List<(int, int)>();
+                    CVContour contour = new CVContour();
                     if (traceContour(imageState, contour, x, y, width, height, true))
                     {
                         contours.Add(contour);
@@ -241,7 +286,7 @@ public static class CVContour
                 if (imageState[yOffset + x - 1] > VISITED_OUTER_RIGHT && y > 1)
                 {//inner contours of first line are handled by the thread above
 
-                    List<(int, int)> contour = new List<(int, int)>();
+                    CVContour contour = new CVContour();
                     if (traceContour(imageState, contour, x - 1, y, width, height, false))
                     {
                         contours.Add(contour);
@@ -249,6 +294,5 @@ public static class CVContour
                 }
             }
         }
-        return contours;
     }
 }

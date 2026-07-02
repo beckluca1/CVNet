@@ -56,7 +56,7 @@ public static class CVResize
             int targetHeight,
             T[] defaultValue) where T : struct
     {
-        CVImage imageOut = CVImage.Create(targetWidth, targetHeight, image.ColorFormat, image.DataFormat, defaultValue);
+        CVImage imageOut = CVImage.Create(targetWidth, targetHeight, image.ColorFormat, image.DataFormat, image.ChannelFormat, defaultValue);
 
         if (image.DataFormat == CVDataFormat.CV_U8) StretchNearest<byte>(image, ref imageOut);
         else if (image.DataFormat == CVDataFormat.CV_S8) StretchNearest<sbyte>(image, ref imageOut);
@@ -118,7 +118,7 @@ public static class CVResize
                 int targetHeight,
                 T[] defaultValue) where T : struct
     {
-        CVImage imageOut = CVImage.Create(targetWidth, targetHeight, image.ColorFormat, image.DataFormat, defaultValue);
+        CVImage imageOut = CVImage.Create(targetWidth, targetHeight, image.ColorFormat, image.DataFormat, image.ChannelFormat, defaultValue);
 
         if (image.DataFormat == CVDataFormat.CV_U8) CropNearest<byte>(image, ref imageOut);
         else if (image.DataFormat == CVDataFormat.CV_S8) CropNearest<sbyte>(image, ref imageOut);
@@ -140,8 +140,8 @@ public static class CVResize
                                     CV_ResizeMode resizeMode,
                                     T[] defaultValue) where T : struct
     {
-        if (resizeMode == CV_ResizeMode.CV_STRETCH) return StretchNearest(image, targetWidth, targetHeight, defaultValue);
-        else if (resizeMode == CV_ResizeMode.CV_CROP) return CropNearest(image, targetWidth, targetHeight, defaultValue);
+        if (resizeMode == CV_ResizeMode.CV_STRETCH_NEAREST) return StretchNearest(image, targetWidth, targetHeight, defaultValue);
+        else if (resizeMode == CV_ResizeMode.CV_CROP_NEAREST) return CropNearest(image, targetWidth, targetHeight, defaultValue);
 
         throw new Exception("Unknown Resize mode");
     }
@@ -151,7 +151,7 @@ public static class CVResize
             int targetWidth,
             int targetHeight)
     {
-        CVImage imageOut = CVImage.Create(targetWidth, targetHeight, image.ColorFormat, image.DataFormat);
+        CVImage imageOut = CVImage.Create(targetWidth, targetHeight, image.ColorFormat, image.DataFormat, image.ChannelFormat);
 
         if (image.DataFormat == CVDataFormat.CV_U8) StretchNearest<byte>(image, ref imageOut);
         else if (image.DataFormat == CVDataFormat.CV_S8) StretchNearest<sbyte>(image, ref imageOut);
@@ -172,7 +172,7 @@ public static class CVResize
                 int targetWidth,
                 int targetHeight)
     {
-        CVImage imageOut = CVImage.Create(targetWidth, targetHeight, image.ColorFormat, image.DataFormat);
+        CVImage imageOut = CVImage.Create(targetWidth, targetHeight, image.ColorFormat, image.DataFormat, image.ChannelFormat);
 
         if (image.DataFormat == CVDataFormat.CV_U8) CropNearest<byte>(image, ref imageOut);
         else if (image.DataFormat == CVDataFormat.CV_S8) CropNearest<sbyte>(image, ref imageOut);
@@ -193,8 +193,8 @@ public static class CVResize
                                     int targetHeight,
                                     CV_ResizeMode resizeMode)
     {
-        if (resizeMode == CV_ResizeMode.CV_STRETCH) return StretchNearest(image, targetWidth, targetHeight);
-        else if (resizeMode == CV_ResizeMode.CV_CROP) return CropNearest(image, targetWidth, targetHeight);
+        if (resizeMode == CV_ResizeMode.CV_STRETCH_NEAREST) return StretchNearest(image, targetWidth, targetHeight);
+        else if (resizeMode == CV_ResizeMode.CV_CROP_NEAREST) return CropNearest(image, targetWidth, targetHeight);
 
         throw new Exception("Unknown Resize mode");
     }

@@ -77,7 +77,7 @@ public class CVMath
 
     public static CVImage Add<T>(CVImage image, T arg1) where T : struct
     {
-        CVImage outImage = CVImage.Create(image.Width, image.Height, image.ColorFormat, image.DataFormat);
+        CVImage outImage = CVImage.Create(image.Width, image.Height, image.ColorFormat, image.DataFormat, image.ChannelFormat);
 
         if (image.DataFormat == CVDataFormat.CV_U8) Operation<byte, T>(image, arg1, AddFunc, ref outImage);
         else if (image.DataFormat == CVDataFormat.CV_S8) Operation<sbyte, T>(image, arg1, AddFunc, ref outImage);
@@ -95,7 +95,7 @@ public class CVMath
 
     public static CVImage Add<T>(CVImage image, T[] arg1) where T : struct
     {
-        CVImage outImage = CVImage.Create(image.Width, image.Height, image.ColorFormat, image.DataFormat);
+        CVImage outImage = CVImage.Create(image.Width, image.Height, image.ColorFormat, image.DataFormat, image.ChannelFormat);
 
         if (image.DataFormat == CVDataFormat.CV_U8) Operation<byte, T>(image, arg1, AddFunc, ref outImage);
         else if (image.DataFormat == CVDataFormat.CV_S8) Operation<sbyte, T>(image, arg1, AddFunc, ref outImage);
@@ -113,7 +113,7 @@ public class CVMath
 
     public static CVImage Add(CVImage image1, CVImage image2)
     {
-        CVImage outImage = CVImage.Create(image1.Width, image1.Height, image1.ColorFormat, image1.DataFormat);
+        CVImage outImage = CVImage.Create(image1.Width, image1.Height, image1.ColorFormat, image1.DataFormat, image1.ChannelFormat);
 
         if (image1.DataFormat == CVDataFormat.CV_U8) Operation<byte>(image1, image2, AddFunc, ref outImage);
         else if (image1.DataFormat == CVDataFormat.CV_S8) Operation<sbyte>(image1, image2, AddFunc, ref outImage);
@@ -131,7 +131,7 @@ public class CVMath
 
     public static CVImage AddUnsafe(CVImage image1, CVImage image2)
     {
-        CVImage outImage = CVImage.Create(image1.Width, image1.Height, image1.ColorFormat, image1.DataFormat);
+        CVImage outImage = CVImage.Create(image1.Width, image1.Height, image1.ColorFormat, image1.DataFormat, image1.ChannelFormat);
 
         if (image1.DataFormat == CVDataFormat.CV_U8) OperationUnsafe<byte>(image1, image2, AddFunc, ref outImage);
         else if (image1.DataFormat == CVDataFormat.CV_S8) OperationUnsafe<sbyte>(image1, image2, AddFunc, ref outImage);
@@ -149,7 +149,7 @@ public class CVMath
 
     public static CVImage Subtract<T>(CVImage image, T arg1) where T : struct
     {
-        CVImage outImage = CVImage.Create(image.Width, image.Height, image.ColorFormat, image.DataFormat);
+        CVImage outImage = CVImage.Create(image.Width, image.Height, image.ColorFormat, image.DataFormat, image.ChannelFormat);
 
         if (image.DataFormat == CVDataFormat.CV_U8) Operation<byte, T>(image, arg1, SubtractFunc, ref outImage);
         else if (image.DataFormat == CVDataFormat.CV_S8) Operation<sbyte, T>(image, arg1, SubtractFunc, ref outImage);
@@ -167,7 +167,7 @@ public class CVMath
 
     public static CVImage Subtract<T>(CVImage image, T[] arg1) where T : struct
     {
-        CVImage outImage = CVImage.Create(image.Width, image.Height, image.ColorFormat, image.DataFormat);
+        CVImage outImage = CVImage.Create(image.Width, image.Height, image.ColorFormat, image.DataFormat, image.ChannelFormat);
 
         if (image.DataFormat == CVDataFormat.CV_U8) Operation<byte, T>(image, arg1, SubtractFunc, ref outImage);
         else if (image.DataFormat == CVDataFormat.CV_S8) Operation<sbyte, T>(image, arg1, SubtractFunc, ref outImage);
@@ -185,7 +185,7 @@ public class CVMath
 
     public static CVImage Subtract(CVImage image1, CVImage image2)
     {
-        CVImage outImage = CVImage.Create(image1.Width, image1.Height, image1.ColorFormat, image1.DataFormat);
+        CVImage outImage = CVImage.Create(image1.Width, image1.Height, image1.ColorFormat, image1.DataFormat, image1.ChannelFormat);
 
         if (image1.DataFormat == CVDataFormat.CV_U8) Operation<byte>(image1, image2, SubtractFunc, ref outImage);
         else if (image1.DataFormat == CVDataFormat.CV_S8) Operation<sbyte>(image1, image2, SubtractFunc, ref outImage);
@@ -203,7 +203,7 @@ public class CVMath
 
     public static CVImage Subtract<T>(T arg1, CVImage image) where T : struct
     {
-        CVImage outImage = CVImage.Create(image.Width, image.Height, image.ColorFormat, image.DataFormat);
+        CVImage outImage = CVImage.Create(image.Width, image.Height, image.ColorFormat, image.DataFormat, image.ChannelFormat);
 
         if (image.DataFormat == CVDataFormat.CV_U8) Operation<byte, T>(image, arg1, SubtractFuncRev, ref outImage);
         else if (image.DataFormat == CVDataFormat.CV_S8) Operation<sbyte, T>(image, arg1, SubtractFuncRev, ref outImage);
@@ -221,7 +221,7 @@ public class CVMath
 
     public static CVImage Subtract<T>(T[] arg1, CVImage image) where T : struct
     {
-        CVImage outImage = CVImage.Create(image.Width, image.Height, image.ColorFormat, image.DataFormat);
+        CVImage outImage = CVImage.Create(image.Width, image.Height, image.ColorFormat, image.DataFormat, image.ChannelFormat);
 
         if (image.DataFormat == CVDataFormat.CV_U8) Operation<byte, T>(image, arg1, SubtractFuncRev, ref outImage);
         else if (image.DataFormat == CVDataFormat.CV_S8) Operation<sbyte, T>(image, arg1, SubtractFuncRev, ref outImage);
@@ -239,7 +239,7 @@ public class CVMath
 
     public static CVImage Multiply<T>(CVImage image, T arg1) where T : struct
     {
-        CVImage outImage = CVImage.Create(image.Width, image.Height, image.ColorFormat, image.DataFormat);
+        CVImage outImage = CVImage.Create(image.Width, image.Height, image.ColorFormat, image.DataFormat, image.ChannelFormat);
 
         if (image.DataFormat == CVDataFormat.CV_U8) Operation<byte, T>(image, arg1, MultiplyFunc, ref outImage);
         else if (image.DataFormat == CVDataFormat.CV_S8) Operation<sbyte, T>(image, arg1, MultiplyFunc, ref outImage);
@@ -257,7 +257,7 @@ public class CVMath
 
     public static CVImage Multiply<T>(CVImage image, T[] arg1) where T : struct
     {
-        CVImage outImage = CVImage.Create(image.Width, image.Height, image.ColorFormat, image.DataFormat);
+        CVImage outImage = CVImage.Create(image.Width, image.Height, image.ColorFormat, image.DataFormat, image.ChannelFormat);
 
         if (image.DataFormat == CVDataFormat.CV_U8) Operation<byte, T>(image, arg1, MultiplyFunc, ref outImage);
         else if (image.DataFormat == CVDataFormat.CV_S8) Operation<sbyte, T>(image, arg1, MultiplyFunc, ref outImage);
@@ -275,7 +275,7 @@ public class CVMath
 
     public static CVImage Multiply(CVImage image1, CVImage image2)
     {
-        CVImage outImage = CVImage.Create(image1.Width, image1.Height, image1.ColorFormat, image1.DataFormat);
+        CVImage outImage = CVImage.Create(image1.Width, image1.Height, image1.ColorFormat, image1.DataFormat, image1.ChannelFormat);
 
         if (image1.DataFormat == CVDataFormat.CV_U8) Operation<byte>(image1, image2, MultiplyFunc, ref outImage);
         else if (image1.DataFormat == CVDataFormat.CV_S8) Operation<sbyte>(image1, image2, MultiplyFunc, ref outImage);
@@ -293,7 +293,7 @@ public class CVMath
 
     public static CVImage Divide<T>(CVImage image, T arg1) where T : struct
     {
-        CVImage outImage = CVImage.Create(image.Width, image.Height, image.ColorFormat, image.DataFormat);
+        CVImage outImage = CVImage.Create(image.Width, image.Height, image.ColorFormat, image.DataFormat, image.ChannelFormat);
 
         if (image.DataFormat == CVDataFormat.CV_U8) Operation<byte, T>(image, arg1, DivideFunc, ref outImage);
         else if (image.DataFormat == CVDataFormat.CV_S8) Operation<sbyte, T>(image, arg1, DivideFunc, ref outImage);
@@ -311,7 +311,7 @@ public class CVMath
 
     public static CVImage Divide<T>(CVImage image, T[] arg1) where T : struct
     {
-        CVImage outImage = CVImage.Create(image.Width, image.Height, image.ColorFormat, image.DataFormat);
+        CVImage outImage = CVImage.Create(image.Width, image.Height, image.ColorFormat, image.DataFormat, image.ChannelFormat);
 
         if (image.DataFormat == CVDataFormat.CV_U8) Operation<byte, T>(image, arg1, DivideFunc, ref outImage);
         else if (image.DataFormat == CVDataFormat.CV_S8) Operation<sbyte, T>(image, arg1, DivideFunc, ref outImage);
@@ -329,7 +329,7 @@ public class CVMath
 
     public static CVImage Divide(CVImage image1, CVImage image2)
     {
-        CVImage outImage = CVImage.Create(image1.Width, image1.Height, image1.ColorFormat, image1.DataFormat);
+        CVImage outImage = CVImage.Create(image1.Width, image1.Height, image1.ColorFormat, image1.DataFormat, image1.ChannelFormat);
 
         if (image1.DataFormat == CVDataFormat.CV_U8) Operation<byte>(image1, image2, DivideFunc, ref outImage);
         else if (image1.DataFormat == CVDataFormat.CV_S8) Operation<sbyte>(image1, image2, DivideFunc, ref outImage);
@@ -347,7 +347,7 @@ public class CVMath
 
     public static CVImage Divide<T>(T arg1, CVImage image) where T : struct
     {
-        CVImage outImage = CVImage.Create(image.Width, image.Height, image.ColorFormat, image.DataFormat);
+        CVImage outImage = CVImage.Create(image.Width, image.Height, image.ColorFormat, image.DataFormat, image.ChannelFormat);
 
         if (image.DataFormat == CVDataFormat.CV_U8) Operation<byte, T>(image, arg1, DivideFuncRev, ref outImage);
         else if (image.DataFormat == CVDataFormat.CV_S8) Operation<sbyte, T>(image, arg1, DivideFuncRev, ref outImage);
@@ -365,7 +365,7 @@ public class CVMath
 
     public static CVImage Divide<T>(T[] arg1, CVImage image) where T : struct
     {
-        CVImage outImage = CVImage.Create(image.Width, image.Height, image.ColorFormat, image.DataFormat);
+        CVImage outImage = CVImage.Create(image.Width, image.Height, image.ColorFormat, image.DataFormat, image.ChannelFormat);
 
         if (image.DataFormat == CVDataFormat.CV_U8) Operation<byte, T>(image, arg1, DivideFuncRev, ref outImage);
         else if (image.DataFormat == CVDataFormat.CV_S8) Operation<sbyte, T>(image, arg1, DivideFuncRev, ref outImage);
@@ -383,7 +383,7 @@ public class CVMath
 
     public static CVImage Max<T>(CVImage image, T arg1) where T : struct
     {
-        CVImage outImage = CVImage.Create(image.Width, image.Height, image.ColorFormat, image.DataFormat);
+        CVImage outImage = CVImage.Create(image.Width, image.Height, image.ColorFormat, image.DataFormat, image.ChannelFormat);
 
         if (image.DataFormat == CVDataFormat.CV_U8) Operation<byte, T>(image, arg1, MaxFunc, ref outImage);
         else if (image.DataFormat == CVDataFormat.CV_S8) Operation<sbyte, T>(image, arg1, MaxFunc, ref outImage);
@@ -401,7 +401,7 @@ public class CVMath
 
     public static CVImage Max<T>(CVImage image, T[] arg1) where T : struct
     {
-        CVImage outImage = CVImage.Create(image.Width, image.Height, image.ColorFormat, image.DataFormat);
+        CVImage outImage = CVImage.Create(image.Width, image.Height, image.ColorFormat, image.DataFormat, image.ChannelFormat);
 
         if (image.DataFormat == CVDataFormat.CV_U8) Operation<byte, T>(image, arg1, MaxFunc, ref outImage);
         else if (image.DataFormat == CVDataFormat.CV_S8) Operation<sbyte, T>(image, arg1, MaxFunc, ref outImage);
@@ -419,7 +419,7 @@ public class CVMath
 
     public static CVImage Max(CVImage image1, CVImage image2)
     {
-        CVImage outImage = CVImage.Create(image1.Width, image1.Height, image1.ColorFormat, image1.DataFormat);
+        CVImage outImage = CVImage.Create(image1.Width, image1.Height, image1.ColorFormat, image1.DataFormat, image1.ChannelFormat);
 
         if (image1.DataFormat == CVDataFormat.CV_U8) Operation<byte>(image1, image2, MaxFunc, ref outImage);
         else if (image1.DataFormat == CVDataFormat.CV_S8) Operation<sbyte>(image1, image2, MaxFunc, ref outImage);
@@ -437,7 +437,7 @@ public class CVMath
 
     public static CVImage Min<T>(CVImage image, T arg1) where T : struct
     {
-        CVImage outImage = CVImage.Create(image.Width, image.Height, image.ColorFormat, image.DataFormat);
+        CVImage outImage = CVImage.Create(image.Width, image.Height, image.ColorFormat, image.DataFormat, image.ChannelFormat);
 
         if (image.DataFormat == CVDataFormat.CV_U8) Operation<byte, T>(image, arg1, MinFunc, ref outImage);
         else if (image.DataFormat == CVDataFormat.CV_S8) Operation<sbyte, T>(image, arg1, MinFunc, ref outImage);
@@ -455,7 +455,7 @@ public class CVMath
 
     public static CVImage Min<T>(CVImage image, T[] arg1) where T : struct
     {
-        CVImage outImage = CVImage.Create(image.Width, image.Height, image.ColorFormat, image.DataFormat);
+        CVImage outImage = CVImage.Create(image.Width, image.Height, image.ColorFormat, image.DataFormat, image.ChannelFormat);
 
         if (image.DataFormat == CVDataFormat.CV_U8) Operation<byte, T>(image, arg1, MinFunc, ref outImage);
         else if (image.DataFormat == CVDataFormat.CV_S8) Operation<sbyte, T>(image, arg1, MinFunc, ref outImage);
@@ -473,7 +473,7 @@ public class CVMath
 
     public static CVImage Min(CVImage image1, CVImage image2)
     {
-        CVImage outImage = CVImage.Create(image1.Width, image1.Height, image1.ColorFormat, image1.DataFormat);
+        CVImage outImage = CVImage.Create(image1.Width, image1.Height, image1.ColorFormat, image1.DataFormat, image1.ChannelFormat);
 
         if (image1.DataFormat == CVDataFormat.CV_U8) Operation<byte>(image1, image2, MinFunc, ref outImage);
         else if (image1.DataFormat == CVDataFormat.CV_S8) Operation<sbyte>(image1, image2, MinFunc, ref outImage);
@@ -625,7 +625,7 @@ public class CVMath
 
     public static CVImage Bigger<T>(CVImage image, T arg1, T arg2, T arg3) where T : struct
     {
-        CVImage outImage = CVImage.Create(image.Width, image.Height, image.ColorFormat, image.DataFormat);
+        CVImage outImage = CVImage.Create(image.Width, image.Height, image.ColorFormat, image.DataFormat, image.ChannelFormat);
 
         if (image.DataFormat == CVDataFormat.CV_U8) Operation<byte, T>(image, arg1, arg2, arg3, BiggerFunc, ref outImage);
         else if (image.DataFormat == CVDataFormat.CV_S8) Operation<sbyte, T>(image, arg1, arg2, arg3, BiggerFunc, ref outImage);
@@ -643,7 +643,7 @@ public class CVMath
 
     public static CVImage Bigger<T>(CVImage image, T[] arg1, T[] arg2, T[] arg3) where T : struct
     {
-        CVImage outImage = CVImage.Create(image.Width, image.Height, image.ColorFormat, image.DataFormat);
+        CVImage outImage = CVImage.Create(image.Width, image.Height, image.ColorFormat, image.DataFormat, image.ChannelFormat);
 
         if (image.DataFormat == CVDataFormat.CV_U8) Operation<byte, T>(image, arg1, arg2, arg3, BiggerFunc, ref outImage);
         else if (image.DataFormat == CVDataFormat.CV_S8) Operation<sbyte, T>(image, arg1, arg2, arg3, BiggerFunc, ref outImage);
@@ -661,7 +661,7 @@ public class CVMath
 
     public static CVImage Bigger(CVImage image1, CVImage image2, CVImage arg2, CVImage arg3)
     {
-        CVImage outImage = CVImage.Create(image1.Width, image1.Height, image1.ColorFormat, image1.DataFormat);
+        CVImage outImage = CVImage.Create(image1.Width, image1.Height, image1.ColorFormat, image1.DataFormat, image1.ChannelFormat);
 
         if (image1.DataFormat == CVDataFormat.CV_U8) Operation<byte>(image1, image2, arg2, arg3, BiggerFunc, ref outImage);
         else if (image1.DataFormat == CVDataFormat.CV_S8) Operation<sbyte>(image1, image2, arg2, arg3, BiggerFunc, ref outImage);
@@ -679,7 +679,7 @@ public class CVMath
 
     public static CVImage Bigger<T>(CVImage image1, CVImage image2, T arg2, T arg3) where T : struct
     {
-        CVImage outImage = CVImage.Create(image1.Width, image1.Height, image1.ColorFormat, image1.DataFormat);
+        CVImage outImage = CVImage.Create(image1.Width, image1.Height, image1.ColorFormat, image1.DataFormat, image1.ChannelFormat);
 
         if (image1.DataFormat == CVDataFormat.CV_U8) Operation<byte, T>(image1, image2, arg2, arg3, BiggerFunc, ref outImage);
         else if (image1.DataFormat == CVDataFormat.CV_S8) Operation<sbyte, T>(image1, image2, arg2, arg3, BiggerFunc, ref outImage);
@@ -697,7 +697,7 @@ public class CVMath
 
     public static CVImage Smaller<T>(CVImage image, T arg1, T arg2, T arg3) where T : struct
     {
-        CVImage outImage = CVImage.Create(image.Width, image.Height, image.ColorFormat, image.DataFormat);
+        CVImage outImage = CVImage.Create(image.Width, image.Height, image.ColorFormat, image.DataFormat, image.ChannelFormat);
 
         if (image.DataFormat == CVDataFormat.CV_U8) Operation<byte, T>(image, arg1, arg2, arg3, SmallerFunc, ref outImage);
         else if (image.DataFormat == CVDataFormat.CV_S8) Operation<sbyte, T>(image, arg1, arg2, arg3, SmallerFunc, ref outImage);
@@ -715,7 +715,7 @@ public class CVMath
 
     public static CVImage Smaller<T>(CVImage image, T[] arg1, T[] arg2, T[] arg3) where T : struct
     {
-        CVImage outImage = CVImage.Create(image.Width, image.Height, image.ColorFormat, image.DataFormat);
+        CVImage outImage = CVImage.Create(image.Width, image.Height, image.ColorFormat, image.DataFormat, image.ChannelFormat);
 
         if (image.DataFormat == CVDataFormat.CV_U8) Operation<byte, T>(image, arg1, arg2, arg3, SmallerFunc, ref outImage);
         else if (image.DataFormat == CVDataFormat.CV_S8) Operation<sbyte, T>(image, arg1, arg2, arg3, SmallerFunc, ref outImage);
@@ -733,7 +733,7 @@ public class CVMath
 
     public static CVImage Smaller(CVImage image1, CVImage image2, CVImage arg2, CVImage arg3)
     {
-        CVImage outImage = CVImage.Create(image1.Width, image1.Height, image1.ColorFormat, image1.DataFormat);
+        CVImage outImage = CVImage.Create(image1.Width, image1.Height, image1.ColorFormat, image1.DataFormat, image1.ChannelFormat);
 
         if (image1.DataFormat == CVDataFormat.CV_U8) Operation<byte>(image1, image2, arg2, arg3, SmallerFunc, ref outImage);
         else if (image1.DataFormat == CVDataFormat.CV_S8) Operation<sbyte>(image1, image2, arg2, arg3, SmallerFunc, ref outImage);
@@ -751,7 +751,7 @@ public class CVMath
 
     public static CVImage Smaller<T>(CVImage image1, CVImage image2, T arg2, T arg3) where T : struct
     {
-        CVImage outImage = CVImage.Create(image1.Width, image1.Height, image1.ColorFormat, image1.DataFormat);
+        CVImage outImage = CVImage.Create(image1.Width, image1.Height, image1.ColorFormat, image1.DataFormat, image1.ChannelFormat);
 
         if (image1.DataFormat == CVDataFormat.CV_U8) Operation<byte, T>(image1, image2, arg2, arg3, SmallerFunc, ref outImage);
         else if (image1.DataFormat == CVDataFormat.CV_S8) Operation<sbyte, T>(image1, image2, arg2, arg3, SmallerFunc, ref outImage);
