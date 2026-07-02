@@ -263,7 +263,7 @@ public class CVCheckerboard
     {
         CVImage gray = CVConvert.ConvertData(image, CVDataFormat.CV_F32);
         gray = CVMath.Divide(gray, 255f);
-        gray = CVConvert.ToFormat(gray, CVChannelFormat.Grayscale());
+        gray = CVConvert.ToFormat(gray, CVChannelFormat.CV_Grayscale);
         gray = CVProcessing.GaussianBlur(gray, 5);
 
         Sobel(gray, out CVImage gx, out CVImage gy);

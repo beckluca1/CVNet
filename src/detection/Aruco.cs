@@ -4,7 +4,7 @@ public class CVAruco
 {
     public static List<CVContour> GetMarker(CVImage image, int markerSize)
     {
-        CVImage gray = CVConvert.ToFormat(image, CVChannelFormat.Grayscale());
+        CVImage gray = CVConvert.ToFormat(image, CVChannelFormat.CV_Grayscale);
         gray = CVProcessing.AdaptiveThresholdMean(gray, 7, 13);
 
         List<CVContour> contours = CVDetection.FindContours(gray, 1);
