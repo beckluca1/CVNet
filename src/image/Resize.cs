@@ -2,6 +2,64 @@ namespace CVNet;
 
 public static class CVResize
 {
+    private static void Half<T>(CVImage imageIn, ref CVImage imageOut)
+    where T : struct
+    {
+        Span<T> src = imageIn.BufferAs<T>();
+        Span<T> dst = imageOut.BufferAs<T>();
+
+        int outW = imageOut.Width;
+        int outH = imageOut.Height;
+
+        int srcDRow = outW * 4;
+
+        int planeSize = outW * outH;
+
+        for (int c = 0; c < imageIn.Channels; c++)
+        {
+            int srcPlane = c * planeSize * 4;
+            int dstPlane = c * planeSize;
+
+            int srcRow = srcPlane;
+            int dstRow = dstPlane;
+
+            for (int y = 0; y < outH; y++)
+            {
+                int s = srcRow;
+                int d = dstRow;
+
+                for (int x = 0; x < outW; x++)
+                {
+                    dst[d++] = src[s];
+                    s += 2;
+                }
+
+                srcRow += srcDRow;
+                dstRow += outW;
+            }
+        }
+    }
+
+    private static CVImage Half<T>(
+            CVImage image,
+            T[] defaultValue) where T : struct
+    {
+        CVImage imageOut = CVImage.Create(image.Width / 2, image.Height / 2, image.ColorFormat, image.DataFormat, image.ChannelFormat, defaultValue);
+
+        if (image.DataFormat == CVDataFormat.CV_U8) Half<byte>(image, ref imageOut);
+        else if (image.DataFormat == CVDataFormat.CV_S8) Half<sbyte>(image, ref imageOut);
+        else if (image.DataFormat == CVDataFormat.CV_U16) Half<ushort>(image, ref imageOut);
+        else if (image.DataFormat == CVDataFormat.CV_S16) Half<short>(image, ref imageOut);
+        else if (image.DataFormat == CVDataFormat.CV_U32) Half<uint>(image, ref imageOut);
+        else if (image.DataFormat == CVDataFormat.CV_S32) Half<int>(image, ref imageOut);
+        else if (image.DataFormat == CVDataFormat.CV_U64) Half<ulong>(image, ref imageOut);
+        else if (image.DataFormat == CVDataFormat.CV_S64) Half<long>(image, ref imageOut);
+        else if (image.DataFormat == CVDataFormat.CV_F32) Half<float>(image, ref imageOut);
+        else if (image.DataFormat == CVDataFormat.CV_F64) Half<double>(image, ref imageOut);
+
+        return imageOut;
+    }
+
     // Optimized
     private static void StretchNearest<T>(
         CVImage imageIn,

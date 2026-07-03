@@ -412,10 +412,10 @@ public class CVDetection
         return Math.Sqrt(dX * dX + dY * dY);
     }
 
-    public static double distanceSquared((int, int) a, (int, int) b)
+    public static double distanceSquared((int x, int y) a, (int x, int y) b)
     {
-        int dX = b.Item1 - a.Item1;
-        int dY = b.Item2 - a.Item2;
+        int dX = b.x - a.x;
+        int dY = b.y - a.y;
         return dX * dX + dY * dY;
     }
 
@@ -453,8 +453,13 @@ public class CVDetection
         foreach (var contour in contours)
         {
             contour.setPerimeter();
-            var approx = DouglasPeucker(contour.points, epsilon * contour.perimeter);
-            polygons.Add(new CVContour(approx));
+            List<(int x, int y)> approx = DouglasPeucker(contour.points, epsilon * contour.perimeter);
+
+            //Remove last element when at least a triangle
+            if (approx.Count > 3)
+                approx.RemoveAt(approx.Count - 1);
+
+            polygons.Add(new CVContour(approx, contour.points.Count));
         }
 
         return polygons;
@@ -535,15 +540,12 @@ public class CVDetection
             quad.points[1] = quad.points[3];
             quad.points[3] = temp;
         }
-
-        quad.points.RemoveAt(quad.points.Count - 1);
     }
 
-    public static List<CVContour> QuadrilateralChecks(List<CVContour> contours, int width, int height)
+    public static List<CVContour> ContourChecks(List<CVContour> contours, int width, int height)
     {
-        List<CVContour> quadrilaterals = new List<CVContour>();
+        List<CVContour> checkedContours = new List<CVContour>();
 
-        int imageArea = width * height;
         int largestDimension = Math.Max(width, height);
 
         double minPerimeterPixels = largestDimension * 0.03;
@@ -551,17 +553,32 @@ public class CVDetection
 
         foreach (var contour in contours)
         {
-            if (contour.points.Count != 5) continue;
+            if (contour.points.Count < minPerimeterPixels || contour.points.Count > maxPerimeterPixels) continue;
 
-            if (contour.perimeter < minPerimeterPixels || contour.perimeter > maxPerimeterPixels) continue;
+            checkedContours.Add(contour);
+        }
+
+        return checkedContours;
+    }
+
+    public static List<CVContour> QuadrilateralChecks(List<CVContour> contours, int width, int height)
+    {
+        List<CVContour> quadrilaterals = new List<CVContour>();
+
+        foreach (var contour in contours)
+        {
+            if (contour.points.Count != 4) continue;
 
             // double aspect = QuadAspect(contour);
             // if (aspect < 0.8 || aspect > 1.2) continue;
 
             if (!IsConvexQuad(contour)) continue;
 
-            double minPixelsDistance = contour.perimeter * 0.05;
+            double minPixelsDistance = contour.PixelCount * 0.05;
             double minCornerDistance = MinDistanceSquared(contour);
+
+            Console.WriteLine($"MinDistance: {minCornerDistance} / {minPixelsDistance}, PixelCount: {contour.PixelCount}");
+
             if (minCornerDistance < minPixelsDistance * minPixelsDistance) continue;
 
             CVContour quad = contour;
@@ -600,12 +617,12 @@ public class CVDetection
         for (int i = 0; i < 4; i++)
         {
             int modI = (i + 1) % 4;
-            int dX = (contour.points[i].Item1 - contour.points[modI].Item1);
-            int dY = (contour.points[i].Item2 - contour.points[modI].Item2);
+            int dX = contour.points[i].Item1 - contour.points[modI].Item1;
+            int dY = contour.points[i].Item2 - contour.points[modI].Item2;
             averageArucoModuleSize += Math.Sqrt(dX * dX + dY * dY);
         }
         int numModules = markerSize + markerBorderBits * 2;
-        averageArucoModuleSize /= (4 * numModules);
+        averageArucoModuleSize /= 4 * numModules;
         return averageArucoModuleSize;
     }
 
@@ -763,16 +780,18 @@ public class CVDetection
 
     public static CVImage ExtractPixelData(CVImage image, CVContour contour, int markerSize)
     {
-        List<VectorD> srcPoints = new List<VectorD>();
-        srcPoints.Add(DenseVectorD.OfArray(new double[] { contour.points[0].Item1, contour.points[0].Item2 }));
-        srcPoints.Add(DenseVectorD.OfArray(new double[] { contour.points[1].Item1, contour.points[1].Item2 }));
-        srcPoints.Add(DenseVectorD.OfArray(new double[] { contour.points[2].Item1, contour.points[2].Item2 }));
-        srcPoints.Add(DenseVectorD.OfArray(new double[] { contour.points[3].Item1, contour.points[3].Item2 }));
+        List<VectorD> srcPoints =
+        [
+            DenseVectorD.OfArray([contour.points[0].Item1, contour.points[0].Item2]),
+            DenseVectorD.OfArray([contour.points[1].Item1, contour.points[1].Item2]),
+            DenseVectorD.OfArray([contour.points[2].Item1, contour.points[2].Item2]),
+            DenseVectorD.OfArray([contour.points[3].Item1, contour.points[3].Item2]),
+        ];
 
         CVImage warped = CVWarp.WarpPerspective(image, srcPoints, out MatrixD _);
         warped = CVResize.ResizeImage(warped, warped.Width - 2, warped.Height - 2, CV_ResizeMode.CV_CROP_NEAREST);
-        warped = CVProcessing.OtsuThreshold(warped, 256);
-        warped = CVProcessing.SumWindowResample(warped, markerSize + 2, markerSize + 2);
+        warped = CVProcessing.OtsuThreshold(warped, 255);
+        warped = CVProcessing.AverageWindowResample(warped, markerSize + 2, markerSize + 2, CVDataFormat.CV_S32);
 
         return warped;
     }

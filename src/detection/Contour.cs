@@ -6,6 +6,7 @@ public class CVContour
 {
     public List<(int, int)> points;
     public double perimeter;
+    public int PixelCount;
     public int depth;
     public int parent;
     public List<int> closeContours = new();
@@ -17,9 +18,10 @@ public class CVContour
         points = new();
     }
 
-    public CVContour(List<(int, int)> inPoints)
+    public CVContour(List<(int, int)> inPoints, int pixelCount)
     {
         points = inPoints;
+        PixelCount = pixelCount;
         setPerimeter();
     }
 
@@ -29,20 +31,20 @@ public class CVContour
 
         if (points.Count == 0) return;
 
-        (int, int) lastI = points[0];
+        (int x, int y) lastI = points[0];
 
         for (int i = 1; i < points.Count; i++)
         {
-            (int, int) currentI = points[i];
-            int dX = (currentI.Item1 - lastI.Item1);
-            int dY = (currentI.Item2 - lastI.Item2);
+            (int x, int y) currentI = points[i];
+            int dX = currentI.x - lastI.x;
+            int dY = currentI.y - lastI.y;
             perimeter += Math.Sqrt(dX * dX + dY * dY);
             lastI = currentI;
         }
 
-        (int, int) currentEI = points[0];
-        int dEX = (currentEI.Item1 - lastI.Item1);
-        int dEY = (currentEI.Item2 - lastI.Item2);
+        (int x, int y) currentEI = points[0];
+        int dEX = currentEI.x - lastI.x;
+        int dEY = currentEI.y - lastI.y;
         perimeter += Math.Sqrt(dEX * dEX + dEY * dEY);
     }
 }
@@ -54,8 +56,8 @@ public static class CVContourTrace
     private static readonly byte VISITED = 200;
     private static readonly byte FOREGROUND = 255;
 
-    private static readonly int[] dx = new int[] { 1, 1, 0, -1, -1, -1, 0, 1 };
-    private static readonly int[] dy = new int[] { 0, -1, -1, -1, 0, 1, 1, 1 };
+    private static readonly int[] dx = [1, 1, 0, -1, -1, -1, 0, 1];
+    private static readonly int[] dy = [0, -1, -1, -1, 0, 1, 1, 1];
 
     private static void traceExternalContourMock(byte[] imageState, int startX, int startY, int width, int height)
     {

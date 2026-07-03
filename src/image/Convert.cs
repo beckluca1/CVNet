@@ -181,7 +181,7 @@ public class CVConvert
                 }
             }
 
-        CVImage extractedImage = ConvertColor(image, requestedChannels);
+        imageOut = ConvertColor(image, requestedChannels);
 
         for (int i = 0; i < imageOut.ChannelFormats.Channels.Length; i++)
         {
@@ -196,11 +196,11 @@ public class CVConvert
                 CopyChannel(average, imageOut, 0, i);
             }
             else if (imageOut.ChannelFormats.Channels[i] == CVChannel.CV_A_ZERO)
-                FillChannel(extractedImage, i, 0);
+                FillChannel(imageOut, i, 0);
             else if (imageOut.ChannelFormats.Channels[i] == CVChannel.CV_A_ONE)
-                FillChannel(extractedImage, i, 1);
+                FillChannel(imageOut, i, 1);
             else if (imageOut.ChannelFormats.Channels[i] == CVChannel.CV_A_255)
-                FillChannel(extractedImage, i, 255);
+                FillChannel(imageOut, i, 255);
         }
 
         // Replace Placeholder Channel Types

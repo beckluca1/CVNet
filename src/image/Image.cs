@@ -83,6 +83,8 @@ public struct CVChannelFormats
 
 public enum CV_ResizeMode
 {
+    CV_HALF,
+    CV_DOUBLE,
     CV_STRETCH_NEAREST,
     CV_STRETCH_LINEAR,
     CV_CROP_NEAREST,
@@ -108,7 +110,7 @@ public class CVImage
     public int bufferSize;
     public byte[] buffer;
 
-    private CVImage(int width, int height, CVColorFormat colorFormat, CVDataFormat dataFormat, CVChannelFormat channelFormatId)
+    private CVImage(int width, int height, CVColorFormat colorFormat, CVDataFormat dataFormat, CVChannelFormat channelFormat)
     {
         Width = width;
         Height = height;
@@ -132,7 +134,7 @@ public class CVImage
 
         ColorFormat = colorFormat;
         DataFormat = dataFormat;
-        ChannelFormat = channelFormatId;
+        ChannelFormat = channelFormat;
         ChannelFormats = new CVChannelFormats(ChannelFormat);
 
         bufferSize = Width * Height * Channels * Bytes;
