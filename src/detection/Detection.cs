@@ -884,75 +884,6 @@ static Mat _extractCellPixelRatio(InputArray _image, const vector<Point2f>& corn
 
     */
 
-    public static bool IdentifyContour(CVImage image, CVContour contour, int markerSize)
-    {
-        CVImage cellPixelRatio = ExtractPixelData(image, contour, markerSize);
-        int size = cellPixelRatio.Width;
-
-        Span<byte> buffer = cellPixelRatio.BufferAs<byte>();
-
-        int borderErrors = 0;
-
-        for (int i = 0; i < size; i++)
-        {
-            if (buffer[i + 0 * size] == 0) borderErrors++;
-            if (buffer[i + (size - 1) * size] == 0) borderErrors++;
-        }
-
-        for (int i = 1; i < size - 1; i++)
-        {
-            if (buffer[0 + i * size] == 0) borderErrors++;
-            if (buffer[(size - 1) + i * size] == 0) borderErrors++;
-        }
-
-        Console.WriteLine($"borderErrors: {borderErrors}");
-
-        for (int y = 0; y < size; y++)
-        {
-            for (int x = 0; x < size; x++)
-            {
-                Console.Write(buffer[x + y * size] == 0 ? "#" : ".");
-            }
-            Console.WriteLine();
-        }
-
-        if (borderErrors > 5) return false;
-
-        ulong value0 = 0;
-        ulong value1 = 0;
-        ulong value2 = 0;
-        ulong value3 = 0;
-        for (int y = 1; y < size - 1; y++)
-        {
-            for (int x = 1; x < size - 1; x++)
-            {
-
-                value0 = value0 << 1;
-                value1 = value1 << 1;
-                value2 = value2 << 1;
-                value3 = value3 << 1;
-
-                if (buffer[x + y * size] == 0) value0 |= 1;
-                if (buffer[y + (size - 1 - x) * size] == 0) value1 |= 1;
-                if (buffer[(size - 1 - x) + (size - 1 - y) * size] == 0) value2 |= 1;
-                if (buffer[(size - 1 - y) + x * size] == 0) value3 |= 1;
-            }
-        }
-
-        Console.WriteLine($"value: {value0}");
-        Console.WriteLine($"value: {value1}");
-        Console.WriteLine($"value: {value2}");
-        Console.WriteLine($"value: {value3}");
-
-        if (CVAruco.Aruco_6x6_50.ContainsKey(value0)) contour.ID = CVAruco.Aruco_6x6_50[value0];
-        else if (CVAruco.Aruco_6x6_50.ContainsKey(value1)) contour.ID = CVAruco.Aruco_6x6_50[value1];
-        else if (CVAruco.Aruco_6x6_50.ContainsKey(value2)) contour.ID = CVAruco.Aruco_6x6_50[value2];
-        else if (CVAruco.Aruco_6x6_50.ContainsKey(value3)) contour.ID = CVAruco.Aruco_6x6_50[value3];
-        else return false;
-
-        return true;
-    }
-
     /*
 
     CV_DbgAssert(params.markerBorderBits > 0);
@@ -1036,7 +967,7 @@ static Mat _extractCellPixelRatio(InputArray _image, const vector<Point2f>& corn
                 int v = depths[depth][i];
                 was[v] = true;
 
-                validCandidates[v] = IdentifyContour(image, contours[v], markerSize);
+                validCandidates[v] = CVAruco.IdentifyContour(image, contours[v], markerSize);
 
                 if (validCandidates[v]) validContours.Add(contours[v]);
                 else
@@ -1044,7 +975,7 @@ static Mat _extractCellPixelRatio(InputArray _image, const vector<Point2f>& corn
                     foreach (int closeContourIndex in contours[v].closeContours)
                     {
                         CVContour closeContour = contours[closeContourIndex];
-                        validCandidates[v] = IdentifyContour(image, closeContour, markerSize);
+                        validCandidates[v] = CVAruco.IdentifyContour(image, closeContour, markerSize);
                         if (validCandidates[v])
                         {
                             validContours.Add(closeContour);
