@@ -180,8 +180,6 @@ public static class CVWarp
         if (aspect < 1.0) targetWidth = (int)(imageSize * aspect);
         else targetHeight = (int)(imageSize / aspect);
 
-        Console.WriteLine($"Width: {targetWidth}, Height: {targetHeight}");
-
         List<VectorD> dstPoints = new List<VectorD>();
         dstPoints.Add(DenseVectorD.OfArray(new double[] { 0.0, 0.0 }));
         dstPoints.Add(DenseVectorD.OfArray(new double[] { targetWidth - 1, 0.0 }));

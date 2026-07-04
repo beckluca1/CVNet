@@ -55,12 +55,34 @@ public class CVConvert
         for (int i = 0; i < imageDataCount; i++) bufferOut[i] = (byte)bufferIn[i];
     }
 
+    public static void ConvertByteToUInt(CVImage imageIn, ref CVImage imageOut)
+    {
+        int imageDataCount = imageIn.Width * imageIn.Height * imageIn.Channels;
+
+        Span<byte> bufferIn = imageIn.BufferAs<byte>();
+        Span<uint> bufferOut = imageOut.BufferAs<uint>();
+
+        for (int i = 0; i < imageDataCount; i++) bufferOut[i] = bufferIn[i];
+    }
+
+    public static void ConvertUIntToByte(CVImage imageIn, ref CVImage imageOut)
+    {
+        int imageDataCount = imageIn.Width * imageIn.Height * imageIn.Channels;
+
+        Span<uint> bufferIn = imageIn.BufferAs<uint>();
+        Span<byte> bufferOut = imageOut.BufferAs<byte>();
+
+        for (int i = 0; i < imageDataCount; i++) bufferOut[i] = (byte)bufferIn[i];
+    }
+
     public static void ConvertBuffer<InT>(CVImage imageIn, CVImage imageOut) where InT : struct
     {
         if (imageIn.DataFormat == CVDataFormat.CV_U8 && imageOut.DataFormat == CVDataFormat.CV_F32) ConvertByteToFloat(imageIn, ref imageOut);
         else if (imageIn.DataFormat == CVDataFormat.CV_F32 && imageOut.DataFormat == CVDataFormat.CV_U8) ConvertFloatToByte(imageIn, ref imageOut);
-        else if (imageIn.DataFormat == CVDataFormat.CV_U8 && imageOut.DataFormat == CVDataFormat.CV_U32) ConvertByteToInt(imageIn, ref imageOut);
-        else if (imageIn.DataFormat == CVDataFormat.CV_U32 && imageOut.DataFormat == CVDataFormat.CV_U8) ConvertIntToByte(imageIn, ref imageOut);
+        else if (imageIn.DataFormat == CVDataFormat.CV_U8 && imageOut.DataFormat == CVDataFormat.CV_S32) ConvertByteToInt(imageIn, ref imageOut);
+        else if (imageIn.DataFormat == CVDataFormat.CV_S32 && imageOut.DataFormat == CVDataFormat.CV_U8) ConvertIntToByte(imageIn, ref imageOut);
+        else if (imageIn.DataFormat == CVDataFormat.CV_U8 && imageOut.DataFormat == CVDataFormat.CV_U32) ConvertByteToUInt(imageIn, ref imageOut);
+        else if (imageIn.DataFormat == CVDataFormat.CV_U32 && imageOut.DataFormat == CVDataFormat.CV_U8) ConvertUIntToByte(imageIn, ref imageOut);
 
         else if (imageOut.DataFormat == CVDataFormat.CV_U8) ConvertBuffer<InT, byte>(imageIn, imageOut);
         else if (imageOut.DataFormat == CVDataFormat.CV_S8) ConvertBuffer<InT, sbyte>(imageIn, imageOut);
@@ -90,6 +112,24 @@ public class CVConvert
         else if (image.DataFormat == CVDataFormat.CV_F64) ConvertBuffer<double>(image, imageOut);
 
         return imageOut;
+    }
+
+    public static CVImage ExpandFormat(CVImage image)
+    {
+        CVDataFormat dataFormat = CVDataFormat.CV_NONE;
+
+        if (image.DataFormat == CVDataFormat.CV_U8) dataFormat = CVDataFormat.CV_U16;
+        else if (image.DataFormat == CVDataFormat.CV_S8) dataFormat = CVDataFormat.CV_S16;
+        else if (image.DataFormat == CVDataFormat.CV_U16) dataFormat = CVDataFormat.CV_U32;
+        else if (image.DataFormat == CVDataFormat.CV_S16) dataFormat = CVDataFormat.CV_S32;
+        else if (image.DataFormat == CVDataFormat.CV_U32) dataFormat = CVDataFormat.CV_U64;
+        else if (image.DataFormat == CVDataFormat.CV_S32) dataFormat = CVDataFormat.CV_S64;
+        else if (image.DataFormat == CVDataFormat.CV_U64) dataFormat = CVDataFormat.CV_U64;
+        else if (image.DataFormat == CVDataFormat.CV_S64) dataFormat = CVDataFormat.CV_S64;
+        else if (image.DataFormat == CVDataFormat.CV_F32) dataFormat = CVDataFormat.CV_F64;
+        else if (image.DataFormat == CVDataFormat.CV_F64) dataFormat = CVDataFormat.CV_F64;
+
+        return ConvertData(image, dataFormat);
     }
 
     private static void CopyChannel(CVImage imageIn, CVImage imageOut, int channelIn, int channelOut)
@@ -140,17 +180,20 @@ public class CVConvert
 
     public static CVImage AverageChannels(CVImage image, CVChannelFormat channelFormat)
     {
+        // Expand so sum doesnt fail
+        CVImage expanded = ExpandFormat(image);
+
         CVChannelFormats channelFormats = new CVChannelFormats(channelFormat);
         Dictionary<CVChannel, CVImage> uniqueChannels = new Dictionary<CVChannel, CVImage>();
         for (int i = 0; i < channelFormats.Channels.Length; i++)
         {
             if (uniqueChannels.ContainsKey(channelFormats.Channels[i])) continue;
 
-            for (int j = 0; j < image.ChannelFormats.Channels.Length; j++)
+            for (int j = 0; j < expanded.ChannelFormats.Channels.Length; j++)
             {
-                if (channelFormats.Channels[i] == image.ChannelFormats.Channels[j])
+                if (channelFormats.Channels[i] == expanded.ChannelFormats.Channels[j])
                 {
-                    uniqueChannels.Add(channelFormats.Channels[i], ConvertColor(image, new int[] { j }));
+                    uniqueChannels.Add(channelFormats.Channels[i], ConvertColor(expanded, [j]));
                     break;
                 }
             }
@@ -164,8 +207,12 @@ public class CVConvert
         {
             sum = CVAdd.Add(sum, uniqueChannels.Values.ElementAt(i));
         }
+        sum = CVDivide.Divide(sum, uniqueChannels.Count);
 
-        return CVDivide.Divide(sum, uniqueChannels.Count);
+        //Recast to original type
+        sum = ConvertData(sum, image.DataFormat);
+
+        return sum;
     }
 
     public static void ToFormat<T>(CVImage image, ref CVImage imageOut) where T : struct, INumber<T>
@@ -188,6 +235,7 @@ public class CVConvert
             if (imageOut.ChannelFormats.Channels[i] == CVChannel.CV_AVG_RGB)
             {
                 CVImage average = AverageChannels(image, CVChannelFormat.CV_RGB);
+
                 CopyChannel(average, imageOut, 0, i);
             }
             else if (imageOut.ChannelFormats.Channels[i] == CVChannel.CV_AVG_RGBA)
@@ -230,5 +278,4 @@ public class CVConvert
 
         return imageOut;
     }
-
 }

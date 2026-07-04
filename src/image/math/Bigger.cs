@@ -136,7 +136,7 @@ public static class CVBigger
         }
     }
 
-    public static CVImage Bigger<T, TV>(CVImage image, TV arg1) where T : struct where TV : struct
+    public static CVImage Bigger<TV>(CVImage image, TV arg1) where TV : struct
     {
         CVImage outImage = CVImage.Create(image.Width, image.Height, image.ColorFormat, image.DataFormat, image.ChannelFormat);
 
@@ -154,7 +154,7 @@ public static class CVBigger
         return outImage;
     }
 
-    public static CVImage Bigger<T, TV>(CVImage image, TV[] arg1) where T : struct where TV : struct
+    public static CVImage Bigger<TV>(CVImage image, TV[] arg1) where TV : struct
     {
         CVImage outImage = CVImage.Create(image.Width, image.Height, image.ColorFormat, image.DataFormat, image.ChannelFormat);
 

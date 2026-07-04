@@ -563,6 +563,8 @@ public class CVDetection
 
     public static List<CVContour> QuadrilateralChecks(List<CVContour> contours, int width, int height)
     {
+        double minAre = width * height * 0.0001;
+
         List<CVContour> quadrilaterals = new List<CVContour>();
 
         foreach (var contour in contours)
@@ -570,14 +572,17 @@ public class CVDetection
             if (contour.points.Count != 4) continue;
 
             // double aspect = QuadAspect(contour);
+
+            //double area = QuadArea(contour);
+
+            //if (area < minAre) continue;
+
             // if (aspect < 0.8 || aspect > 1.2) continue;
 
             if (!IsConvexQuad(contour)) continue;
 
             double minPixelsDistance = contour.PixelCount * 0.05;
             double minCornerDistance = MinDistanceSquared(contour);
-
-            Console.WriteLine($"MinDistance: {minCornerDistance} / {minPixelsDistance}, PixelCount: {contour.PixelCount}");
 
             if (minCornerDistance < minPixelsDistance * minPixelsDistance) continue;
 
@@ -662,12 +667,12 @@ public class CVDetection
                PointQuadTestOrdered(contour1.points[2], contour2) && PointQuadTestOrdered(contour1.points[3], contour2);
     }
 
-    public static List<CVContour> GroupContours(List<CVContour> contours, int width, int height, int markerSize)
+    public static List<int> GroupContours(List<CVContour> contours, int width, int height, int markerSize)
     {
-        contours.Sort((a, b) => b.perimeter.CompareTo(a.perimeter));
+        contours.Sort((a, b) => b.PixelCount.CompareTo(a.PixelCount));
 
-        List<int> groupId = Enumerable.Repeat(0, contours.Count).ToList();
-        List<List<int>> groupContours = new List<List<int>>();
+        List<int> groupIds = Enumerable.Repeat(-1, contours.Count).ToList();
+        List<List<int>> contourGroups = new List<List<int>>();
         List<bool> isSelectedContours = Enumerable.Repeat(true, contours.Count).ToList();
 
         List<List<CVContour>> closedContours = Enumerable.Repeat(new List<CVContour>(), contours.Count).ToList();
@@ -682,44 +687,49 @@ public class CVDetection
                     isSelectedContours[i] = false;
                     isSelectedContours[j] = false;
                     // i and j are not related to a group
-                    if (groupId[i] < 0 && groupId[j] < 0)
+                    if (groupIds[i] == -1 && groupIds[j] == -1)
                     {
+                        int newGroupId = contourGroups.Count();
                         // mark candidates with their corresponding group number
-                        groupId[i] = groupId[j] = (int)groupContours.Count();
+                        groupIds[i] = newGroupId;
+                        groupIds[j] = newGroupId;
                         // create group
-                        groupContours.Add(new List<int>() { i, j });
+                        contourGroups.Add(new List<int>() { i, j });
                     }
                     // i is related to a group
-                    else if (groupId[i] > -1 && groupId[j] == -1)
+                    else if (groupIds[i] > -1 && groupIds[j] == -1)
                     {
-                        int group = groupId[i];
-                        groupId[j] = group;
+                        int groupId = groupIds[i];
+                        groupIds[j] = groupId;
                         // add to group
-                        groupContours[group].Add(j);
+                        contourGroups[groupId].Add(j);
                     }
                     // j is related to a group
-                    else if (groupId[j] > -1 && groupId[i] == -1)
+                    else if (groupIds[j] > -1 && groupIds[i] == -1)
                     {
-                        int group = groupId[j];
-                        groupId[i] = group;
+                        int groupId = groupIds[j];
+                        groupIds[i] = groupId;
                         // add to group
-                        groupContours[group].Add(i);
+                        contourGroups[groupId].Add(i);
                     }
                 }
             }
-            // group of one candidate
+
+            // No close element is found
+            // group candidate
             if (isSelectedContours[i])
             {
                 isSelectedContours[i] = false;
-                groupId[i] = (int)groupContours.Count();
-                groupContours.Add(new List<int>() { i });
+                int newGroupId = contourGroups.Count();
+                groupIds[i] = newGroupId;
+                contourGroups.Add(new List<int>() { i });
             }
         }
 
-        foreach (List<int> groupContour in groupContours)
+        foreach (List<int> groupContour in contourGroups)
         {
             // choose largest contours
-            groupContour.Sort((a, b) => b.CompareTo(a));
+            groupContour.Sort((a, b) => contours[b].PixelCount.CompareTo(contours[a].PixelCount));
 
             int currentId = groupContour[0];
             // check if it is too near to the image border
@@ -753,12 +763,13 @@ public class CVDetection
             }
         }
 
-        List<CVContour> selectedCandidates = new List<CVContour>();
+        // Only add biggest contour of group
+        List<int> selectedCandidates = new List<int>();
         for (int i = 0; i < contours.Count(); i++)
         {
             if (isSelectedContours[i])
             {
-                selectedCandidates.Add(contours[i]);
+                selectedCandidates.Add(i);
             }
         }
 
@@ -767,10 +778,10 @@ public class CVDetection
         {
             for (int j = i - 1; j >= 0; j--)
             {
-                if (IsInside(selectedCandidates[i], selectedCandidates[j]))
+                if (IsInside(contours[selectedCandidates[i]], contours[selectedCandidates[j]]))
                 {
-                    selectedCandidates[i].parent = j;
-                    selectedCandidates[j].depth = Math.Max(selectedCandidates[j].depth, selectedCandidates[i].depth + 1);
+                    contours[selectedCandidates[i]].parent = j;
+                    contours[selectedCandidates[j]].depth = Math.Max(contours[selectedCandidates[j]].depth, contours[selectedCandidates[i]].depth + 1);
                     break;
                 }
             }
@@ -789,9 +800,15 @@ public class CVDetection
         ];
 
         CVImage warped = CVWarp.WarpPerspective(image, srcPoints, out MatrixD _);
-        warped = CVResize.ResizeImage(warped, warped.Width - 2, warped.Height - 2, CV_ResizeMode.CV_CROP_NEAREST);
-        warped = CVProcessing.OtsuThreshold(warped, 255);
+
+        //Span<byte> buffer = image.BufferAs<byte>();
+        //for (int i = 0; i < image.Width * image.Height * image.Channels; i++)
+        //    Console.WriteLine(buffer[i]);
+
+        // warped = CVResize.ResizeImage(warped, warped.Width, warped.Height, CV_ResizeMode.CV_CROP_NEAREST);
         warped = CVProcessing.AverageWindowResample(warped, markerSize + 2, markerSize + 2, CVDataFormat.CV_S32);
+        warped = CVProcessing.OtsuThreshold(warped, 255);
+        warped = CVConvert.ConvertData(warped, image.DataFormat);
 
         return warped;
     }
@@ -870,8 +887,70 @@ static Mat _extractCellPixelRatio(InputArray _image, const vector<Point2f>& corn
     public static bool IdentifyContour(CVImage image, CVContour contour, int markerSize)
     {
         CVImage cellPixelRatio = ExtractPixelData(image, contour, markerSize);
+        int size = cellPixelRatio.Width;
 
-        return false;
+        Span<byte> buffer = cellPixelRatio.BufferAs<byte>();
+
+        int borderErrors = 0;
+
+        for (int i = 0; i < size; i++)
+        {
+            if (buffer[i + 0 * size] == 0) borderErrors++;
+            if (buffer[i + (size - 1) * size] == 0) borderErrors++;
+        }
+
+        for (int i = 1; i < size - 1; i++)
+        {
+            if (buffer[0 + i * size] == 0) borderErrors++;
+            if (buffer[(size - 1) + i * size] == 0) borderErrors++;
+        }
+
+        Console.WriteLine($"borderErrors: {borderErrors}");
+
+        for (int y = 0; y < size; y++)
+        {
+            for (int x = 0; x < size; x++)
+            {
+                Console.Write(buffer[x + y * size] == 0 ? "#" : ".");
+            }
+            Console.WriteLine();
+        }
+
+        if (borderErrors > 5) return false;
+
+        ulong value0 = 0;
+        ulong value1 = 0;
+        ulong value2 = 0;
+        ulong value3 = 0;
+        for (int y = 1; y < size - 1; y++)
+        {
+            for (int x = 1; x < size - 1; x++)
+            {
+
+                value0 = value0 << 1;
+                value1 = value1 << 1;
+                value2 = value2 << 1;
+                value3 = value3 << 1;
+
+                if (buffer[x + y * size] == 0) value0 |= 1;
+                if (buffer[y + (size - 1 - x) * size] == 0) value1 |= 1;
+                if (buffer[(size - 1 - x) + (size - 1 - y) * size] == 0) value2 |= 1;
+                if (buffer[(size - 1 - y) + x * size] == 0) value3 |= 1;
+            }
+        }
+
+        Console.WriteLine($"value: {value0}");
+        Console.WriteLine($"value: {value1}");
+        Console.WriteLine($"value: {value2}");
+        Console.WriteLine($"value: {value3}");
+
+        if (CVAruco.Aruco_6x6_50.ContainsKey(value0)) contour.ID = CVAruco.Aruco_6x6_50[value0];
+        else if (CVAruco.Aruco_6x6_50.ContainsKey(value1)) contour.ID = CVAruco.Aruco_6x6_50[value1];
+        else if (CVAruco.Aruco_6x6_50.ContainsKey(value2)) contour.ID = CVAruco.Aruco_6x6_50[value2];
+        else if (CVAruco.Aruco_6x6_50.ContainsKey(value3)) contour.ID = CVAruco.Aruco_6x6_50[value3];
+        else return false;
+
+        return true;
     }
 
     /*
@@ -927,7 +1006,7 @@ static Mat _extractCellPixelRatio(InputArray _image, const vector<Point2f>& corn
 
     */
 
-    public static void IdentifyContours(CVImage image, List<CVContour> contours, int markerSize)
+    public static List<CVContour> IdentifyContours(CVImage image, List<CVContour> contours, List<int> contourGroups, int markerSize)
     {
         int n = contours.Count;
 
@@ -936,6 +1015,8 @@ static Mat _extractCellPixelRatio(InputArray _image, const vector<Point2f>& corn
         List<int> rotated = Enumerable.Repeat(0, n).ToList();
         List<bool> validCandidates = Enumerable.Repeat(false, n).ToList();
         List<bool> was = Enumerable.Repeat(false, n).ToList();
+
+        List<CVContour> validContours = new List<CVContour>();
 
         int maxDepth = 0;
         for (int i = 0; i < n; i++)
@@ -957,7 +1038,8 @@ static Mat _extractCellPixelRatio(InputArray _image, const vector<Point2f>& corn
 
                 validCandidates[v] = IdentifyContour(image, contours[v], markerSize);
 
-                if (!validCandidates[v])
+                if (validCandidates[v]) validContours.Add(contours[v]);
+                else
                 {
                     foreach (int closeContourIndex in contours[v].closeContours)
                     {
@@ -965,7 +1047,7 @@ static Mat _extractCellPixelRatio(InputArray _image, const vector<Point2f>& corn
                         validCandidates[v] = IdentifyContour(image, closeContour, markerSize);
                         if (validCandidates[v])
                         {
-                            contours[v] = closeContour;
+                            validContours.Add(closeContour);
                             break;
                         }
                     }
@@ -978,6 +1060,7 @@ static Mat _extractCellPixelRatio(InputArray _image, const vector<Point2f>& corn
                 if (validCandidates[v])
                 {
                     int parent = contours[v].parent;
+
                     while (parent != -1)
                     {
                         if (!was[parent])
@@ -992,6 +1075,8 @@ static Mat _extractCellPixelRatio(InputArray _image, const vector<Point2f>& corn
             }
             depth++;
         }
+
+        return validContours;
     }
 
     /*

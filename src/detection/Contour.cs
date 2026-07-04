@@ -8,7 +8,7 @@ public class CVContour
     public double perimeter;
     public int PixelCount;
     public int depth;
-    public int parent;
+    public int parent = -1;
     public List<int> closeContours = new();
     public int ID;
     public double confidence;

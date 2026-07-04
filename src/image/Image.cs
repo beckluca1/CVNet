@@ -176,15 +176,65 @@ public class CVImage
         }
     }
 
-    private void Init<T>(T[] data) where T : struct
+    private void InitSafe<T, TV>(TV[] data) where T : struct where TV : struct
     {
         Span<T> bufferSpan = BufferAs<T>();
 
         for (int i = 0; i < Channels; i++)
-            bufferSpan.Slice(i * WidthHeight, WidthHeight).Fill(data[i]);
+        {
+            T dataConv = (T)Convert.ChangeType(data[i], typeof(T));
+            bufferSpan.Slice(i * WidthHeight, WidthHeight).Fill(dataConv);
+        }
     }
 
-    private void Init<T>(T data) where T : struct
+    private void InitSafe<T>(T[] data) where T : struct
+    {
+        if (DataFormat == CVDataFormat.CV_U8) InitSafe<byte, T>(data);
+        else if (DataFormat == CVDataFormat.CV_S8) InitSafe<sbyte, T>(data);
+        else if (DataFormat == CVDataFormat.CV_U16) InitSafe<ushort, T>(data);
+        else if (DataFormat == CVDataFormat.CV_S16) InitSafe<short, T>(data);
+        else if (DataFormat == CVDataFormat.CV_U32) InitSafe<uint, T>(data);
+        else if (DataFormat == CVDataFormat.CV_S32) InitSafe<int, T>(data);
+        else if (DataFormat == CVDataFormat.CV_U64) InitSafe<ulong, T>(data);
+        else if (DataFormat == CVDataFormat.CV_S64) InitSafe<long, T>(data);
+        else if (DataFormat == CVDataFormat.CV_F32) InitSafe<float, T>(data);
+        else if (DataFormat == CVDataFormat.CV_F64) InitSafe<double, T>(data);
+    }
+
+    private void InitUnsafe<T>(T[] data) where T : struct
+    {
+        Span<T> bufferSpan = BufferAs<T>();
+
+        for (int i = 0; i < Channels; i++)
+        {
+            bufferSpan.Slice(i * WidthHeight, WidthHeight).Fill(data[i]);
+        }
+    }
+
+    private void InitSafe<T, TV>(TV data) where T : struct where TV : struct
+    {
+        T dataConv = (T)Convert.ChangeType(data, typeof(T));
+
+        Span<T> bufferSpan = BufferAs<T>();
+
+        bufferSpan.Fill(dataConv);
+    }
+
+    private void InitSafe<T>(T data) where T : struct
+    {
+        if (DataFormat == CVDataFormat.CV_U8) InitSafe<byte, T>(data);
+        else if (DataFormat == CVDataFormat.CV_S8) InitSafe<sbyte, T>(data);
+        else if (DataFormat == CVDataFormat.CV_U16) InitSafe<ushort, T>(data);
+        else if (DataFormat == CVDataFormat.CV_S16) InitSafe<short, T>(data);
+        else if (DataFormat == CVDataFormat.CV_U32) InitSafe<uint, T>(data);
+        else if (DataFormat == CVDataFormat.CV_S32) InitSafe<int, T>(data);
+        else if (DataFormat == CVDataFormat.CV_U64) InitSafe<ulong, T>(data);
+        else if (DataFormat == CVDataFormat.CV_S64) InitSafe<long, T>(data);
+        else if (DataFormat == CVDataFormat.CV_F32) InitSafe<float, T>(data);
+        else if (DataFormat == CVDataFormat.CV_F64) InitSafe<double, T>(data);
+    }
+
+    private void InitUnsafe<T>(T data) where T : struct
     {
         Span<T> bufferSpan = BufferAs<T>();
 
@@ -202,7 +252,7 @@ public class CVImage
     {
         CVImage image = new CVImage(width, height, colorFormat, dataFormat, channelFormat);
 
-        image.Init(data);
+        image.InitSafe(data);
 
         return image;
     }
@@ -211,7 +261,7 @@ public class CVImage
     {
         CVImage image = new CVImage(width, height, colorFormat, dataFormat, channelFormat);
 
-        image.Init(data);
+        image.InitSafe(data);
 
         return image;
     }
@@ -284,20 +334,20 @@ public class CVImage
         return bufferOut;
     }
 
-    public static CVImage CreateSumMask(int width = 0, int height = 0, CVColorFormat colorFormat = CVColorFormat.CV_NONE, CVDataFormat dataFormat = CVDataFormat.CV_NONE)
+    public static CVImage CreateSumMask(int width = 0, int height = 0, CVColorFormat colorFormat = CVColorFormat.CV_NONE, CVDataFormat dataFormat = CVDataFormat.CV_NONE, CVChannelFormat channelFormat = CVChannelFormat.CV_None)
     {
-        CVImage image = Create(width, height, colorFormat, dataFormat);
+        CVImage image = Create(width, height, colorFormat, dataFormat, channelFormat);
 
-        if (image.DataFormat == CVDataFormat.CV_U8) image.Init<byte>(1);
-        else if (image.DataFormat == CVDataFormat.CV_S8) image.Init<sbyte>(1);
-        else if (image.DataFormat == CVDataFormat.CV_U16) image.Init<ushort>(1);
-        else if (image.DataFormat == CVDataFormat.CV_S16) image.Init<short>(1);
-        else if (image.DataFormat == CVDataFormat.CV_U32) image.Init<uint>(1);
-        else if (image.DataFormat == CVDataFormat.CV_S32) image.Init<int>(1);
-        else if (image.DataFormat == CVDataFormat.CV_U64) image.Init<ulong>(1);
-        else if (image.DataFormat == CVDataFormat.CV_S64) image.Init<long>(1);
-        else if (image.DataFormat == CVDataFormat.CV_F32) image.Init<float>(1);
-        else if (image.DataFormat == CVDataFormat.CV_F64) image.Init<double>(1);
+        if (image.DataFormat == CVDataFormat.CV_U8) image.InitUnsafe<byte>(1);
+        else if (image.DataFormat == CVDataFormat.CV_S8) image.InitUnsafe<sbyte>(1);
+        else if (image.DataFormat == CVDataFormat.CV_U16) image.InitUnsafe<ushort>(1);
+        else if (image.DataFormat == CVDataFormat.CV_S16) image.InitUnsafe<short>(1);
+        else if (image.DataFormat == CVDataFormat.CV_U32) image.InitUnsafe<uint>(1);
+        else if (image.DataFormat == CVDataFormat.CV_S32) image.InitUnsafe<int>(1);
+        else if (image.DataFormat == CVDataFormat.CV_U64) image.InitUnsafe<ulong>(1);
+        else if (image.DataFormat == CVDataFormat.CV_S64) image.InitUnsafe<long>(1);
+        else if (image.DataFormat == CVDataFormat.CV_F32) image.InitUnsafe<float>(1);
+        else if (image.DataFormat == CVDataFormat.CV_F64) image.InitUnsafe<double>(1);
 
         return image;
     }
@@ -356,9 +406,9 @@ public class CVImage
         }
     }
 
-    public static CVImage CreateGaussianMask(int width = 0, int height = 0, CVColorFormat colorFormat = CVColorFormat.CV_NONE, CVDataFormat dataFormat = CVDataFormat.CV_NONE)
+    public static CVImage CreateGaussianMask(int width = 0, int height = 0, CVColorFormat colorFormat = CVColorFormat.CV_NONE, CVDataFormat dataFormat = CVDataFormat.CV_NONE, CVChannelFormat channelFormat = CVChannelFormat.CV_None)
     {
-        CVImage image = Create(width, height, colorFormat, dataFormat);
+        CVImage image = Create(width, height, colorFormat, dataFormat, channelFormat);
 
         if (image.DataFormat == CVDataFormat.CV_U8) SetGaussianMask<byte>(ref image);
         else if (image.DataFormat == CVDataFormat.CV_S8) SetGaussianMask<sbyte>(ref image);
