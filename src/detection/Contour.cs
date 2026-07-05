@@ -5,13 +5,11 @@ namespace CVNet;
 public class CVContour
 {
     public List<(int, int)> points;
-    public double perimeter;
     public int PixelCount;
     public int depth;
     public int parent = -1;
     public List<int> closeContours = new();
     public int ID;
-    public double confidence;
 
     public CVContour()
     {
@@ -22,30 +20,6 @@ public class CVContour
     {
         points = inPoints;
         PixelCount = pixelCount;
-        setPerimeter();
-    }
-
-    public void setPerimeter()
-    {
-        perimeter = 0.0;
-
-        if (points.Count == 0) return;
-
-        (int x, int y) lastI = points[0];
-
-        for (int i = 1; i < points.Count; i++)
-        {
-            (int x, int y) currentI = points[i];
-            int dX = currentI.x - lastI.x;
-            int dY = currentI.y - lastI.y;
-            perimeter += Math.Sqrt(dX * dX + dY * dY);
-            lastI = currentI;
-        }
-
-        (int x, int y) currentEI = points[0];
-        int dEX = currentEI.x - lastI.x;
-        int dEY = currentEI.y - lastI.y;
-        perimeter += Math.Sqrt(dEX * dEX + dEY * dEY);
     }
 }
 
@@ -59,7 +33,7 @@ public static class CVContourTrace
     private static readonly int[] dx = [1, 1, 0, -1, -1, -1, 0, 1];
     private static readonly int[] dy = [0, -1, -1, -1, 0, 1, 1, 1];
 
-    private static void traceExternalContourMock(byte[] imageState, int startX, int startY, int width, int height)
+    private static void TraceExternalContourMock(byte[] imageState, int startX, int startY, int width, int height)
     {
         int startIndex = startX + width * startY;
 
@@ -125,7 +99,7 @@ public static class CVContourTrace
         }
     }
 
-    private static bool traceContour(byte[] imageState, CVContour contour, int startX, int startY, int width, int height, bool isExternal)
+    private static bool TraceContour(byte[] imageState, CVContour contour, int startX, int startY, int width, int height, bool isExternal)
     {
         int startIndex = startX + width * startY;
 
@@ -219,13 +193,13 @@ public static class CVContourTrace
         return true;
     }
 
-    public static int findStartContourPoint(byte[] imageState, int o, int j, int width, int height)
+    public static int FindStartContourPoint(byte[] imageState, int o, int j, int width, int height)
     {
         for (; j < width && !(imageState[o + j] != BACKGROUND); ++j) ;
         return j;
     }
 
-    public static int findEndContourPoint(byte[] imageState, int o, int j, int width, int height)
+    public static int FindEndContourPoint(byte[] imageState, int o, int j, int width, int height)
     {
         for (; j < width && (imageState[o + j] != BACKGROUND); ++j) ;
         return j;
@@ -265,36 +239,54 @@ public static class CVContourTrace
             for (int x = 1; x < width - 1;)
             {
                 // 1. FAST SCAN: Skip background pixels
-                if ((x = findStartContourPoint(imageState, yOffset, x, width, height)) == width) break;
+                if ((x = FindStartContourPoint(imageState, yOffset, x, width, height)) == width) break;
 
                 // 2. CHECK: Only process if actually FOREGROUND (redundancy check)
                 if (imageState[yOffset + x] == FOREGROUND && y < height - 1)
                 {
                     CVContour contour = new CVContour();
-                    if (traceContour(imageState, contour, x, y, width, height, true))
+                    if (TraceContour(imageState, contour, x, y, width, height, true))
                     {
                         contours.Add(contour);
                     }
                 }
                 else if (imageState[yOffset + x] == FOREGROUND && y == height - 1)
                 {//extra step to mark east pixels only so that internal contours can be correctly extracted in this line
-                    traceExternalContourMock(imageState, x, y, width, height);
+                    TraceExternalContourMock(imageState, x, y, width, height);
                 }
 
                 // 3. FAST SCAN: Find end of current component to skip processing it again
-                x = findEndContourPoint(imageState, yOffset, x + 1, width, height);
+                x = FindEndContourPoint(imageState, yOffset, x + 1, width, height);
                 if (x >= width) break;//end of row
                                       //internal contour
                 if (imageState[yOffset + x - 1] > VISITED_OUTER_RIGHT && y > 1)
                 {//inner contours of first line are handled by the thread above
 
                     CVContour contour = new CVContour();
-                    if (traceContour(imageState, contour, x - 1, y, width, height, false))
+                    if (TraceContour(imageState, contour, x - 1, y, width, height, false))
                     {
                         contours.Add(contour);
                     }
                 }
             }
         }
+    }
+
+    public static List<CVContour> TraceContours<T>(CVImage image, T foreground) where T : struct
+    {
+        List<CVContour> contours = new List<CVContour>();
+
+        if (image.DataFormat == CVDataFormat.CV_U8) TraceContours<byte, T>(image, foreground, ref contours);
+        else if (image.DataFormat == CVDataFormat.CV_S8) TraceContours<sbyte, T>(image, foreground, ref contours);
+        else if (image.DataFormat == CVDataFormat.CV_U16) TraceContours<ushort, T>(image, foreground, ref contours);
+        else if (image.DataFormat == CVDataFormat.CV_S16) TraceContours<short, T>(image, foreground, ref contours);
+        else if (image.DataFormat == CVDataFormat.CV_U32) TraceContours<uint, T>(image, foreground, ref contours);
+        else if (image.DataFormat == CVDataFormat.CV_S32) TraceContours<int, T>(image, foreground, ref contours);
+        else if (image.DataFormat == CVDataFormat.CV_U64) TraceContours<ulong, T>(image, foreground, ref contours);
+        else if (image.DataFormat == CVDataFormat.CV_S64) TraceContours<long, T>(image, foreground, ref contours);
+        else if (image.DataFormat == CVDataFormat.CV_F32) TraceContours<float, T>(image, foreground, ref contours);
+        else if (image.DataFormat == CVDataFormat.CV_F64) TraceContours<double, T>(image, foreground, ref contours);
+
+        return contours;
     }
 }

@@ -2,7 +2,7 @@ namespace CVNet;
 
 public static class CVResize
 {
-    private static void Half<T>(CVImage imageIn, ref CVImage imageOut)
+    private static void half<T>(CVImage imageIn, ref CVImage imageOut)
     where T : struct
     {
         Span<T> src = imageIn.BufferAs<T>();
@@ -40,28 +40,28 @@ public static class CVResize
         }
     }
 
-    private static CVImage Half<T>(
+    public static CVImage Half<T>(
             CVImage image,
             T[] defaultValue) where T : struct
     {
         CVImage imageOut = CVImage.Create(image.Width / 2, image.Height / 2, image.ColorFormat, image.DataFormat, image.ChannelFormat, defaultValue);
 
-        if (image.DataFormat == CVDataFormat.CV_U8) Half<byte>(image, ref imageOut);
-        else if (image.DataFormat == CVDataFormat.CV_S8) Half<sbyte>(image, ref imageOut);
-        else if (image.DataFormat == CVDataFormat.CV_U16) Half<ushort>(image, ref imageOut);
-        else if (image.DataFormat == CVDataFormat.CV_S16) Half<short>(image, ref imageOut);
-        else if (image.DataFormat == CVDataFormat.CV_U32) Half<uint>(image, ref imageOut);
-        else if (image.DataFormat == CVDataFormat.CV_S32) Half<int>(image, ref imageOut);
-        else if (image.DataFormat == CVDataFormat.CV_U64) Half<ulong>(image, ref imageOut);
-        else if (image.DataFormat == CVDataFormat.CV_S64) Half<long>(image, ref imageOut);
-        else if (image.DataFormat == CVDataFormat.CV_F32) Half<float>(image, ref imageOut);
-        else if (image.DataFormat == CVDataFormat.CV_F64) Half<double>(image, ref imageOut);
+        if (image.DataFormat == CVDataFormat.CV_U8) half<byte>(image, ref imageOut);
+        else if (image.DataFormat == CVDataFormat.CV_S8) half<sbyte>(image, ref imageOut);
+        else if (image.DataFormat == CVDataFormat.CV_U16) half<ushort>(image, ref imageOut);
+        else if (image.DataFormat == CVDataFormat.CV_S16) half<short>(image, ref imageOut);
+        else if (image.DataFormat == CVDataFormat.CV_U32) half<uint>(image, ref imageOut);
+        else if (image.DataFormat == CVDataFormat.CV_S32) half<int>(image, ref imageOut);
+        else if (image.DataFormat == CVDataFormat.CV_U64) half<ulong>(image, ref imageOut);
+        else if (image.DataFormat == CVDataFormat.CV_S64) half<long>(image, ref imageOut);
+        else if (image.DataFormat == CVDataFormat.CV_F32) half<float>(image, ref imageOut);
+        else if (image.DataFormat == CVDataFormat.CV_F64) half<double>(image, ref imageOut);
 
         return imageOut;
     }
 
     // Optimized
-    private static void StretchNearest<T>(
+    private static void stretchNearest<T>(
         CVImage imageIn,
         ref CVImage imageOut) where T : struct
     {
@@ -108,7 +108,7 @@ public static class CVResize
         }
     }
 
-    private static CVImage StretchNearest<T>(
+    public static CVImage StretchNearest<T>(
             CVImage image,
             int targetWidth,
             int targetHeight,
@@ -116,22 +116,22 @@ public static class CVResize
     {
         CVImage imageOut = CVImage.Create(targetWidth, targetHeight, image.ColorFormat, image.DataFormat, image.ChannelFormat, defaultValue);
 
-        if (image.DataFormat == CVDataFormat.CV_U8) StretchNearest<byte>(image, ref imageOut);
-        else if (image.DataFormat == CVDataFormat.CV_S8) StretchNearest<sbyte>(image, ref imageOut);
-        else if (image.DataFormat == CVDataFormat.CV_U16) StretchNearest<ushort>(image, ref imageOut);
-        else if (image.DataFormat == CVDataFormat.CV_S16) StretchNearest<short>(image, ref imageOut);
-        else if (image.DataFormat == CVDataFormat.CV_U32) StretchNearest<uint>(image, ref imageOut);
-        else if (image.DataFormat == CVDataFormat.CV_S32) StretchNearest<int>(image, ref imageOut);
-        else if (image.DataFormat == CVDataFormat.CV_U64) StretchNearest<ulong>(image, ref imageOut);
-        else if (image.DataFormat == CVDataFormat.CV_S64) StretchNearest<long>(image, ref imageOut);
-        else if (image.DataFormat == CVDataFormat.CV_F32) StretchNearest<float>(image, ref imageOut);
-        else if (image.DataFormat == CVDataFormat.CV_F64) StretchNearest<double>(image, ref imageOut);
+        if (image.DataFormat == CVDataFormat.CV_U8) stretchNearest<byte>(image, ref imageOut);
+        else if (image.DataFormat == CVDataFormat.CV_S8) stretchNearest<sbyte>(image, ref imageOut);
+        else if (image.DataFormat == CVDataFormat.CV_U16) stretchNearest<ushort>(image, ref imageOut);
+        else if (image.DataFormat == CVDataFormat.CV_S16) stretchNearest<short>(image, ref imageOut);
+        else if (image.DataFormat == CVDataFormat.CV_U32) stretchNearest<uint>(image, ref imageOut);
+        else if (image.DataFormat == CVDataFormat.CV_S32) stretchNearest<int>(image, ref imageOut);
+        else if (image.DataFormat == CVDataFormat.CV_U64) stretchNearest<ulong>(image, ref imageOut);
+        else if (image.DataFormat == CVDataFormat.CV_S64) stretchNearest<long>(image, ref imageOut);
+        else if (image.DataFormat == CVDataFormat.CV_F32) stretchNearest<float>(image, ref imageOut);
+        else if (image.DataFormat == CVDataFormat.CV_F64) stretchNearest<double>(image, ref imageOut);
 
         return imageOut;
     }
 
     // Optimized
-    private static void CropNearest<T>(
+    private static void cropNearest<T>(
                 CVImage imageIn,
                 ref CVImage imageOut) where T : struct
     {
@@ -170,7 +170,7 @@ public static class CVResize
         }
     }
 
-    private static CVImage CropNearest<T>(
+    public static CVImage CropNearest<T>(
                 CVImage image,
                 int targetWidth,
                 int targetHeight,
@@ -178,16 +178,58 @@ public static class CVResize
     {
         CVImage imageOut = CVImage.Create(targetWidth, targetHeight, image.ColorFormat, image.DataFormat, image.ChannelFormat, defaultValue);
 
-        if (image.DataFormat == CVDataFormat.CV_U8) CropNearest<byte>(image, ref imageOut);
-        else if (image.DataFormat == CVDataFormat.CV_S8) CropNearest<sbyte>(image, ref imageOut);
-        else if (image.DataFormat == CVDataFormat.CV_U16) CropNearest<ushort>(image, ref imageOut);
-        else if (image.DataFormat == CVDataFormat.CV_S16) CropNearest<short>(image, ref imageOut);
-        else if (image.DataFormat == CVDataFormat.CV_U32) CropNearest<uint>(image, ref imageOut);
-        else if (image.DataFormat == CVDataFormat.CV_S32) CropNearest<int>(image, ref imageOut);
-        else if (image.DataFormat == CVDataFormat.CV_U64) CropNearest<ulong>(image, ref imageOut);
-        else if (image.DataFormat == CVDataFormat.CV_S64) CropNearest<long>(image, ref imageOut);
-        else if (image.DataFormat == CVDataFormat.CV_F32) CropNearest<float>(image, ref imageOut);
-        else if (image.DataFormat == CVDataFormat.CV_F64) CropNearest<double>(image, ref imageOut);
+        if (image.DataFormat == CVDataFormat.CV_U8) cropNearest<byte>(image, ref imageOut);
+        else if (image.DataFormat == CVDataFormat.CV_S8) cropNearest<sbyte>(image, ref imageOut);
+        else if (image.DataFormat == CVDataFormat.CV_U16) cropNearest<ushort>(image, ref imageOut);
+        else if (image.DataFormat == CVDataFormat.CV_S16) cropNearest<short>(image, ref imageOut);
+        else if (image.DataFormat == CVDataFormat.CV_U32) cropNearest<uint>(image, ref imageOut);
+        else if (image.DataFormat == CVDataFormat.CV_S32) cropNearest<int>(image, ref imageOut);
+        else if (image.DataFormat == CVDataFormat.CV_U64) cropNearest<ulong>(image, ref imageOut);
+        else if (image.DataFormat == CVDataFormat.CV_S64) cropNearest<long>(image, ref imageOut);
+        else if (image.DataFormat == CVDataFormat.CV_F32) cropNearest<float>(image, ref imageOut);
+        else if (image.DataFormat == CVDataFormat.CV_F64) cropNearest<double>(image, ref imageOut);
+
+        return imageOut;
+    }
+
+    public static CVImage StretchNearest(
+            CVImage image,
+            int targetWidth,
+            int targetHeight)
+    {
+        CVImage imageOut = CVImage.Create(targetWidth, targetHeight, image.ColorFormat, image.DataFormat, image.ChannelFormat);
+
+        if (image.DataFormat == CVDataFormat.CV_U8) stretchNearest<byte>(image, ref imageOut);
+        else if (image.DataFormat == CVDataFormat.CV_S8) stretchNearest<sbyte>(image, ref imageOut);
+        else if (image.DataFormat == CVDataFormat.CV_U16) stretchNearest<ushort>(image, ref imageOut);
+        else if (image.DataFormat == CVDataFormat.CV_S16) stretchNearest<short>(image, ref imageOut);
+        else if (image.DataFormat == CVDataFormat.CV_U32) stretchNearest<uint>(image, ref imageOut);
+        else if (image.DataFormat == CVDataFormat.CV_S32) stretchNearest<int>(image, ref imageOut);
+        else if (image.DataFormat == CVDataFormat.CV_U64) stretchNearest<ulong>(image, ref imageOut);
+        else if (image.DataFormat == CVDataFormat.CV_S64) stretchNearest<long>(image, ref imageOut);
+        else if (image.DataFormat == CVDataFormat.CV_F32) stretchNearest<float>(image, ref imageOut);
+        else if (image.DataFormat == CVDataFormat.CV_F64) stretchNearest<double>(image, ref imageOut);
+
+        return imageOut;
+    }
+
+    public static CVImage CropNearest(
+                CVImage image,
+                int targetWidth,
+                int targetHeight)
+    {
+        CVImage imageOut = CVImage.Create(targetWidth, targetHeight, image.ColorFormat, image.DataFormat, image.ChannelFormat);
+
+        if (image.DataFormat == CVDataFormat.CV_U8) cropNearest<byte>(image, ref imageOut);
+        else if (image.DataFormat == CVDataFormat.CV_S8) cropNearest<sbyte>(image, ref imageOut);
+        else if (image.DataFormat == CVDataFormat.CV_U16) cropNearest<ushort>(image, ref imageOut);
+        else if (image.DataFormat == CVDataFormat.CV_S16) cropNearest<short>(image, ref imageOut);
+        else if (image.DataFormat == CVDataFormat.CV_U32) cropNearest<uint>(image, ref imageOut);
+        else if (image.DataFormat == CVDataFormat.CV_S32) cropNearest<int>(image, ref imageOut);
+        else if (image.DataFormat == CVDataFormat.CV_U64) cropNearest<ulong>(image, ref imageOut);
+        else if (image.DataFormat == CVDataFormat.CV_S64) cropNearest<long>(image, ref imageOut);
+        else if (image.DataFormat == CVDataFormat.CV_F32) cropNearest<float>(image, ref imageOut);
+        else if (image.DataFormat == CVDataFormat.CV_F64) cropNearest<double>(image, ref imageOut);
 
         return imageOut;
     }
@@ -202,48 +244,6 @@ public static class CVResize
         else if (resizeMode == CV_ResizeMode.CV_CROP_NEAREST) return CropNearest(image, targetWidth, targetHeight, defaultValue);
 
         throw new Exception("Unknown Resize mode");
-    }
-
-    private static CVImage StretchNearest(
-            CVImage image,
-            int targetWidth,
-            int targetHeight)
-    {
-        CVImage imageOut = CVImage.Create(targetWidth, targetHeight, image.ColorFormat, image.DataFormat, image.ChannelFormat);
-
-        if (image.DataFormat == CVDataFormat.CV_U8) StretchNearest<byte>(image, ref imageOut);
-        else if (image.DataFormat == CVDataFormat.CV_S8) StretchNearest<sbyte>(image, ref imageOut);
-        else if (image.DataFormat == CVDataFormat.CV_U16) StretchNearest<ushort>(image, ref imageOut);
-        else if (image.DataFormat == CVDataFormat.CV_S16) StretchNearest<short>(image, ref imageOut);
-        else if (image.DataFormat == CVDataFormat.CV_U32) StretchNearest<uint>(image, ref imageOut);
-        else if (image.DataFormat == CVDataFormat.CV_S32) StretchNearest<int>(image, ref imageOut);
-        else if (image.DataFormat == CVDataFormat.CV_U64) StretchNearest<ulong>(image, ref imageOut);
-        else if (image.DataFormat == CVDataFormat.CV_S64) StretchNearest<long>(image, ref imageOut);
-        else if (image.DataFormat == CVDataFormat.CV_F32) StretchNearest<float>(image, ref imageOut);
-        else if (image.DataFormat == CVDataFormat.CV_F64) StretchNearest<double>(image, ref imageOut);
-
-        return imageOut;
-    }
-
-    private static CVImage CropNearest(
-                CVImage image,
-                int targetWidth,
-                int targetHeight)
-    {
-        CVImage imageOut = CVImage.Create(targetWidth, targetHeight, image.ColorFormat, image.DataFormat, image.ChannelFormat);
-
-        if (image.DataFormat == CVDataFormat.CV_U8) CropNearest<byte>(image, ref imageOut);
-        else if (image.DataFormat == CVDataFormat.CV_S8) CropNearest<sbyte>(image, ref imageOut);
-        else if (image.DataFormat == CVDataFormat.CV_U16) CropNearest<ushort>(image, ref imageOut);
-        else if (image.DataFormat == CVDataFormat.CV_S16) CropNearest<short>(image, ref imageOut);
-        else if (image.DataFormat == CVDataFormat.CV_U32) CropNearest<uint>(image, ref imageOut);
-        else if (image.DataFormat == CVDataFormat.CV_S32) CropNearest<int>(image, ref imageOut);
-        else if (image.DataFormat == CVDataFormat.CV_U64) CropNearest<ulong>(image, ref imageOut);
-        else if (image.DataFormat == CVDataFormat.CV_S64) CropNearest<long>(image, ref imageOut);
-        else if (image.DataFormat == CVDataFormat.CV_F32) CropNearest<float>(image, ref imageOut);
-        else if (image.DataFormat == CVDataFormat.CV_F64) CropNearest<double>(image, ref imageOut);
-
-        return imageOut;
     }
 
     public static CVImage ResizeImage(CVImage image,

@@ -429,27 +429,27 @@ public class CVImage
         return CreatePlanar(Width, Height, ColorFormat, DataFormat, ChannelFormat, buffer);
     }
 
-    public static CVImage operator +(int val, CVImage image) { return CVMath.Add(image, val); }
-    public static CVImage operator +(double val, CVImage image) { return CVMath.Add(image, val); }
-    public static CVImage operator +(CVImage image, int val) { return CVMath.Add(image, val); }
-    public static CVImage operator +(CVImage image, double val) { return CVMath.Add(image, val); }
-    public static CVImage operator +(CVImage image1, CVImage image2) { return CVMath.AddUnsafe(image1, image2); }
+    public static CVImage operator +(int val, CVImage image) { return CVAdd.Add(image, val); }
+    public static CVImage operator +(double val, CVImage image) { return CVAdd.Add(image, val); }
+    public static CVImage operator +(CVImage image, int val) { return CVAdd.Add(image, val); }
+    public static CVImage operator +(CVImage image, double val) { return CVAdd.Add(image, val); }
+    public static CVImage operator +(CVImage image1, CVImage image2) { return CVAdd.Add(image1, image2); }
 
-    public static CVImage operator -(int val, CVImage image) { return CVMath.Subtract(val, image); }
-    public static CVImage operator -(double val, CVImage image) { return CVMath.Subtract(val, image); }
-    public static CVImage operator -(CVImage image, int val) { return CVMath.Subtract(image, val); }
-    public static CVImage operator -(CVImage image, double val) { return CVMath.Subtract(image, val); }
-    public static CVImage operator -(CVImage image1, CVImage image2) { return CVMath.Subtract(image1, image2); }
+    // public static CVImage operator -(int val, CVImage image) { return CVSubtract.Subtract(val, image); }
+    // public static CVImage operator -(double val, CVImage image) { return CVSubtract.Subtract(val, image); }
+    public static CVImage operator -(CVImage image, int val) { return CVSubtract.Subtract(image, val); }
+    public static CVImage operator -(CVImage image, double val) { return CVSubtract.Subtract(image, val); }
+    public static CVImage operator -(CVImage image1, CVImage image2) { return CVSubtract.Subtract(image1, image2); }
 
-    public static CVImage operator *(int val, CVImage image) { return CVMath.Multiply(image, val); }
-    public static CVImage operator *(double val, CVImage image) { return CVMath.Multiply(image, val); }
-    public static CVImage operator *(CVImage image, int val) { return CVMath.Multiply(image, val); }
-    public static CVImage operator *(CVImage image, double val) { return CVMath.Multiply(image, val); }
-    public static CVImage operator *(CVImage image1, CVImage image2) { return CVMath.Multiply(image1, image2); }
+    public static CVImage operator *(int val, CVImage image) { return CVMultiply.Multiply(image, val); }
+    public static CVImage operator *(double val, CVImage image) { return CVMultiply.Multiply(image, val); }
+    public static CVImage operator *(CVImage image, int val) { return CVMultiply.Multiply(image, val); }
+    public static CVImage operator *(CVImage image, double val) { return CVMultiply.Multiply(image, val); }
+    public static CVImage operator *(CVImage image1, CVImage image2) { return CVMultiply.Multiply(image1, image2); }
 
-    public static CVImage operator /(int val, CVImage image) { return CVMath.Divide(val, image); }
-    public static CVImage operator /(double val, CVImage image) { return CVMath.Divide(val, image); }
-    public static CVImage operator /(CVImage image, int val) { return CVMath.Divide(image, val); }
-    public static CVImage operator /(CVImage image, double val) { return CVMath.Divide(image, val); }
-    public static CVImage operator /(CVImage image1, CVImage image2) { return CVMath.Divide(image1, image2); }
+    // public static CVImage operator /(int val, CVImage image) { return CVDivide.Divide(val, image); }
+    // public static CVImage operator /(double val, CVImage image) { return CVDivide.Divide(val, image); }
+    public static CVImage operator /(CVImage image, int val) { return CVDivide.Divide(image, val); }
+    public static CVImage operator /(CVImage image, double val) { return CVDivide.Divide(image, val); }
+    public static CVImage operator /(CVImage image1, CVImage image2) { return CVDivide.Divide(image1, image2); }
 }

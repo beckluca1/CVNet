@@ -9,25 +9,26 @@ public class ArucoTests
     public void TestGetMarker()
     {
         // Create white image and fill with marker like pixels
-        CVImage image = CVImage.Create<byte>(64, 64, CVColorFormat.CV_C1, CVDataFormat.CV_U8, CVChannelFormat.CV_R, 180);
+        CVImage image = CVImage.Create<uint>(256, 256, CVColorFormat.CV_C1, CVDataFormat.CV_U32, CVChannelFormat.CV_R, 120);
 
-        Span<byte> imageBuffer = image.BufferAs<byte>();
+        Span<uint> imageBuffer = image.BufferAs<uint>();
 
+        int size = 10;
         int markerSize = 8;
-        int boundary = 2;
-        int xOffset = 15;
-        int yOffset = 24;
-        int xSize = 4;
-        int ySize = 3;
+        int boundary = size;
+        int xOffset = boundary + 1;
+        int yOffset = boundary + 1;
+        int xSize = size;
+        int ySize = size;
 
-        byte[] markerPattern = [180, 180, 180, 180, 180, 180, 180, 180,
-                                180, 180, 255, 255, 180, 180, 180, 180,
-                                180, 180, 255, 180, 255, 180, 255, 180,
-                                180, 255, 180, 180, 255, 180, 180, 180,
-                                180, 180, 180, 180, 255, 255, 180, 180,
-                                180, 255, 180, 180, 255, 255, 180, 180,
-                                180, 255, 255, 255, 180, 255, 180, 180,
-                                180, 180, 180, 180, 180, 180, 180, 180 ];
+        byte[] markerPattern = [120, 120, 120, 120, 120, 120, 120, 120,
+                                120, 120, 255, 255, 120, 120, 120, 120,
+                                120, 120, 255, 120, 255, 120, 255, 120,
+                                120, 255, 120, 120, 255, 120, 120, 120,
+                                120, 120, 120, 120, 255, 255, 120, 120,
+                                120, 255, 120, 120, 255, 255, 120, 120,
+                                120, 255, 255, 255, 120, 255, 120, 120,
+                                120, 120, 120, 120, 120, 120, 120, 120 ];
 
         for (int i = 0; i < markerSize * xSize + 2 * boundary; i++)
             for (int j = 0; j < markerSize * ySize + 2 * boundary; j++)

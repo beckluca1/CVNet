@@ -85,16 +85,14 @@ public class CVAruco
 
     public static List<CVContour> GetMarker(CVImage image, int markerSize)
     {
-        CVImage gray = CVConvert.ToFormat(image, CVChannelFormat.CV_Grayscale);
-        CVImage thresh = CVProcessing.AdaptiveThresholdMean(gray, 7, 13);
+        CVImage gray = CVConvert.ConvertChannelFormat(image, CVChannelFormat.CV_Grayscale);
+        CVImage thresh = CVThreshold.AdaptiveThresholdMean(gray, 7, 13);
 
-        List<CVContour> contours = CVDetection.FindContours(thresh, 1);
+        List<CVContour> contours = CVContourTrace.TraceContours(thresh, 1);
         List<CVContour> checkedContours = CVDetection.ContourChecks(contours, image.Width, image.Height);
         List<CVContour> polygons = CVDetection.ApproximatePolygons(checkedContours, 0.01);
         List<CVContour> quads = CVDetection.QuadrilateralChecks(polygons, image.Width, image.Height);
         List<int> contourGroups = CVDetection.GroupContours(quads, image.Width, image.Height, markerSize);
-
-        if (quads.Count > 0) Console.WriteLine(quads.Count);
 
         List<CVContour> validContours = CVDetection.IdentifyContours(gray, quads, contourGroups, markerSize);
         for (int i = 0; i < validContours.Count; i++) Console.WriteLine($"Valid Contour {i}: {validContours[i].ID}");
@@ -102,47 +100,38 @@ public class CVAruco
         return validContours;
     }
 
-    public static bool IdentifyContour(CVImage image, CVContour contour, int markerSize)
+    private static bool identifyContour<T>(CVImage image, CVContour contour, int markerSize) where T : struct, INumber<T>
     {
         CVImage cellPixelRatio = CVDetection.ExtractPixelData(image, contour, markerSize);
         int size = cellPixelRatio.Width;
 
-        Span<byte> buffer = cellPixelRatio.BufferAs<byte>();
+        Span<T> buffer = cellPixelRatio.BufferAs<T>();
 
         int borderErrors = 0;
 
         for (int i = 0; i < size; i++)
         {
-            if (buffer[i + 0 * size] == 0) borderErrors++;
-            if (buffer[i + (size - 1) * size] == 0) borderErrors++;
+            if (buffer[i + 0 * size] == T.Zero) borderErrors++;
+            if (buffer[i + (size - 1) * size] == T.Zero) borderErrors++;
         }
 
         for (int i = 1; i < size - 1; i++)
         {
-            if (buffer[0 + i * size] == 0) borderErrors++;
-            if (buffer[(size - 1) + i * size] == 0) borderErrors++;
+            if (buffer[0 + i * size] == T.Zero) borderErrors++;
+            if (buffer[(size - 1) + i * size] == T.Zero) borderErrors++;
         }
 
         Console.WriteLine($"borderErrors: {borderErrors}");
-
-        for (int y = 0; y < size; y++)
-        {
-            for (int x = 0; x < size; x++)
-            {
-                Console.Write(buffer[x + y * size] == 0 ? "#" : ".");
-            }
-            Console.WriteLine();
-        }
 
         ulong[] values = new ulong[4];
         for (int y = 1; y < size - 1; y++)
         {
             for (int x = 1; x < size - 1; x++)
             {
-                ulong[] bits = [buffer[x + y * size] == 0 ? 1UL : 0UL,
-                               buffer[y + (size - 1 - x) * size] == 0 ? 1UL : 0UL,
-                               buffer[(size - 1 - x) + (size - 1 - y) * size] == 0 ? 1UL : 0UL,
-                               buffer[(size - 1 - y) + x * size] == 0 ? 1UL : 0UL];
+                ulong[] bits = [buffer[x + y * size] == T.Zero ? 1UL : 0UL,
+                               buffer[y + (size - 1 - x) * size] == T.Zero ? 1UL : 0UL,
+                               buffer[(size - 1 - x) + (size - 1 - y) * size] == T.Zero ? 1UL : 0UL,
+                               buffer[(size - 1 - y) + x * size] == T.Zero ? 1UL : 0UL];
 
                 for (int i = 0; i < values.Length; i++) values[i] = (values[i] << 1) | bits[i];
             }
@@ -170,5 +159,21 @@ public class CVAruco
 
         if (errors > 5) return false;
         return true;
+    }
+
+    public static bool IdentifyContour(CVImage image, CVContour contour, int markerSize)
+    {
+        if (image.DataFormat == CVDataFormat.CV_U8) return identifyContour<byte>(image, contour, markerSize);
+        else if (image.DataFormat == CVDataFormat.CV_S8) return identifyContour<sbyte>(image, contour, markerSize);
+        else if (image.DataFormat == CVDataFormat.CV_U16) return identifyContour<ushort>(image, contour, markerSize);
+        else if (image.DataFormat == CVDataFormat.CV_S16) return identifyContour<short>(image, contour, markerSize);
+        else if (image.DataFormat == CVDataFormat.CV_U32) return identifyContour<uint>(image, contour, markerSize);
+        else if (image.DataFormat == CVDataFormat.CV_S32) return identifyContour<int>(image, contour, markerSize);
+        else if (image.DataFormat == CVDataFormat.CV_U64) return identifyContour<ulong>(image, contour, markerSize);
+        else if (image.DataFormat == CVDataFormat.CV_S64) return identifyContour<long>(image, contour, markerSize);
+        else if (image.DataFormat == CVDataFormat.CV_F32) return identifyContour<float>(image, contour, markerSize);
+        else if (image.DataFormat == CVDataFormat.CV_F64) return identifyContour<double>(image, contour, markerSize);
+
+        return false;
     }
 }
