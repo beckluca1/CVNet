@@ -19,15 +19,6 @@ public enum CVDataFormat
     CV_F64,
 }
 
-public enum CVColorFormat
-{
-    CV_NONE,
-    CV_C1,
-    CV_C2,
-    CV_C3,
-    CV_C4,
-}
-
 public enum CVChannel
 {
     CV_NONE,
@@ -46,12 +37,18 @@ public enum CVChannel
     CV_A_ZERO,
     CV_A_ONE,
     CV_A_255,
+
+    // Transforms
+    CV_G_FROM_R,
+    CV_B_FROM_R,
+    CV_A_FROM_R,
 }
 
 public enum CVChannelFormat
 {
     CV_None,
     CV_Grayscale,
+    CV_RRR,
     CV_RRR255,
     CV_R,
     CV_RGB,
@@ -64,13 +61,33 @@ public enum CVChannelFormat
 
 public struct CVChannelFormats
 {
-    public CVChannel[] Channels = new CVChannel[] { CVChannel.CV_NONE };
+    public CVChannel[] Channels = [CVChannel.CV_NONE];
+
+    public CVChannelFormats()
+    {
+        Channels = [CVChannel.CV_NONE];
+    }
+
+    public CVChannelFormats(CVChannel[] channels)
+    {
+        if (channels == null) throw new Exception("Channels are NULL");
+
+        Channels = (CVChannel[])channels.Clone();
+    }
+
+    public CVChannelFormats Clone()
+    {
+        if (Channels == null) Console.WriteLine("Channels are NULL when Cloning");
+
+        return new CVChannelFormats(Channels);
+    }
 
     public CVChannelFormats(CVChannelFormat id)
     {
         if (id == CVChannelFormat.CV_None) Channels = [CVChannel.CV_NONE];
         else if (id == CVChannelFormat.CV_Grayscale) Channels = [CVChannel.CV_AVG_RGB];
-        else if (id == CVChannelFormat.CV_RRR255) Channels = [CVChannel.CV_R, CVChannel.CV_R, CVChannel.CV_R, CVChannel.CV_A_255];
+        else if (id == CVChannelFormat.CV_RRR) Channels = [CVChannel.CV_R, CVChannel.CV_G_FROM_R, CVChannel.CV_B_FROM_R];
+        else if (id == CVChannelFormat.CV_RRR255) Channels = [CVChannel.CV_R, CVChannel.CV_G_FROM_R, CVChannel.CV_B_FROM_R, CVChannel.CV_A_255];
         else if (id == CVChannelFormat.CV_R) Channels = [CVChannel.CV_R];
         else if (id == CVChannelFormat.CV_RGB) Channels = [CVChannel.CV_R, CVChannel.CV_G, CVChannel.CV_B];
         else if (id == CVChannelFormat.CV_RGBA) Channels = [CVChannel.CV_R, CVChannel.CV_G, CVChannel.CV_B, CVChannel.CV_A];
@@ -78,6 +95,8 @@ public struct CVChannelFormats
         else if (id == CVChannelFormat.CV_BGR) Channels = [CVChannel.CV_B, CVChannel.CV_G, CVChannel.CV_R];
         else if (id == CVChannelFormat.CV_BGRA) Channels = [CVChannel.CV_B, CVChannel.CV_G, CVChannel.CV_R, CVChannel.CV_A];
         else if (id == CVChannelFormat.CV_ABGR) Channels = [CVChannel.CV_A, CVChannel.CV_B, CVChannel.CV_G, CVChannel.CV_R];
+
+        if (Channels == null) Console.WriteLine("Channels are NULL when CVChannelFormats");
     }
 }
 
@@ -102,40 +121,38 @@ public class CVImage
     public int Channels;
     public int Bytes;
 
-    public CVColorFormat ColorFormat;
     public CVDataFormat DataFormat;
-    public CVChannelFormat ChannelFormat;
     public CVChannelFormats ChannelFormats;
 
     public int bufferSize;
     public byte[] buffer;
 
-    private CVImage(int width, int height, CVColorFormat colorFormat, CVDataFormat dataFormat, CVChannelFormat channelFormat)
+    private CVImage(int width, int height, CVDataFormat dataFormat, CVChannelFormats channelFormats)
     {
         Width = width;
         Height = height;
 
-        Channels = (int)colorFormat;
+        DataFormat = dataFormat;
+        // Clone here because ChannelFormats contains array
+        if (channelFormats.Channels == null) Console.WriteLine("Channels are NULL when CVImage");
 
-        if (dataFormat == CVDataFormat.CV_NONE) Bytes = 0;
-        else if (dataFormat == CVDataFormat.CV_U8) Bytes = 1;
-        else if (dataFormat == CVDataFormat.CV_S8) Bytes = 1;
-        else if (dataFormat == CVDataFormat.CV_U16) Bytes = 2;
-        else if (dataFormat == CVDataFormat.CV_S16) Bytes = 2;
-        else if (dataFormat == CVDataFormat.CV_U32) Bytes = 4;
-        else if (dataFormat == CVDataFormat.CV_S32) Bytes = 4;
-        else if (dataFormat == CVDataFormat.CV_U64) Bytes = 8;
-        else if (dataFormat == CVDataFormat.CV_S64) Bytes = 8;
-        else if (dataFormat == CVDataFormat.CV_F32) Bytes = 4;
-        else if (dataFormat == CVDataFormat.CV_F64) Bytes = 8;
+        ChannelFormats = channelFormats.Clone();
+
+        if (DataFormat == CVDataFormat.CV_NONE) Bytes = 0;
+        else if (DataFormat == CVDataFormat.CV_U8) Bytes = 1;
+        else if (DataFormat == CVDataFormat.CV_S8) Bytes = 1;
+        else if (DataFormat == CVDataFormat.CV_U16) Bytes = 2;
+        else if (DataFormat == CVDataFormat.CV_S16) Bytes = 2;
+        else if (DataFormat == CVDataFormat.CV_U32) Bytes = 4;
+        else if (DataFormat == CVDataFormat.CV_S32) Bytes = 4;
+        else if (DataFormat == CVDataFormat.CV_U64) Bytes = 8;
+        else if (DataFormat == CVDataFormat.CV_S64) Bytes = 8;
+        else if (DataFormat == CVDataFormat.CV_F32) Bytes = 4;
+        else if (DataFormat == CVDataFormat.CV_F64) Bytes = 8;
+        Channels = ChannelFormats.Channels.Length;
 
         WidthHeight = Width * Height;
         ChannelsWidth = Channels * Width;
-
-        ColorFormat = colorFormat;
-        DataFormat = dataFormat;
-        ChannelFormat = channelFormat;
-        ChannelFormats = new CVChannelFormats(ChannelFormat);
 
         bufferSize = Width * Height * Channels * Bytes;
         buffer = new byte[bufferSize];
@@ -144,6 +161,11 @@ public class CVImage
     public Span<T> BufferAs<T>() where T : struct
     {
         return MemoryMarshal.Cast<byte, T>(MemoryMarshal.AsBytes(buffer.AsSpan()));
+    }
+
+    public Span<T> ChannelAs<T>(int channel) where T : struct
+    {
+        return BufferAs<T>().Slice(channel * WidthHeight, WidthHeight);
     }
 
     private void InitPlanar<T>(T[] data)
@@ -241,43 +263,73 @@ public class CVImage
         bufferSpan.Fill(data);
     }
 
-    public static CVImage Create(int width = 0, int height = 0, CVColorFormat colorFormat = CVColorFormat.CV_NONE, CVDataFormat dataFormat = CVDataFormat.CV_NONE, CVChannelFormat channelFormat = CVChannelFormat.CV_None)
+    public static CVImage Create(int width = 0, int height = 0, CVDataFormat dataFormat = CVDataFormat.CV_NONE, CVChannelFormat channelFormat = CVChannelFormat.CV_None)
     {
-        CVImage image = new CVImage(width, height, colorFormat, dataFormat, channelFormat);
+        CVChannelFormats channelFormats = new CVChannelFormats(channelFormat);
+        if (channelFormats.Channels == null) Console.WriteLine("Channels are NULL when Create from Enum");
+
+        return Create(width, height, dataFormat, channelFormats);
+    }
+
+    public static CVImage Create(int width, int height, CVDataFormat dataFormat, CVChannelFormats channelFormats)
+    {
+        if (channelFormats.Channels == null) Console.WriteLine("Channels are NULL when Create");
+
+        CVImage image = new CVImage(width, height, dataFormat, channelFormats);
 
         return image;
     }
 
-    public static CVImage Create<T>(int width, int height, CVColorFormat colorFormat, CVDataFormat dataFormat, CVChannelFormat channelFormat, T data) where T : struct
+    public static CVImage Create<T>(int width, int height, CVDataFormat dataFormat, CVChannelFormat channelFormat, T data) where T : struct
     {
-        CVImage image = new CVImage(width, height, colorFormat, dataFormat, channelFormat);
+        return Create<T>(width, height, dataFormat, new CVChannelFormats(channelFormat), data);
+    }
+
+    public static CVImage Create<T>(int width, int height, CVDataFormat dataFormat, CVChannelFormats channelFormats, T data) where T : struct
+    {
+        CVImage image = new CVImage(width, height, dataFormat, channelFormats);
 
         image.InitSafe(data);
 
         return image;
     }
 
-    public static CVImage Create<T>(int width, int height, CVColorFormat colorFormat, CVDataFormat dataFormat, CVChannelFormat channelFormat, T[] data) where T : struct
+    public static CVImage Create<T>(int width, int height, CVDataFormat dataFormat, CVChannelFormat channelFormat, T[] data) where T : struct
     {
-        CVImage image = new CVImage(width, height, colorFormat, dataFormat, channelFormat);
+        return Create<T>(width, height, dataFormat, new CVChannelFormats(channelFormat), data);
+    }
+
+    public static CVImage Create<T>(int width, int height, CVDataFormat dataFormat, CVChannelFormats channelFormats, T[] data) where T : struct
+    {
+        CVImage image = new CVImage(width, height, dataFormat, channelFormats);
 
         image.InitSafe(data);
 
         return image;
     }
 
-    public static CVImage CreatePlanar<T>(int width, int height, CVColorFormat colorFormat, CVDataFormat dataFormat, CVChannelFormat channelFormat, T[] data) where T : struct
+    public static CVImage CreatePlanar<T>(int width, int height, CVDataFormat dataFormat, CVChannelFormat channelFormat, T[] data) where T : struct
     {
-        CVImage image = new CVImage(width, height, colorFormat, dataFormat, channelFormat);
+        return CreatePlanar<T>(width, height, dataFormat, new CVChannelFormats(channelFormat), data);
+    }
+
+    public static CVImage CreatePlanar<T>(int width, int height, CVDataFormat dataFormat, CVChannelFormats channelFormats, T[] data) where T : struct
+    {
+        CVImage image = new CVImage(width, height, dataFormat, channelFormats);
 
         image.InitPlanar(data);
 
         return image;
     }
 
-    public static CVImage CreateInterleaved<T>(int width, int height, CVColorFormat colorFormat, CVDataFormat dataFormat, CVChannelFormat channelFormat, T[] data) where T : struct
+    public static CVImage CreateInterleaved<T>(int width, int height, CVDataFormat dataFormat, CVChannelFormat channelFormat, T[] data) where T : struct
     {
-        CVImage image = new CVImage(width, height, colorFormat, dataFormat, channelFormat);
+        return CreateInterleaved<T>(width, height, dataFormat, new CVChannelFormats(channelFormat), data);
+    }
+
+    public static CVImage CreateInterleaved<T>(int width, int height, CVDataFormat dataFormat, CVChannelFormats channelFormats, T[] data) where T : struct
+    {
+        CVImage image = new CVImage(width, height, dataFormat, channelFormats);
 
         image.InitInterleaved(data);
 
@@ -334,9 +386,14 @@ public class CVImage
         return bufferOut;
     }
 
-    public static CVImage CreateSumMask(int width = 0, int height = 0, CVColorFormat colorFormat = CVColorFormat.CV_NONE, CVDataFormat dataFormat = CVDataFormat.CV_NONE, CVChannelFormat channelFormat = CVChannelFormat.CV_None)
+    public static CVImage CreateSumMask(int width = 0, int height = 0, CVDataFormat dataFormat = CVDataFormat.CV_NONE, CVChannelFormat channelFormat = CVChannelFormat.CV_None)
     {
-        CVImage image = Create(width, height, colorFormat, dataFormat, channelFormat);
+        return CreateSumMask(width, height, dataFormat, new CVChannelFormats(channelFormat));
+    }
+
+    public static CVImage CreateSumMask(int width, int height, CVDataFormat dataFormat, CVChannelFormats channelFormats)
+    {
+        CVImage image = Create(width, height, dataFormat, channelFormats);
 
         if (image.DataFormat == CVDataFormat.CV_U8) image.InitUnsafe<byte>(1);
         else if (image.DataFormat == CVDataFormat.CV_S8) image.InitUnsafe<sbyte>(1);
@@ -406,9 +463,14 @@ public class CVImage
         }
     }
 
-    public static CVImage CreateGaussianMask(int width = 0, int height = 0, CVColorFormat colorFormat = CVColorFormat.CV_NONE, CVDataFormat dataFormat = CVDataFormat.CV_NONE, CVChannelFormat channelFormat = CVChannelFormat.CV_None)
+    public static CVImage CreateGaussianMask(int width = 0, int height = 0, CVDataFormat dataFormat = CVDataFormat.CV_NONE, CVChannelFormat channelFormat = CVChannelFormat.CV_None)
     {
-        CVImage image = Create(width, height, colorFormat, dataFormat, channelFormat);
+        return CreateGaussianMask(width, height, dataFormat, new CVChannelFormats(channelFormat));
+    }
+
+    public static CVImage CreateGaussianMask(int width, int height, CVDataFormat dataFormat, CVChannelFormats channelFormats)
+    {
+        CVImage image = Create(width, height, dataFormat, channelFormats);
 
         if (image.DataFormat == CVDataFormat.CV_U8) SetGaussianMask<byte>(ref image);
         else if (image.DataFormat == CVDataFormat.CV_S8) SetGaussianMask<sbyte>(ref image);
@@ -426,7 +488,7 @@ public class CVImage
 
     public CVImage Clone()
     {
-        return CreatePlanar(Width, Height, ColorFormat, DataFormat, ChannelFormat, buffer);
+        return CreatePlanar(Width, Height, DataFormat, ChannelFormats, buffer);
     }
 
     public static CVImage operator +(int val, CVImage image) { return CVAdd.Add(image, val); }

@@ -44,7 +44,7 @@ public static class CVResize
             CVImage image,
             T[] defaultValue) where T : struct
     {
-        CVImage imageOut = CVImage.Create(image.Width / 2, image.Height / 2, image.ColorFormat, image.DataFormat, image.ChannelFormat, defaultValue);
+        CVImage imageOut = CVImage.Create(image.Width / 2, image.Height / 2, image.DataFormat, image.ChannelFormats, defaultValue);
 
         if (image.DataFormat == CVDataFormat.CV_U8) half<byte>(image, ref imageOut);
         else if (image.DataFormat == CVDataFormat.CV_S8) half<sbyte>(image, ref imageOut);
@@ -114,7 +114,7 @@ public static class CVResize
             int targetHeight,
             T[] defaultValue) where T : struct
     {
-        CVImage imageOut = CVImage.Create(targetWidth, targetHeight, image.ColorFormat, image.DataFormat, image.ChannelFormat, defaultValue);
+        CVImage imageOut = CVImage.Create(targetWidth, targetHeight, image.DataFormat, image.ChannelFormats, defaultValue);
 
         if (image.DataFormat == CVDataFormat.CV_U8) stretchNearest<byte>(image, ref imageOut);
         else if (image.DataFormat == CVDataFormat.CV_S8) stretchNearest<sbyte>(image, ref imageOut);
@@ -176,7 +176,7 @@ public static class CVResize
                 int targetHeight,
                 T[] defaultValue) where T : struct
     {
-        CVImage imageOut = CVImage.Create(targetWidth, targetHeight, image.ColorFormat, image.DataFormat, image.ChannelFormat, defaultValue);
+        CVImage imageOut = CVImage.Create(targetWidth, targetHeight, image.DataFormat, image.ChannelFormats, defaultValue);
 
         if (image.DataFormat == CVDataFormat.CV_U8) cropNearest<byte>(image, ref imageOut);
         else if (image.DataFormat == CVDataFormat.CV_S8) cropNearest<sbyte>(image, ref imageOut);
@@ -197,7 +197,7 @@ public static class CVResize
             int targetWidth,
             int targetHeight)
     {
-        CVImage imageOut = CVImage.Create(targetWidth, targetHeight, image.ColorFormat, image.DataFormat, image.ChannelFormat);
+        CVImage imageOut = CVImage.Create(targetWidth, targetHeight, image.DataFormat, image.ChannelFormats);
 
         if (image.DataFormat == CVDataFormat.CV_U8) stretchNearest<byte>(image, ref imageOut);
         else if (image.DataFormat == CVDataFormat.CV_S8) stretchNearest<sbyte>(image, ref imageOut);
@@ -218,7 +218,7 @@ public static class CVResize
                 int targetWidth,
                 int targetHeight)
     {
-        CVImage imageOut = CVImage.Create(targetWidth, targetHeight, image.ColorFormat, image.DataFormat, image.ChannelFormat);
+        CVImage imageOut = CVImage.Create(targetWidth, targetHeight, image.DataFormat, image.ChannelFormats);
 
         if (image.DataFormat == CVDataFormat.CV_U8) cropNearest<byte>(image, ref imageOut);
         else if (image.DataFormat == CVDataFormat.CV_S8) cropNearest<sbyte>(image, ref imageOut);

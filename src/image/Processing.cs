@@ -53,7 +53,7 @@ public class CVProcessing
     {
         // Integral image can be at max width times height bigger
         CVImage imageC = CVConvert.ConvertDataFormatFactor(image, image.Width * image.Height);
-        CVImage outImage = CVImage.Create(imageC.Width + 1, imageC.Height + 1, imageC.ColorFormat, imageC.DataFormat, imageC.ChannelFormat);
+        CVImage outImage = CVImage.Create(imageC.Width + 1, imageC.Height + 1, imageC.DataFormat, imageC.ChannelFormats);
 
         if (imageC.DataFormat == CVDataFormat.CV_U8) IntegralImage<byte>(imageC, ref outImage);
         else if (imageC.DataFormat == CVDataFormat.CV_S8) IntegralImage<sbyte>(imageC, ref outImage);
@@ -135,7 +135,7 @@ public class CVProcessing
     public static CVImage SumWindow(CVImage image, int size)
     {
         CVImage integralImage = IntegralImage(image);
-        CVImage outImage = CVImage.Create(image.Width, image.Height, integralImage.ColorFormat, integralImage.DataFormat, integralImage.ChannelFormat);
+        CVImage outImage = CVImage.Create(image.Width, image.Height, integralImage.DataFormat, integralImage.ChannelFormats);
 
         if (integralImage.DataFormat == CVDataFormat.CV_U8) SumWindow<byte>(integralImage, size, ref outImage);
         else if (integralImage.DataFormat == CVDataFormat.CV_S8) SumWindow<sbyte>(integralImage, size, ref outImage);
@@ -394,7 +394,7 @@ public class CVProcessing
     {
         // Average Window requires floating point number
         CVImage integralImage = IntegralImage(image);
-        CVImage outImage = CVImage.Create(width, height, integralImage.ColorFormat, integralImage.DataFormat, integralImage.ChannelFormat);
+        CVImage outImage = CVImage.Create(width, height, integralImage.DataFormat, integralImage.ChannelFormats);
 
         if (integralImage.DataFormat == CVDataFormat.CV_U8) SumWindowResample<byte>(integralImage, ref outImage);
         else if (integralImage.DataFormat == CVDataFormat.CV_S8) SumWindowResample<sbyte>(integralImage, ref outImage);
@@ -436,7 +436,7 @@ public class CVProcessing
     private static void normalize<T>(CVImage image, ref CVImage outImage) where T : struct, INumber<T>
     {
         T min = MinValue<T>(image);
-        T max = MinValue<T>(image);
+        T max = MaxValue<T>(image);
         T range = max - min;
 
         outImage = CVSubtract.Subtract(image, min);
@@ -447,7 +447,7 @@ public class CVProcessing
     {
         // Normalization requires floating point image
         CVImage imageC = CVConvert.ConvertDataFormatToFloat(image);
-        CVImage outImage = CVImage.Create(imageC.Width, imageC.Height, imageC.ColorFormat, imageC.DataFormat, imageC.ChannelFormat);
+        CVImage outImage = CVImage.Create(imageC.Width, imageC.Height, imageC.DataFormat, imageC.ChannelFormats);
 
         if (imageC.DataFormat == CVDataFormat.CV_U8) normalize<byte>(imageC, ref outImage);
         else if (imageC.DataFormat == CVDataFormat.CV_S8) normalize<sbyte>(imageC, ref outImage);

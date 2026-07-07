@@ -83,7 +83,7 @@ public class CVThreshold
 
     public static CVImage OtsuThreshold(CVImage image1, int bucketCount)
     {
-        CVImage outImage = CVImage.Create(image1.Width, image1.Height, image1.ColorFormat, image1.DataFormat, image1.ChannelFormat);
+        CVImage outImage = CVImage.Create(image1.Width, image1.Height, image1.DataFormat, image1.ChannelFormats);
 
         if (image1.DataFormat == CVDataFormat.CV_U8) otsuThreshold<byte>(image1, bucketCount, ref outImage);
         else if (image1.DataFormat == CVDataFormat.CV_S8) otsuThreshold<sbyte>(image1, bucketCount, ref outImage);

@@ -14,8 +14,8 @@ public class CVBlur
 
     public static CVImage GaussianBlur(CVImage image, int n)
     {
-        CVImage blurMaskX = CVImage.CreateGaussianMask(n, 1, image.ColorFormat, image.DataFormat, image.ChannelFormat);
-        CVImage blurMaskY = CVImage.CreateGaussianMask(1, n, image.ColorFormat, image.DataFormat, image.ChannelFormat);
+        CVImage blurMaskX = CVImage.CreateGaussianMask(n, 1, image.DataFormat, image.ChannelFormats);
+        CVImage blurMaskY = CVImage.CreateGaussianMask(1, n, image.DataFormat, image.ChannelFormats);
 
         CVImage imageOut = CVConvolution.ConvolutionX(image, blurMaskX);
         imageOut = CVConvolution.ConvolutionY(imageOut, blurMaskY);

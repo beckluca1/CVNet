@@ -197,7 +197,7 @@ public class CVConvolution
 
     public static CVImage ConvolutionX(CVImage image1, CVImage image2)
     {
-        CVImage outImage = CVImage.Create(image1.Width, image1.Height, image1.ColorFormat, image1.DataFormat, image1.ChannelFormat);
+        CVImage outImage = CVImage.Create(image1.Width, image1.Height, image1.DataFormat, image1.ChannelFormats);
 
         if (image1.DataFormat == CVDataFormat.CV_U8) convolutionX<byte>(image1, image2, ref outImage);
         else if (image1.DataFormat == CVDataFormat.CV_S8) convolutionX<sbyte>(image1, image2, ref outImage);
@@ -215,7 +215,7 @@ public class CVConvolution
 
     public static CVImage ConvolutionY(CVImage image1, CVImage image2)
     {
-        CVImage outImage = CVImage.Create(image1.Width, image1.Height, image1.ColorFormat, image1.DataFormat, image1.ChannelFormat);
+        CVImage outImage = CVImage.Create(image1.Width, image1.Height, image1.DataFormat, image1.ChannelFormats);
 
         if (image1.DataFormat == CVDataFormat.CV_U8) convolutionY<byte>(image1, image2, ref outImage);
         else if (image1.DataFormat == CVDataFormat.CV_S8) convolutionY<sbyte>(image1, image2, ref outImage);
@@ -233,7 +233,7 @@ public class CVConvolution
 
     public static CVImage Convolution2D(CVImage image1, CVImage image2)
     {
-        CVImage outImage = CVImage.Create(image1.Width, image1.Height, image1.ColorFormat, image1.DataFormat, image1.ChannelFormat);
+        CVImage outImage = CVImage.Create(image1.Width, image1.Height, image1.DataFormat, image1.ChannelFormats);
 
         if (image1.DataFormat == CVDataFormat.CV_U8) convolution2D<byte>(image1, image2, ref outImage);
         else if (image1.DataFormat == CVDataFormat.CV_S8) convolution2D<sbyte>(image1, image2, ref outImage);

@@ -9,7 +9,7 @@ public class ArucoTests
     public void TestGetMarker()
     {
         // Create white image and fill with marker like pixels
-        CVImage image = CVImage.Create<uint>(256, 256, CVColorFormat.CV_C1, CVDataFormat.CV_U32, CVChannelFormat.CV_R, 120);
+        CVImage image = CVImage.Create<uint>(256, 256, CVDataFormat.CV_U32, CVChannelFormat.CV_R, 120);
 
         Span<uint> imageBuffer = image.BufferAs<uint>();
 

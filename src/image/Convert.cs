@@ -98,9 +98,9 @@ public class CVConvert
 
     public static CVImage ConvertDataFormat(CVImage image, CVDataFormat dataFormat)
     {
-        CVImage imageOut = CVImage.Create(image.Width, image.Height, image.ColorFormat, dataFormat, image.ChannelFormat);
+        CVImage imageOut = CVImage.Create(image.Width, image.Height, dataFormat, image.ChannelFormats);
 
-        if (dataFormat == image.DataFormat) imageOut = image;
+        if (dataFormat == image.DataFormat) imageOut = image.Clone();
 
         if (image.DataFormat == CVDataFormat.CV_U8) convertDataFormat<byte>(image, imageOut);
         else if (image.DataFormat == CVDataFormat.CV_S8) convertDataFormat<sbyte>(image, imageOut);
@@ -287,15 +287,47 @@ public class CVConvert
         else if (image.DataFormat == CVDataFormat.CV_F64) fillChannel<double, T>(image, channel, value);
     }
 
-    public static CVImage ConvertColorFormat(CVImage image, int[] inChannels)
+    private static void replacePlaceholderChannels(ref CVImage image)
     {
-        CVColorFormat format = (CVColorFormat)inChannels.Length;
-
-        CVImage outImage = CVImage.Create(image.Width, image.Height, format, image.DataFormat, image.ChannelFormat);
-
-        for (int i = 0; i < inChannels.Length; i++)
+        for (int i = 0; i < image.ChannelFormats.Channels.Length; i++)
         {
-            CopyChannel(image, outImage, inChannels[i], i);
+            if (image.ChannelFormats.Channels[i] >= CVChannel.CV_AVG_RGB && image.ChannelFormats.Channels[i] <= CVChannel.CV_AVG_RGBA)
+                image.ChannelFormats.Channels[i] = CVChannel.CV_R;
+            else if (image.ChannelFormats.Channels[i] >= CVChannel.CV_A_ZERO && image.ChannelFormats.Channels[i] <= CVChannel.CV_A_255)
+                image.ChannelFormats.Channels[i] = CVChannel.CV_A;
+            else if (image.ChannelFormats.Channels[i] == CVChannel.CV_G_FROM_R)
+                image.ChannelFormats.Channels[i] = CVChannel.CV_G;
+            else if (image.ChannelFormats.Channels[i] == CVChannel.CV_B_FROM_R)
+                image.ChannelFormats.Channels[i] = CVChannel.CV_B;
+            else if (image.ChannelFormats.Channels[i] == CVChannel.CV_A_FROM_R)
+                image.ChannelFormats.Channels[i] = CVChannel.CV_A;
+        }
+    }
+
+    public static CVImage ExtractChannel(CVImage image, CVChannel channel)
+    {
+        return ExtractChannels(image, new CVChannelFormats([channel]));
+    }
+
+    public static CVImage ExtractChannels(CVImage image, CVChannelFormat channelFormat)
+    {
+        return ExtractChannels(image, new CVChannelFormats(channelFormat));
+    }
+
+    public static CVImage ExtractChannels(CVImage image, CVChannelFormats channelFormats)
+    {
+        CVImage outImage = CVImage.Create(image.Width, image.Height, image.DataFormat, channelFormats);
+
+        for (int i = 0; i < outImage.ChannelFormats.Channels.Length; i++)
+        {
+            for (int j = 0; j < image.ChannelFormats.Channels.Length; j++)
+            {
+                if (outImage.ChannelFormats.Channels[i] == image.ChannelFormats.Channels[j])
+                {
+                    CopyChannel(image, outImage, j, i);
+                    break;
+                }
+            }
         }
 
         return outImage;
@@ -303,8 +335,8 @@ public class CVConvert
 
     public static CVImage AverageChannels(CVImage image, CVChannelFormat channelFormat)
     {
-        // Expand so sum doesnt fail
-        // Max value can be max three times the input
+        // Expand so sum doesnt overflow
+        // Max value can be max n times the input
         CVImage expanded = ConvertDataFormatFactor(image, image.Channels);
 
         CVChannelFormats channelFormats = new CVChannelFormats(channelFormat);
@@ -313,24 +345,14 @@ public class CVConvert
         {
             if (uniqueChannels.ContainsKey(channelFormats.Channels[i])) continue;
 
-            for (int j = 0; j < expanded.ChannelFormats.Channels.Length; j++)
-            {
-                if (channelFormats.Channels[i] == expanded.ChannelFormats.Channels[j])
-                {
-                    uniqueChannels.Add(channelFormats.Channels[i], ConvertColorFormat(expanded, [j]));
-                    break;
-                }
-            }
+            uniqueChannels.Add(channelFormats.Channels[i], ExtractChannel(expanded, channelFormats.Channels[i]));
         }
 
         if (uniqueChannels.Count == 0) throw new Exception("No RGB components found");
 
         CVImage sum = uniqueChannels.Values.ElementAt(0);
-        sum.ChannelFormat = CVChannelFormat.CV_R;
         for (int i = 1; i < uniqueChannels.Count; i++)
-        {
             sum = sum + uniqueChannels.Values.ElementAt(i);
-        }
         sum = CVDivide.Divide(sum, uniqueChannels.Count);
 
         //Recast to original type
@@ -341,31 +363,26 @@ public class CVConvert
 
     private static void convertChannelFormat<T>(CVImage image, ref CVImage imageOut) where T : struct, INumber<T>
     {
-        int[] requestedChannels = new int[imageOut.ChannelFormats.Channels.Length];
-        for (int i = 0; i < imageOut.ChannelFormats.Channels.Length; i++)
-            for (int j = 0; j < image.ChannelFormats.Channels.Length; j++)
-            {
-                if (imageOut.ChannelFormats.Channels[i] == image.ChannelFormats.Channels[j])
-                {
-                    requestedChannels[i] = j;
-                    break;
-                }
-            }
-
-        imageOut = ConvertColorFormat(image, requestedChannels);
+        imageOut = ExtractChannels(image, imageOut.ChannelFormats);
 
         for (int i = 0; i < imageOut.ChannelFormats.Channels.Length; i++)
         {
             if (imageOut.ChannelFormats.Channels[i] == CVChannel.CV_AVG_RGB)
             {
                 CVImage average = AverageChannels(image, CVChannelFormat.CV_RGB);
-
                 CopyChannel(average, imageOut, 0, i);
             }
             else if (imageOut.ChannelFormats.Channels[i] == CVChannel.CV_AVG_RGBA)
             {
                 CVImage average = AverageChannels(image, CVChannelFormat.CV_RGBA);
                 CopyChannel(average, imageOut, 0, i);
+            }
+            else if (imageOut.ChannelFormats.Channels[i] == CVChannel.CV_G_FROM_R ||
+                    imageOut.ChannelFormats.Channels[i] == CVChannel.CV_B_FROM_R ||
+                    imageOut.ChannelFormats.Channels[i] == CVChannel.CV_A_FROM_R)
+            {
+                CVImage rChannel = ExtractChannel(image, CVChannel.CV_R);
+                CopyChannel(rChannel, imageOut, 0, i);
             }
             else if (imageOut.ChannelFormats.Channels[i] == CVChannel.CV_A_ZERO)
                 FillChannel(imageOut, i, 0);
@@ -376,18 +393,12 @@ public class CVConvert
         }
 
         // Replace Placeholder Channel Types
-        for (int i = 0; i < imageOut.ChannelFormats.Channels.Length; i++)
-        {
-            if (imageOut.ChannelFormats.Channels[i] >= CVChannel.CV_AVG_RGB && imageOut.ChannelFormats.Channels[i] <= CVChannel.CV_AVG_RGBA)
-                imageOut.ChannelFormats.Channels[i] = CVChannel.CV_R;
-            else if (imageOut.ChannelFormats.Channels[i] >= CVChannel.CV_A_ZERO && imageOut.ChannelFormats.Channels[i] <= CVChannel.CV_A_255)
-                imageOut.ChannelFormats.Channels[i] = CVChannel.CV_A;
-        }
+        replacePlaceholderChannels(ref imageOut);
     }
 
     public static CVImage ConvertChannelFormat(CVImage image, CVChannelFormat channelFormat)
     {
-        CVImage imageOut = CVImage.Create(image.Width, image.Height, image.ColorFormat, image.DataFormat, channelFormat);
+        CVImage imageOut = CVImage.Create(image.Width, image.Height, image.DataFormat, channelFormat);
 
         if (image.DataFormat == CVDataFormat.CV_U8) convertChannelFormat<byte>(image, ref imageOut);
         else if (image.DataFormat == CVDataFormat.CV_S8) convertChannelFormat<sbyte>(image, ref imageOut);

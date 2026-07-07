@@ -12,8 +12,8 @@ public class CVDebug
         Console.Write($"Channels: {image.Channels} ");
         Console.Write($"Bytes: {image.Bytes} ");
         Console.Write($"DataFormat: {image.DataFormat} ");
-        Console.Write($"ColorFormat: {image.ColorFormat} ");
-        Console.Write($"ChannelFormat: {image.ChannelFormat} ");
+        for (int i = 0; i < image.ChannelFormats.Channels.Length; i++)
+            Console.Write($"Channel [{i}]: {image.ChannelFormats.Channels[i]} ");
         Console.WriteLine();
     }
 

@@ -37,7 +37,7 @@ public static class CVSquareRoot
 
     public static CVImage SquareRoot(CVImage image)
     {
-        CVImage outImage = CVImage.Create(image.Width, image.Height, image.ColorFormat, image.DataFormat, image.ChannelFormat);
+        CVImage outImage = CVImage.Create(image.Width, image.Height, image.DataFormat, image.ChannelFormats);
 
         if (image.DataFormat == CVDataFormat.CV_U8) SquareRoot<byte>(image, ref outImage);
         else if (image.DataFormat == CVDataFormat.CV_S8) SquareRoot<sbyte>(image, ref outImage);

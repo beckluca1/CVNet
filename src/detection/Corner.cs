@@ -4,6 +4,7 @@ using VectorD = MathNet.Numerics.LinearAlgebra.Vector<double>;
 using MatrixD = MathNet.Numerics.LinearAlgebra.Matrix<double>;
 using DenseVectorD = MathNet.Numerics.LinearAlgebra.Double.DenseVector;
 using System.Numerics;
+using System.Diagnostics;
 
 public class CVCornerDetector
 {
@@ -47,8 +48,8 @@ public class CVCornerDetector
     {
         // Derivative requires signed image and could be twice as large
         CVImage imageC = CVConvert.ConvertDataFormatToSigned(image);
-        imageC = CVConvert.ConvertDataFormatFactor(image, 2);
-        CVImage outImage = CVImage.Create(imageC.Width, imageC.Height, imageC.ColorFormat, imageC.DataFormat, imageC.ChannelFormat);
+        imageC = CVConvert.ConvertDataFormatFactor(imageC, 4);
+        CVImage outImage = CVImage.Create(imageC.Width, imageC.Height, imageC.DataFormat, imageC.ChannelFormats);
 
         if (imageC.DataFormat == CVDataFormat.CV_U8) DerivativeX<byte>(imageC, ref outImage);
         else if (imageC.DataFormat == CVDataFormat.CV_S8) DerivativeX<sbyte>(imageC, ref outImage);
@@ -104,8 +105,8 @@ public class CVCornerDetector
     {
         // Derivative requires signed image
         CVImage imageC = CVConvert.ConvertDataFormatToSigned(image);
-        imageC = CVConvert.ConvertDataFormatFactor(image, 2);
-        CVImage outImage = CVImage.Create(imageC.Width, imageC.Height, imageC.ColorFormat, imageC.DataFormat, imageC.ChannelFormat);
+        imageC = CVConvert.ConvertDataFormatFactor(imageC, 4);
+        CVImage outImage = CVImage.Create(imageC.Width, imageC.Height, imageC.DataFormat, imageC.ChannelFormats);
 
         if (image.DataFormat == CVDataFormat.CV_U8) DerivativeY<byte>(imageC, ref outImage);
         else if (image.DataFormat == CVDataFormat.CV_S8) DerivativeY<sbyte>(imageC, ref outImage);
@@ -169,9 +170,9 @@ public class CVCornerDetector
     {
         // Sobel requires signed image
         CVImage imageC = CVConvert.ConvertDataFormatToSigned(image);
-        imageC = CVConvert.ConvertDataFormatFactor(image, 2);
-        gradientX = CVImage.Create(imageC.Width, imageC.Height, imageC.ColorFormat, imageC.DataFormat, imageC.ChannelFormat);
-        gradientY = CVImage.Create(imageC.Width, imageC.Height, imageC.ColorFormat, imageC.DataFormat, imageC.ChannelFormat);
+        imageC = CVConvert.ConvertDataFormatFactor(imageC, 4);
+        gradientX = CVImage.Create(imageC.Width, imageC.Height, imageC.DataFormat, imageC.ChannelFormats);
+        gradientY = CVImage.Create(imageC.Width, imageC.Height, imageC.DataFormat, imageC.ChannelFormats);
 
         if (image.DataFormat == CVDataFormat.CV_U8) Sobel<byte>(imageC, ref gradientX, ref gradientY);
         else if (image.DataFormat == CVDataFormat.CV_S8) Sobel<sbyte>(imageC, ref gradientX, ref gradientY);
@@ -226,12 +227,13 @@ public class CVCornerDetector
     {
         // Hessian requires signed image
         CVImage imageC = CVConvert.ConvertDataFormatToSigned(image);
+        imageC = CVConvert.ConvertDataFormatBytes(imageC, 4);
         Sobel(imageC, out CVImage gradientX, out CVImage gradientY);
 
-        determinant = CVImage.Create(imageC.Width, imageC.Height, imageC.ColorFormat, imageC.DataFormat, imageC.ChannelFormat);
-        structureDeterminant = CVImage.Create(imageC.Width, imageC.Height, imageC.ColorFormat, imageC.DataFormat, imageC.ChannelFormat);
-        lambda1 = CVImage.Create(imageC.Width, imageC.Height, imageC.ColorFormat, imageC.DataFormat, imageC.ChannelFormat);
-        lambda2 = CVImage.Create(imageC.Width, imageC.Height, imageC.ColorFormat, imageC.DataFormat, imageC.ChannelFormat);
+        determinant = CVImage.Create(imageC.Width, imageC.Height, imageC.DataFormat, imageC.ChannelFormats);
+        structureDeterminant = CVImage.Create(imageC.Width, imageC.Height, imageC.DataFormat, imageC.ChannelFormats);
+        lambda1 = CVImage.Create(imageC.Width, imageC.Height, imageC.DataFormat, imageC.ChannelFormats);
+        lambda2 = CVImage.Create(imageC.Width, imageC.Height, imageC.DataFormat, imageC.ChannelFormats);
 
         if (image.DataFormat == CVDataFormat.CV_U8) HessianEigenvalues<byte>(image, gradientX, gradientY, windowRadius, ref determinant, ref structureDeterminant, ref lambda1, ref lambda2);
         else if (image.DataFormat == CVDataFormat.CV_S8) HessianEigenvalues<sbyte>(image, gradientX, gradientY, windowRadius, ref determinant, ref structureDeterminant, ref lambda1, ref lambda2);
@@ -278,6 +280,7 @@ public class CVCornerDetector
     public static List<(int, int, double)> DetectCornerHessian(CVImage image, int constant1 = 2, int constant2 = 5, int threshold = 1)
     {
         CVImage gray = CVConvert.ConvertChannelFormat(image, CVChannelFormat.CV_Grayscale);
+
         gray = CVConvert.ConvertDataFormat(image, CVDataFormat.CV_F32);
         gray = CVDivide.Divide(gray, 255f);
         gray = CVBlur.GaussianBlur(gray, 5);
@@ -295,7 +298,7 @@ public class CVCornerDetector
     private static void harrisStrength<T>(
             CVImage gradientX,
             CVImage gradientY,
-            T constant,
+            int constant,
             int windowRadius,
             ref CVImage outImage) where T : struct, INumber<T>
     {
@@ -309,8 +312,8 @@ public class CVCornerDetector
         CVImage SyyImage = CVProcessing.SumWindow(IyyImage, windowRadius);
         CVImage SxyImage = CVProcessing.SumWindow(IxyImage, windowRadius);
 
-        // Harris Formula
-        CVImage detImageC = ((SxxImage * SyyImage) - (SxyImage * SxyImage)) * 25;
+        // Harris Formula, changed k to 1/k and change its side. Result is scaled accordingly
+        CVImage detImageC = ((SxxImage * SyyImage) - (SxyImage * SxyImage)) * constant;
         CVImage traceImage = SxxImage + SyyImage;
         CVImage traceImageSquared = traceImage * traceImage;
 
@@ -321,19 +324,20 @@ public class CVCornerDetector
     {
         // Harris requires signed image
         CVImage imageC = CVConvert.ConvertDataFormatToSigned(image);
+        imageC = CVConvert.ConvertDataFormatFactor(imageC, 4);
         Sobel(imageC, out CVImage gradientX, out CVImage gradientY);
-        CVImage outImage = CVImage.Create(imageC.Width, imageC.Height, imageC.ColorFormat, imageC.DataFormat, imageC.ChannelFormat);
+        CVImage outImage = CVImage.Create(gradientX.Width, gradientX.Height, gradientX.DataFormat, gradientX.ChannelFormats);
 
-        if (image.DataFormat == CVDataFormat.CV_U8) harrisStrength<byte>(gradientX, gradientY, (byte)constant, windowRadius, ref outImage);
-        else if (image.DataFormat == CVDataFormat.CV_S8) harrisStrength<sbyte>(gradientX, gradientY, (sbyte)constant, windowRadius, ref outImage);
-        else if (image.DataFormat == CVDataFormat.CV_U16) harrisStrength<ushort>(gradientX, gradientY, (ushort)constant, windowRadius, ref outImage);
-        else if (image.DataFormat == CVDataFormat.CV_S16) harrisStrength<short>(gradientX, gradientY, (short)constant, windowRadius, ref outImage);
-        else if (image.DataFormat == CVDataFormat.CV_U32) harrisStrength<uint>(gradientX, gradientY, (uint)constant, windowRadius, ref outImage);
-        else if (image.DataFormat == CVDataFormat.CV_S32) harrisStrength<int>(gradientX, gradientY, (int)constant, windowRadius, ref outImage);
-        else if (image.DataFormat == CVDataFormat.CV_U64) harrisStrength<ulong>(gradientX, gradientY, (ulong)constant, windowRadius, ref outImage);
-        else if (image.DataFormat == CVDataFormat.CV_S64) harrisStrength<long>(gradientX, gradientY, (long)constant, windowRadius, ref outImage);
-        else if (image.DataFormat == CVDataFormat.CV_F32) harrisStrength<float>(gradientX, gradientY, (float)constant, windowRadius, ref outImage);
-        else if (image.DataFormat == CVDataFormat.CV_F64) harrisStrength<double>(gradientX, gradientY, (double)constant, windowRadius, ref outImage);
+        if (image.DataFormat == CVDataFormat.CV_U8) harrisStrength<byte>(gradientX, gradientY, constant, windowRadius, ref outImage);
+        else if (image.DataFormat == CVDataFormat.CV_S8) harrisStrength<sbyte>(gradientX, gradientY, constant, windowRadius, ref outImage);
+        else if (image.DataFormat == CVDataFormat.CV_U16) harrisStrength<ushort>(gradientX, gradientY, constant, windowRadius, ref outImage);
+        else if (image.DataFormat == CVDataFormat.CV_S16) harrisStrength<short>(gradientX, gradientY, constant, windowRadius, ref outImage);
+        else if (image.DataFormat == CVDataFormat.CV_U32) harrisStrength<uint>(gradientX, gradientY, constant, windowRadius, ref outImage);
+        else if (image.DataFormat == CVDataFormat.CV_S32) harrisStrength<int>(gradientX, gradientY, constant, windowRadius, ref outImage);
+        else if (image.DataFormat == CVDataFormat.CV_U64) harrisStrength<ulong>(gradientX, gradientY, constant, windowRadius, ref outImage);
+        else if (image.DataFormat == CVDataFormat.CV_S64) harrisStrength<long>(gradientX, gradientY, constant, windowRadius, ref outImage);
+        else if (image.DataFormat == CVDataFormat.CV_F32) harrisStrength<float>(gradientX, gradientY, constant, windowRadius, ref outImage);
+        else if (image.DataFormat == CVDataFormat.CV_F64) harrisStrength<double>(gradientX, gradientY, constant, windowRadius, ref outImage);
 
         return outImage;
     }
@@ -342,16 +346,19 @@ public class CVCornerDetector
         CVImage image,
         int constant = 25,
         int windowRadius = 3,
-        int threshold = 1)
+        float threshold = 0.95f)
     {
         CVImage gray = CVConvert.ConvertChannelFormat(image, CVChannelFormat.CV_Grayscale);
-        gray = CVConvert.ConvertDataFormat(image, CVDataFormat.CV_F32);
-        gray = CVDivide.Divide(gray, 255f);
-        gray = CVBlur.GaussianBlur(gray, 5);
+        CVImage grayC = CVConvert.ConvertDataFormatToFloat(gray);
 
-        CVImage harrisStrength = HarrisStrength(gray, constant, windowRadius);
+        //gray = CVBlur.GaussianBlur(gray, 5);
+
+        CVImage harrisStrength = HarrisStrength(grayC, constant, windowRadius);
+        harrisStrength = CVProcessing.Normalize(harrisStrength);
         CVImage harrisMask = CVBigger.Bigger(harrisStrength, threshold);
         var pixelList = CVProcessing.GetPixels(harrisMask, harrisStrength, 1);
-        return NonMaximumSuppression(pixelList);
+        if (pixelList.Count > 100) return new();
+        Console.WriteLine($"Pixels: {pixelList.Count}");
+        return NonMaximumSuppression(pixelList, 3);
     }
 }

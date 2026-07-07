@@ -117,7 +117,7 @@ public static class CVSubtract
 
     public static CVImage Subtract<TV>(CVImage image, TV arg1) where TV : struct
     {
-        CVImage outImage = CVImage.Create(image.Width, image.Height, image.ColorFormat, image.DataFormat, image.ChannelFormat);
+        CVImage outImage = CVImage.Create(image.Width, image.Height, image.DataFormat, image.ChannelFormats);
 
         if (image.DataFormat == CVDataFormat.CV_U8) Subtract<byte, TV>(image, arg1, ref outImage);
         else if (image.DataFormat == CVDataFormat.CV_S8) Subtract<sbyte, TV>(image, arg1, ref outImage);
@@ -135,7 +135,7 @@ public static class CVSubtract
 
     public static CVImage Subtract<TV>(CVImage image, TV[] arg1) where TV : struct
     {
-        CVImage outImage = CVImage.Create(image.Width, image.Height, image.ColorFormat, image.DataFormat, image.ChannelFormat);
+        CVImage outImage = CVImage.Create(image.Width, image.Height, image.DataFormat, image.ChannelFormats);
 
         if (image.DataFormat == CVDataFormat.CV_U8) Subtract<byte, TV>(image, arg1, ref outImage);
         else if (image.DataFormat == CVDataFormat.CV_S8) Subtract<sbyte, TV>(image, arg1, ref outImage);
@@ -153,7 +153,7 @@ public static class CVSubtract
 
     public static CVImage Subtract(CVImage image1, CVImage image2)
     {
-        CVImage outImage = CVImage.Create(image1.Width, image1.Height, image1.ColorFormat, image1.DataFormat, image1.ChannelFormat);
+        CVImage outImage = CVImage.Create(image1.Width, image1.Height, image1.DataFormat, image1.ChannelFormats);
 
         if (image1.DataFormat == CVDataFormat.CV_U8) Subtract<byte>(image1, image2, ref outImage);
         else if (image1.DataFormat == CVDataFormat.CV_S8) Subtract<sbyte>(image1, image2, ref outImage);
