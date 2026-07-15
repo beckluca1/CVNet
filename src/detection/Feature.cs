@@ -4,7 +4,7 @@ using MathNet.Numerics.Integration;
 
 namespace CVNet;
 
-struct CVBriefDescriptor
+public struct CVBriefDescriptor
 {
     public ulong[] Descriptor;
 
@@ -29,7 +29,7 @@ struct CVBriefDescriptor
     }
 }
 
-class CVFeatureDetector
+public class CVFeatureDetector
 {
     public static uint Compare<T>(T centerVal, T otherVal, T threshold) where T : INumber<T>
     {
