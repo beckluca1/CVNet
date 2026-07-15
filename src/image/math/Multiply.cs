@@ -168,4 +168,54 @@ public static class CVMultiply
 
         return outImage;
     }
+
+    public static CVImagePyramid Multiply<TV>(CVImagePyramid image, TV arg1) where TV : struct
+    {
+        CVImagePyramid outImage = new CVImagePyramid(image.Levels);
+
+        for (int i = 0; i < image.Levels; i++)
+            outImage[i] = Multiply(image[i], arg1);
+
+        return outImage;
+    }
+
+    public static CVImagePyramid Multiply<TV>(CVImagePyramid image, TV[] arg1) where TV : struct
+    {
+        CVImagePyramid outImage = new CVImagePyramid(image.Levels);
+
+        for (int i = 0; i < image.Levels; i++)
+            outImage[i] = Multiply(image[i], arg1);
+
+        return outImage;
+    }
+
+    public static CVImagePyramid Multiply(CVImagePyramid image1, CVImagePyramid image2)
+    {
+        CVImagePyramid outImage = new CVImagePyramid(image1.Levels);
+
+        for (int i = 0; i < image1.Levels; i++)
+            outImage[i] = Multiply(image1[i], image2[i]);
+
+        return outImage;
+    }
+
+    /*public static CVImagePyramid Multiply<TV>(CVImagePyramid image, TV arg1, int channel) where TV : struct
+    {
+        CVImagePyramid outImage = new CVImagePyramid(image.Levels);
+
+        for (int i = 0; i < image.Levels; i++)
+            outImage[i] = Multiply(image[i], arg1, channel);
+
+        return outImage;
+    }
+
+    public static CVImagePyramid Multiply(CVImagePyramid image1, CVImagePyramid image2, int channel)
+    {
+        CVImagePyramid outImage = new CVImagePyramid(image1.Levels);
+
+        for (int i = 0; i < image1.Levels; i++)
+            outImage[i] = Multiply(image1[i], image2[i], channel);
+
+        return outImage;
+    }*/
 }

@@ -167,4 +167,34 @@ public static class CVMax
 
         return outImage;
     }
+
+    public static CVImagePyramid Max<TV>(CVImagePyramid image, TV arg1) where TV : struct
+    {
+        CVImagePyramid outImage = new CVImagePyramid(image.Levels);
+
+        for (int i = 0; i < image.Levels; i++)
+            outImage[i] = Max(image[i], arg1);
+
+        return outImage;
+    }
+
+    public static CVImagePyramid Max<TV>(CVImagePyramid image, TV[] arg1) where TV : struct
+    {
+        CVImagePyramid outImage = new CVImagePyramid(image.Levels);
+
+        for (int i = 0; i < image.Levels; i++)
+            outImage[i] = Max(image[i], arg1);
+
+        return outImage;
+    }
+
+    public static CVImagePyramid Max(CVImagePyramid image1, CVImagePyramid image2)
+    {
+        CVImagePyramid outImage = new CVImagePyramid(image1.Levels);
+
+        for (int i = 0; i < image1.Levels; i++)
+            outImage[i] = Max(image1[i], image2[i]);
+
+        return outImage;
+    }
 }

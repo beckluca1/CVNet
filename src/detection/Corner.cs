@@ -5,6 +5,7 @@ using MatrixD = MathNet.Numerics.LinearAlgebra.Matrix<double>;
 using DenseVectorD = MathNet.Numerics.LinearAlgebra.Double.DenseVector;
 using System.Numerics;
 using System.Diagnostics;
+using MathNet.Numerics.RootFinding;
 
 public class CVCornerDetector
 {
@@ -296,12 +297,13 @@ public class CVCornerDetector
     }
 
     private static void harrisStrength<T>(
-            CVImage gradientX,
-            CVImage gradientY,
+            CVImage image,
             int constant,
             int windowRadius,
             ref CVImage outImage) where T : struct, INumber<T>
     {
+        Sobel(image, out CVImage gradientX, out CVImage gradientY);
+
         // Build products Ix^2, Iy^2, IxIy
         CVImage IxxImage = gradientX * gradientX;
         CVImage IyyImage = gradientY * gradientY;
@@ -325,21 +327,100 @@ public class CVCornerDetector
         // Harris requires signed image
         CVImage imageC = CVConvert.ConvertDataFormatToSigned(image);
         imageC = CVConvert.ConvertDataFormatFactor(imageC, 4);
-        Sobel(imageC, out CVImage gradientX, out CVImage gradientY);
-        CVImage outImage = CVImage.Create(gradientX.Width, gradientX.Height, gradientX.DataFormat, gradientX.ChannelFormats);
+        CVImage outImage = CVImage.Create(imageC.Width, imageC.Height, imageC.DataFormat, imageC.ChannelFormats);
 
-        if (image.DataFormat == CVDataFormat.CV_U8) harrisStrength<byte>(gradientX, gradientY, constant, windowRadius, ref outImage);
-        else if (image.DataFormat == CVDataFormat.CV_S8) harrisStrength<sbyte>(gradientX, gradientY, constant, windowRadius, ref outImage);
-        else if (image.DataFormat == CVDataFormat.CV_U16) harrisStrength<ushort>(gradientX, gradientY, constant, windowRadius, ref outImage);
-        else if (image.DataFormat == CVDataFormat.CV_S16) harrisStrength<short>(gradientX, gradientY, constant, windowRadius, ref outImage);
-        else if (image.DataFormat == CVDataFormat.CV_U32) harrisStrength<uint>(gradientX, gradientY, constant, windowRadius, ref outImage);
-        else if (image.DataFormat == CVDataFormat.CV_S32) harrisStrength<int>(gradientX, gradientY, constant, windowRadius, ref outImage);
-        else if (image.DataFormat == CVDataFormat.CV_U64) harrisStrength<ulong>(gradientX, gradientY, constant, windowRadius, ref outImage);
-        else if (image.DataFormat == CVDataFormat.CV_S64) harrisStrength<long>(gradientX, gradientY, constant, windowRadius, ref outImage);
-        else if (image.DataFormat == CVDataFormat.CV_F32) harrisStrength<float>(gradientX, gradientY, constant, windowRadius, ref outImage);
-        else if (image.DataFormat == CVDataFormat.CV_F64) harrisStrength<double>(gradientX, gradientY, constant, windowRadius, ref outImage);
+        if (image.DataFormat == CVDataFormat.CV_U8) harrisStrength<byte>(imageC, constant, windowRadius, ref outImage);
+        else if (image.DataFormat == CVDataFormat.CV_S8) harrisStrength<sbyte>(imageC, constant, windowRadius, ref outImage);
+        else if (image.DataFormat == CVDataFormat.CV_U16) harrisStrength<ushort>(imageC, constant, windowRadius, ref outImage);
+        else if (image.DataFormat == CVDataFormat.CV_S16) harrisStrength<short>(imageC, constant, windowRadius, ref outImage);
+        else if (image.DataFormat == CVDataFormat.CV_U32) harrisStrength<uint>(imageC, constant, windowRadius, ref outImage);
+        else if (image.DataFormat == CVDataFormat.CV_S32) harrisStrength<int>(imageC, constant, windowRadius, ref outImage);
+        else if (image.DataFormat == CVDataFormat.CV_U64) harrisStrength<ulong>(imageC, constant, windowRadius, ref outImage);
+        else if (image.DataFormat == CVDataFormat.CV_S64) harrisStrength<long>(imageC, constant, windowRadius, ref outImage);
+        else if (image.DataFormat == CVDataFormat.CV_F32) harrisStrength<float>(imageC, constant, windowRadius, ref outImage);
+        else if (image.DataFormat == CVDataFormat.CV_F64) harrisStrength<double>(imageC, constant, windowRadius, ref outImage);
 
         return outImage;
+    }
+
+    private static double harrisStrengthSingle<T>(
+            (int x, int y) point,
+            CVImage IxxImage,
+            CVImage IyyImage,
+            CVImage IxyImage,
+            int constant,
+            int windowRadius) where T : struct, INumber<T>
+    {
+        T sxx = T.Zero;
+        T syy = T.Zero;
+        T sxy = T.Zero;
+
+        Span<T> ixxBuffer = IxxImage.BufferAs<T>();
+        Span<T> iyyBuffer = IyyImage.BufferAs<T>();
+        Span<T> ixyBuffer = IxyImage.BufferAs<T>();
+
+        for (int yy = point.y - windowRadius; yy <= point.y + windowRadius; yy++)
+        {
+            for (int xx = point.x - windowRadius; xx <= point.x + windowRadius; xx++)
+            {
+                T ixx = ixxBuffer[xx + IxxImage.Width * yy];
+                T iyy = iyyBuffer[xx + IyyImage.Width * yy];
+                T ixy = ixyBuffer[xx + IxyImage.Width * yy];
+
+                sxx += ixx;
+                syy += iyy;
+                sxy += ixy;
+            }
+        }
+
+        T det = sxx * syy - sxy * sxy;
+        T trace = sxx + syy;
+
+        double detD = (double)Convert.ChangeType(det, typeof(double));
+        double traceD = (double)Convert.ChangeType(trace, typeof(double));
+
+        return detD * constant - traceD * traceD;
+    }
+
+
+    private static void harrisStrengthPoints<T>(
+            List<(int, int)> points,
+            CVImage image,
+            int constant,
+            int windowRadius,
+            ref List<double> scores) where T : struct, INumber<T>
+    {
+        Sobel(image, out CVImage gradientX, out CVImage gradientY);
+        CVImage IxxImage = gradientX * gradientX;
+        CVImage IyyImage = gradientY * gradientY;
+        CVImage IxyImage = gradientX * gradientY;
+
+        for (int i = 0; i < points.Count; i++)
+        {
+            scores.Add(harrisStrengthSingle<T>(points[i], IxxImage, IyyImage, IxyImage, constant, windowRadius));
+        }
+    }
+
+    public static List<double> HarrisStrengthPoints(CVImage image, List<(int, int)> points, int constant = 25, int windowRadius = 3)
+    {
+        // Harris requires signed image
+        CVImage imageC = CVConvert.ConvertDataFormatToSigned(image);
+        imageC = CVConvert.ConvertDataFormatFactor(imageC, 4);
+
+        List<double> scores = new List<double>();
+
+        if (image.DataFormat == CVDataFormat.CV_U8) harrisStrengthPoints<byte>(points, imageC, constant, windowRadius, ref scores);
+        else if (image.DataFormat == CVDataFormat.CV_S8) harrisStrengthPoints<sbyte>(points, imageC, constant, windowRadius, ref scores);
+        else if (image.DataFormat == CVDataFormat.CV_U16) harrisStrengthPoints<ushort>(points, imageC, constant, windowRadius, ref scores);
+        else if (image.DataFormat == CVDataFormat.CV_S16) harrisStrengthPoints<short>(points, imageC, constant, windowRadius, ref scores);
+        else if (image.DataFormat == CVDataFormat.CV_U32) harrisStrengthPoints<uint>(points, imageC, constant, windowRadius, ref scores);
+        else if (image.DataFormat == CVDataFormat.CV_S32) harrisStrengthPoints<int>(points, imageC, constant, windowRadius, ref scores);
+        else if (image.DataFormat == CVDataFormat.CV_U64) harrisStrengthPoints<ulong>(points, imageC, constant, windowRadius, ref scores);
+        else if (image.DataFormat == CVDataFormat.CV_S64) harrisStrengthPoints<long>(points, imageC, constant, windowRadius, ref scores);
+        else if (image.DataFormat == CVDataFormat.CV_F32) harrisStrengthPoints<float>(points, imageC, constant, windowRadius, ref scores);
+        else if (image.DataFormat == CVDataFormat.CV_F64) harrisStrengthPoints<double>(points, imageC, constant, windowRadius, ref scores);
+
+        return scores;
     }
 
     public static List<(int, int, double)> DetectCornersHarris(

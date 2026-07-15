@@ -167,4 +167,34 @@ public static class CVMin
 
         return outImage;
     }
+
+    public static CVImagePyramid Min<TV>(CVImagePyramid image, TV arg1) where TV : struct
+    {
+        CVImagePyramid outImage = new CVImagePyramid(image.Levels);
+
+        for (int i = 0; i < image.Levels; i++)
+            outImage[i] = Min(image[i], arg1);
+
+        return outImage;
+    }
+
+    public static CVImagePyramid Min<TV>(CVImagePyramid image, TV[] arg1) where TV : struct
+    {
+        CVImagePyramid outImage = new CVImagePyramid(image.Levels);
+
+        for (int i = 0; i < image.Levels; i++)
+            outImage[i] = Min(image[i], arg1);
+
+        return outImage;
+    }
+
+    public static CVImagePyramid Min(CVImagePyramid image1, CVImagePyramid image2)
+    {
+        CVImagePyramid outImage = new CVImagePyramid(image1.Levels);
+
+        for (int i = 0; i < image1.Levels; i++)
+            outImage[i] = Min(image1[i], image2[i]);
+
+        return outImage;
+    }
 }

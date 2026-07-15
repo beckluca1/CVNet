@@ -52,4 +52,14 @@ public static class CVSquareRoot
 
         return outImage;
     }
+
+    public static CVImagePyramid SquareRoot<TV>(CVImagePyramid image) where TV : struct
+    {
+        CVImagePyramid outImage = new CVImagePyramid(image.Levels);
+
+        for (int i = 0; i < image.Levels; i++)
+            outImage[i] = SquareRoot(image[i]);
+
+        return outImage;
+    }
 }
