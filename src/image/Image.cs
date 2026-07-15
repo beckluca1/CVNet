@@ -77,8 +77,6 @@ public struct CVChannelFormats
 
     public CVChannelFormats Clone()
     {
-        if (Channels == null) Console.WriteLine("Channels are NULL when Cloning");
-
         return new CVChannelFormats(Channels);
     }
 
@@ -95,8 +93,6 @@ public struct CVChannelFormats
         else if (id == CVChannelFormat.CV_BGR) Channels = [CVChannel.CV_B, CVChannel.CV_G, CVChannel.CV_R];
         else if (id == CVChannelFormat.CV_BGRA) Channels = [CVChannel.CV_B, CVChannel.CV_G, CVChannel.CV_R, CVChannel.CV_A];
         else if (id == CVChannelFormat.CV_ABGR) Channels = [CVChannel.CV_A, CVChannel.CV_B, CVChannel.CV_G, CVChannel.CV_R];
-
-        if (Channels == null) Console.WriteLine("Channels are NULL when CVChannelFormats");
     }
 }
 
@@ -134,8 +130,6 @@ public class CVImage
 
         DataFormat = dataFormat;
         // Clone here because ChannelFormats contains array
-        if (channelFormats.Channels == null) Console.WriteLine("Channels are NULL when CVImage");
-
         ChannelFormats = channelFormats.Clone();
 
         if (DataFormat == CVDataFormat.CV_NONE) Bytes = 0;
@@ -266,15 +260,12 @@ public class CVImage
     public static CVImage Create(int width = 0, int height = 0, CVDataFormat dataFormat = CVDataFormat.CV_NONE, CVChannelFormat channelFormat = CVChannelFormat.CV_None)
     {
         CVChannelFormats channelFormats = new CVChannelFormats(channelFormat);
-        if (channelFormats.Channels == null) Console.WriteLine("Channels are NULL when Create from Enum");
 
         return Create(width, height, dataFormat, channelFormats);
     }
 
     public static CVImage Create(int width, int height, CVDataFormat dataFormat, CVChannelFormats channelFormats)
     {
-        if (channelFormats.Channels == null) Console.WriteLine("Channels are NULL when Create");
-
         CVImage image = new CVImage(width, height, dataFormat, channelFormats);
 
         return image;

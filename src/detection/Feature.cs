@@ -341,8 +341,11 @@ class CVFeatureDetector
 
     public static List<CVBriefDescriptor> Orb(CVImage image)
     {
-        List<(int, int)> fastKeypoints = Fast(image, 20);
-        List<double> fastHarrisScores = CVCornerDetector.HarrisStrengthPoints(image, fastKeypoints, 25, 3);
+        CVImage gray = CVConvert.ConvertChannelFormat(image, CVChannelFormat.CV_Grayscale);
+        CVImage grayC = CVConvert.ConvertDataFormatToFloat(gray);
+
+        List<(int, int)> fastKeypoints = Fast(grayC, 20);
+        List<double> fastHarrisScores = CVCornerDetector.HarrisStrengthPoints(grayC, fastKeypoints, 25, 3);
 
         var indices = Enumerable.Range(0, fastHarrisScores.Count)
                             .OrderByDescending(i => fastHarrisScores[i])
@@ -350,8 +353,29 @@ class CVFeatureDetector
                             .ToList();
 
         List<(int, int)> bestFastPoints = indices.Select(i => fastKeypoints[i]).ToList();
-        List<(double, double)> intensityCentroids = IntensityCentroids(image, bestFastPoints, 31);
+        List<(double, double)> intensityCentroids = IntensityCentroids(grayC, bestFastPoints, 31);
         List<double> angles = Angles(bestFastPoints, intensityCentroids);
-        return Brief(image, bestFastPoints, angles);
+        return Brief(grayC, bestFastPoints, angles);
+    }
+
+    public static List<(int, int, double)> DetectFeatureFast(
+        CVImage image)
+    {
+        CVImage gray = CVConvert.ConvertChannelFormat(image, CVChannelFormat.CV_Grayscale);
+        CVImage grayC = CVConvert.ConvertDataFormatToFloat(gray);
+
+        List<(int, int)> fastKeypoints = Fast(grayC, 20);
+        List<double> fastHarrisScores = CVCornerDetector.HarrisStrengthPoints(grayC, fastKeypoints, 25, 3);
+
+        var indices = Enumerable.Range(0, fastHarrisScores.Count)
+                            .OrderByDescending(i => fastHarrisScores[i])
+                            .Take(100)
+                            .ToList();
+
+        var bestFastPoints = indices
+            .Select(i => (x: fastKeypoints[i].Item1, y: fastKeypoints[i].Item2, score: fastHarrisScores[i]))
+            .ToList();
+
+        return bestFastPoints;
     }
 }
