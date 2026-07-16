@@ -1,9 +1,11 @@
+using System.Numerics;
+
 namespace CVNet;
 
 public static class CVResize
 {
     private static void half<T>(CVImage imageIn, ref CVImage imageOut)
-    where T : struct
+    where T : struct, INumber<T>
     {
         Span<T> src = imageIn.BufferAs<T>();
         Span<T> dst = imageOut.BufferAs<T>();
@@ -42,7 +44,7 @@ public static class CVResize
 
     public static CVImage Half<T>(
             CVImage image,
-            T[] defaultValue) where T : struct
+            T[] defaultValue) where T : struct, INumber<T>
     {
         CVImage imageOut = CVImage.Create(image.Width / 2, image.Height / 2, image.DataFormat, image.ChannelFormats, defaultValue);
 
@@ -63,7 +65,7 @@ public static class CVResize
     // Optimized
     private static void stretchNearest<T>(
         CVImage imageIn,
-        ref CVImage imageOut) where T : struct
+        ref CVImage imageOut) where T : struct, INumber<T>
     {
         Span<T> bufferIn = imageIn.BufferAs<T>();
         Span<T> bufferOut = imageOut.BufferAs<T>();
@@ -112,7 +114,7 @@ public static class CVResize
             CVImage image,
             int targetWidth,
             int targetHeight,
-            T[] defaultValue) where T : struct
+            T[] defaultValue) where T : struct, INumber<T>
     {
         CVImage imageOut = CVImage.Create(targetWidth, targetHeight, image.DataFormat, image.ChannelFormats, defaultValue);
 
@@ -133,7 +135,7 @@ public static class CVResize
     // Optimized
     private static void cropNearest<T>(
                 CVImage imageIn,
-                ref CVImage imageOut) where T : struct
+                ref CVImage imageOut) where T : struct, INumber<T>
     {
         Span<T> bufferSpanIn = imageIn.BufferAs<T>();
         Span<T> bufferSpanOut = imageOut.BufferAs<T>();
@@ -174,7 +176,7 @@ public static class CVResize
                 CVImage image,
                 int targetWidth,
                 int targetHeight,
-                T[] defaultValue) where T : struct
+                T[] defaultValue) where T : struct, INumber<T>
     {
         CVImage imageOut = CVImage.Create(targetWidth, targetHeight, image.DataFormat, image.ChannelFormats, defaultValue);
 
@@ -238,7 +240,7 @@ public static class CVResize
                                     int targetWidth,
                                     int targetHeight,
                                     CV_ResizeMode resizeMode,
-                                    T[] defaultValue) where T : struct
+                                    T[] defaultValue) where T : struct, INumber<T>
     {
         if (resizeMode == CV_ResizeMode.CV_STRETCH_NEAREST) return StretchNearest(image, targetWidth, targetHeight, defaultValue);
         else if (resizeMode == CV_ResizeMode.CV_CROP_NEAREST) return CropNearest(image, targetWidth, targetHeight, defaultValue);

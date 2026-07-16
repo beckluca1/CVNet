@@ -6,6 +6,7 @@ using DenseVectorD = MathNet.Numerics.LinearAlgebra.Double.DenseVector;
 using System.Numerics;
 using System.Diagnostics;
 using MathNet.Numerics.RootFinding;
+using System.Reflection;
 
 public class CVCornerDetector
 {
@@ -169,22 +170,19 @@ public class CVCornerDetector
 
     public static void Sobel(CVImage image, out CVImage gradientX, out CVImage gradientY)
     {
-        // Sobel requires signed image
-        CVImage imageC = CVConvert.ConvertDataFormatToSigned(image);
-        imageC = CVConvert.ConvertDataFormatFactor(imageC, 4);
-        gradientX = CVImage.Create(imageC.Width, imageC.Height, imageC.DataFormat, imageC.ChannelFormats);
-        gradientY = CVImage.Create(imageC.Width, imageC.Height, imageC.DataFormat, imageC.ChannelFormats);
+        gradientX = CVImage.Create(image.Width, image.Height, image.DataFormat, image.ChannelFormats);
+        gradientY = CVImage.Create(image.Width, image.Height, image.DataFormat, image.ChannelFormats);
 
-        if (image.DataFormat == CVDataFormat.CV_U8) Sobel<byte>(imageC, ref gradientX, ref gradientY);
-        else if (image.DataFormat == CVDataFormat.CV_S8) Sobel<sbyte>(imageC, ref gradientX, ref gradientY);
-        else if (image.DataFormat == CVDataFormat.CV_U16) Sobel<ushort>(imageC, ref gradientX, ref gradientY);
-        else if (image.DataFormat == CVDataFormat.CV_S16) Sobel<short>(imageC, ref gradientX, ref gradientY);
-        else if (image.DataFormat == CVDataFormat.CV_U32) Sobel<uint>(imageC, ref gradientX, ref gradientY);
-        else if (image.DataFormat == CVDataFormat.CV_S32) Sobel<int>(imageC, ref gradientX, ref gradientY);
-        else if (image.DataFormat == CVDataFormat.CV_U64) Sobel<ulong>(imageC, ref gradientX, ref gradientY);
-        else if (image.DataFormat == CVDataFormat.CV_S64) Sobel<long>(imageC, ref gradientX, ref gradientY);
-        else if (image.DataFormat == CVDataFormat.CV_F32) Sobel<float>(imageC, ref gradientX, ref gradientY);
-        else if (image.DataFormat == CVDataFormat.CV_F64) Sobel<double>(imageC, ref gradientX, ref gradientY);
+        if (image.DataFormat == CVDataFormat.CV_U8) Sobel<byte>(image, ref gradientX, ref gradientY);
+        else if (image.DataFormat == CVDataFormat.CV_S8) Sobel<sbyte>(image, ref gradientX, ref gradientY);
+        else if (image.DataFormat == CVDataFormat.CV_U16) Sobel<ushort>(image, ref gradientX, ref gradientY);
+        else if (image.DataFormat == CVDataFormat.CV_S16) Sobel<short>(image, ref gradientX, ref gradientY);
+        else if (image.DataFormat == CVDataFormat.CV_U32) Sobel<uint>(image, ref gradientX, ref gradientY);
+        else if (image.DataFormat == CVDataFormat.CV_S32) Sobel<int>(image, ref gradientX, ref gradientY);
+        else if (image.DataFormat == CVDataFormat.CV_U64) Sobel<ulong>(image, ref gradientX, ref gradientY);
+        else if (image.DataFormat == CVDataFormat.CV_S64) Sobel<long>(image, ref gradientX, ref gradientY);
+        else if (image.DataFormat == CVDataFormat.CV_F32) Sobel<float>(image, ref gradientX, ref gradientY);
+        else if (image.DataFormat == CVDataFormat.CV_F64) Sobel<double>(image, ref gradientX, ref gradientY);
     }
 
     public static void HessianEigenvalues<T>(
@@ -359,9 +357,15 @@ public class CVCornerDetector
         Span<T> iyyBuffer = IyyImage.BufferAs<T>();
         Span<T> ixyBuffer = IxyImage.BufferAs<T>();
 
-        for (int yy = point.y - windowRadius; yy <= point.y + windowRadius; yy++)
+        int startX = Math.Max(point.x - windowRadius, 0);
+        int startY = Math.Max(point.y - windowRadius, 0);
+
+        int endX = Math.Max(point.x + windowRadius, IxxImage.Width - 1);
+        int endY = Math.Max(point.y + windowRadius, IxxImage.Height - 1);
+
+        for (int yy = startY; yy <= endY; yy++)
         {
-            for (int xx = point.x - windowRadius; xx <= point.x + windowRadius; xx++)
+            for (int xx = startX; xx <= endX; xx++)
             {
                 T ixx = ixxBuffer[xx + IxxImage.Width * yy];
                 T iyy = iyyBuffer[xx + IyyImage.Width * yy];
@@ -376,8 +380,8 @@ public class CVCornerDetector
         T det = sxx * syy - sxy * sxy;
         T trace = sxx + syy;
 
-        double detD = (double)Convert.ChangeType(det, typeof(double));
-        double traceD = (double)Convert.ChangeType(trace, typeof(double));
+        double detD = double.CreateChecked(det);
+        double traceD = double.CreateChecked(trace);
 
         return detD * constant - traceD * traceD;
     }
@@ -435,11 +439,10 @@ public class CVCornerDetector
         //gray = CVBlur.GaussianBlur(gray, 5);
 
         CVImage harrisStrength = HarrisStrength(grayC, constant, windowRadius);
-        harrisStrength = CVProcessing.Normalize(harrisStrength);
+        harrisStrength = CVProcessing.Normalize(harrisStrength, 0.0, 1.0);
         CVImage harrisMask = CVBigger.Bigger(harrisStrength, threshold);
         var pixelList = CVProcessing.GetPixels(harrisMask, harrisStrength, 1);
         if (pixelList.Count > 100) return new();
-        Console.WriteLine($"Pixels: {pixelList.Count}");
         return NonMaximumSuppression(pixelList, 3);
     }
 }

@@ -39,15 +39,16 @@ public class CVFeatureDetector
             return centerVal - otherVal > threshold ? 0u : 1u;
     }
 
-    public static bool CheckConsecutive(uint bitMask)
+    public static bool CheckConsecutive(uint bitMask, int consecutiveCheck = 9)
     {
-        for (int i = 1; i < 12; i++)
-            bitMask &= (bitMask >> i);
+        uint m = bitMask;
+        for (int i = 1; i < consecutiveCheck; i++)
+            m &= (bitMask >> i);
 
-        return bitMask != 0;
+        return m != 0;
     }
 
-    private static void fast<T>(CVImage image, T threshold, ref List<(int, int)> keypoints) where T : struct, INumber<T>
+    private static void fast<T>(CVImage image, T threshold, int consecutiveCheck, ref List<(int, int)> keypoints) where T : struct, INumber<T>
     {
         int[] xOffsets = [0, 1, 2, 3, 3, 3, 2, 1, 0, -1, -2, -3, -3, -3, -2, -1];
         int[] yOffsets = [-3, -3, -2, -1, 0, 1, 2, 3, 3, 3, 2, 1, 0, -1, -2, -3,];
@@ -58,7 +59,7 @@ public class CVFeatureDetector
         Span<T> buffer = image.BufferAs<T>();
 
         for (int x = 3; x < image.Width - 3; x++)
-            for (int y = 3; y < image.Width - 3; y++)
+            for (int y = 3; y < image.Height - 3; y++)
             {
                 T centerValue = buffer[x + image.Width * y];
 
@@ -85,27 +86,27 @@ public class CVFeatureDetector
                 uint darkMask = bitMasks[0] | (bitMasks[0] << 16);
                 uint brightMask = bitMasks[2] | (bitMasks[2] << 16);
 
-                if (CheckConsecutive(darkMask) || CheckConsecutive(brightMask))
+                if (CheckConsecutive(darkMask, consecutiveCheck) || CheckConsecutive(brightMask, consecutiveCheck))
                 {
                     keypoints.Add((x, y));
                 }
             }
     }
 
-    public static List<(int, int)> Fast(CVImage image, double threshold)
+    public static List<(int, int)> Fast(CVImage image, double threshold, int consecutiveCheck = 9)
     {
         List<(int, int)> keypoints = new List<(int, int)>();
 
-        if (image.DataFormat == CVDataFormat.CV_U8) fast<byte>(image, (byte)threshold, ref keypoints);
-        else if (image.DataFormat == CVDataFormat.CV_S8) fast<sbyte>(image, (sbyte)threshold, ref keypoints);
-        else if (image.DataFormat == CVDataFormat.CV_U16) fast<ushort>(image, (ushort)threshold, ref keypoints);
-        else if (image.DataFormat == CVDataFormat.CV_S16) fast<short>(image, (short)threshold, ref keypoints);
-        else if (image.DataFormat == CVDataFormat.CV_U32) fast<uint>(image, (uint)threshold, ref keypoints);
-        else if (image.DataFormat == CVDataFormat.CV_S32) fast<int>(image, (int)threshold, ref keypoints);
-        else if (image.DataFormat == CVDataFormat.CV_U64) fast<ulong>(image, (ulong)threshold, ref keypoints);
-        else if (image.DataFormat == CVDataFormat.CV_S64) fast<long>(image, (long)threshold, ref keypoints);
-        else if (image.DataFormat == CVDataFormat.CV_F32) fast<float>(image, (float)threshold, ref keypoints);
-        else if (image.DataFormat == CVDataFormat.CV_F64) fast<double>(image, (double)threshold, ref keypoints);
+        if (image.DataFormat == CVDataFormat.CV_U8) fast<byte>(image, (byte)threshold, consecutiveCheck, ref keypoints);
+        else if (image.DataFormat == CVDataFormat.CV_S8) fast<sbyte>(image, (sbyte)threshold, consecutiveCheck, ref keypoints);
+        else if (image.DataFormat == CVDataFormat.CV_U16) fast<ushort>(image, (ushort)threshold, consecutiveCheck, ref keypoints);
+        else if (image.DataFormat == CVDataFormat.CV_S16) fast<short>(image, (short)threshold, consecutiveCheck, ref keypoints);
+        else if (image.DataFormat == CVDataFormat.CV_U32) fast<uint>(image, (uint)threshold, consecutiveCheck, ref keypoints);
+        else if (image.DataFormat == CVDataFormat.CV_S32) fast<int>(image, (int)threshold, consecutiveCheck, ref keypoints);
+        else if (image.DataFormat == CVDataFormat.CV_U64) fast<ulong>(image, (ulong)threshold, consecutiveCheck, ref keypoints);
+        else if (image.DataFormat == CVDataFormat.CV_S64) fast<long>(image, (long)threshold, consecutiveCheck, ref keypoints);
+        else if (image.DataFormat == CVDataFormat.CV_F32) fast<float>(image, (float)threshold, consecutiveCheck, ref keypoints);
+        else if (image.DataFormat == CVDataFormat.CV_F64) fast<double>(image, (double)threshold, consecutiveCheck, ref keypoints);
 
         return keypoints;
     }
@@ -128,7 +129,7 @@ public class CVFeatureDetector
 
                 if (oX * oX + oY * oY > radius * radius) continue;
 
-                double imageIntensity = (double)Convert.ChangeType(buffer[xx + image.Width * yy], typeof(double));
+                double imageIntensity = double.CreateChecked(buffer[xx + image.Width * yy]);
                 intensitySum += imageIntensity;
                 xWeightedSum += xx * imageIntensity;
                 yWeightedSum += yy * imageIntensity;
@@ -362,20 +363,27 @@ public class CVFeatureDetector
         CVImage image)
     {
         CVImage gray = CVConvert.ConvertChannelFormat(image, CVChannelFormat.CV_Grayscale);
-        CVImage grayC = CVConvert.ConvertDataFormatToFloat(gray);
+        CVImage grayC = CVConvert.ConvertDataFormat(gray, CVDataFormat.CV_F64);
+        CVImage grayBlur = CVBlur.GaussianBlur(grayC, 3, 1.0);
+        grayBlur = grayBlur / 255.0;
 
-        List<(int, int)> fastKeypoints = Fast(grayC, 20);
-        List<double> fastHarrisScores = CVCornerDetector.HarrisStrengthPoints(grayC, fastKeypoints, 25, 3);
+        List<(int, int)> fastKeypoints = Fast(grayBlur, 10.0 / 255.0);
+
+        List<double> fastHarrisScores = CVCornerDetector.HarrisStrengthPoints(grayBlur, fastKeypoints, 25, 3);
 
         var indices = Enumerable.Range(0, fastHarrisScores.Count)
                             .OrderByDescending(i => fastHarrisScores[i])
-                            .Take(100)
                             .ToList();
 
-        var bestFastPoints = indices
+
+        var fastPoints = indices
             .Select(i => (x: fastKeypoints[i].Item1, y: fastKeypoints[i].Item2, score: fastHarrisScores[i]))
             .ToList();
 
-        return bestFastPoints;
+        var supressedPoints = CVCornerDetector.NonMaximumSuppression(fastPoints, 3);
+
+        var bestPoints = supressedPoints.Take(100).ToList();
+
+        return bestPoints;
     }
 }

@@ -152,12 +152,12 @@ public class CVImage
         buffer = new byte[bufferSize];
     }
 
-    public Span<T> BufferAs<T>() where T : struct
+    public Span<T> BufferAs<T>() where T : struct, INumber<T>
     {
         return MemoryMarshal.Cast<byte, T>(MemoryMarshal.AsBytes(buffer.AsSpan()));
     }
 
-    public Span<T> ChannelAs<T>(int channel) where T : struct
+    public Span<T> ChannelAs<T>(int channel) where T : struct, INumber<T>
     {
         return BufferAs<T>().Slice(channel * WidthHeight, WidthHeight);
     }
@@ -168,7 +168,7 @@ public class CVImage
     }
 
     // Optimized
-    private void InitInterleaved<T>(T[] data) where T : struct
+    private void InitInterleaved<T>(T[] data) where T : struct, INumber<T>
     {
         Span<T> bufferOutSpan = BufferAs<T>();
 
@@ -192,18 +192,18 @@ public class CVImage
         }
     }
 
-    private void InitSafe<T, TV>(TV[] data) where T : struct where TV : struct
+    private void InitSafe<T, TV>(TV[] data) where T : struct, INumber<T> where TV : struct, INumber<TV>
     {
         Span<T> bufferSpan = BufferAs<T>();
 
         for (int i = 0; i < Channels; i++)
         {
-            T dataConv = (T)Convert.ChangeType(data[i], typeof(T));
+            T dataConv = T.CreateChecked(data[i]);
             bufferSpan.Slice(i * WidthHeight, WidthHeight).Fill(dataConv);
         }
     }
 
-    private void InitSafe<T>(T[] data) where T : struct
+    private void InitSafe<T>(T[] data) where T : struct, INumber<T>
     {
         if (DataFormat == CVDataFormat.CV_U8) InitSafe<byte, T>(data);
         else if (DataFormat == CVDataFormat.CV_S8) InitSafe<sbyte, T>(data);
@@ -217,7 +217,7 @@ public class CVImage
         else if (DataFormat == CVDataFormat.CV_F64) InitSafe<double, T>(data);
     }
 
-    private void InitUnsafe<T>(T[] data) where T : struct
+    private void InitUnsafe<T>(T[] data) where T : struct, INumber<T>
     {
         Span<T> bufferSpan = BufferAs<T>();
 
@@ -227,16 +227,16 @@ public class CVImage
         }
     }
 
-    private void InitSafe<T, TV>(TV data) where T : struct where TV : struct
+    private void InitSafe<T, TV>(TV data) where T : struct, INumber<T> where TV : struct, INumber<TV>
     {
-        T dataConv = (T)Convert.ChangeType(data, typeof(T));
+        T dataConv = T.CreateChecked(data);
 
         Span<T> bufferSpan = BufferAs<T>();
 
         bufferSpan.Fill(dataConv);
     }
 
-    private void InitSafe<T>(T data) where T : struct
+    private void InitSafe<T>(T data) where T : struct, INumber<T>
     {
         if (DataFormat == CVDataFormat.CV_U8) InitSafe<byte, T>(data);
         else if (DataFormat == CVDataFormat.CV_S8) InitSafe<sbyte, T>(data);
@@ -250,7 +250,7 @@ public class CVImage
         else if (DataFormat == CVDataFormat.CV_F64) InitSafe<double, T>(data);
     }
 
-    private void InitUnsafe<T>(T data) where T : struct
+    private void InitUnsafe<T>(T data) where T : struct, INumber<T>
     {
         Span<T> bufferSpan = BufferAs<T>();
 
@@ -271,12 +271,12 @@ public class CVImage
         return image;
     }
 
-    public static CVImage Create<T>(int width, int height, CVDataFormat dataFormat, CVChannelFormat channelFormat, T data) where T : struct
+    public static CVImage Create<T>(int width, int height, CVDataFormat dataFormat, CVChannelFormat channelFormat, T data) where T : struct, INumber<T>
     {
         return Create<T>(width, height, dataFormat, new CVChannelFormats(channelFormat), data);
     }
 
-    public static CVImage Create<T>(int width, int height, CVDataFormat dataFormat, CVChannelFormats channelFormats, T data) where T : struct
+    public static CVImage Create<T>(int width, int height, CVDataFormat dataFormat, CVChannelFormats channelFormats, T data) where T : struct, INumber<T>
     {
         CVImage image = new CVImage(width, height, dataFormat, channelFormats);
 
@@ -285,12 +285,12 @@ public class CVImage
         return image;
     }
 
-    public static CVImage Create<T>(int width, int height, CVDataFormat dataFormat, CVChannelFormat channelFormat, T[] data) where T : struct
+    public static CVImage Create<T>(int width, int height, CVDataFormat dataFormat, CVChannelFormat channelFormat, T[] data) where T : struct, INumber<T>
     {
         return Create<T>(width, height, dataFormat, new CVChannelFormats(channelFormat), data);
     }
 
-    public static CVImage Create<T>(int width, int height, CVDataFormat dataFormat, CVChannelFormats channelFormats, T[] data) where T : struct
+    public static CVImage Create<T>(int width, int height, CVDataFormat dataFormat, CVChannelFormats channelFormats, T[] data) where T : struct, INumber<T>
     {
         CVImage image = new CVImage(width, height, dataFormat, channelFormats);
 
@@ -299,12 +299,12 @@ public class CVImage
         return image;
     }
 
-    public static CVImage CreatePlanar<T>(int width, int height, CVDataFormat dataFormat, CVChannelFormat channelFormat, T[] data) where T : struct
+    public static CVImage CreatePlanar<T>(int width, int height, CVDataFormat dataFormat, CVChannelFormat channelFormat, T[] data) where T : struct, INumber<T>
     {
         return CreatePlanar<T>(width, height, dataFormat, new CVChannelFormats(channelFormat), data);
     }
 
-    public static CVImage CreatePlanar<T>(int width, int height, CVDataFormat dataFormat, CVChannelFormats channelFormats, T[] data) where T : struct
+    public static CVImage CreatePlanar<T>(int width, int height, CVDataFormat dataFormat, CVChannelFormats channelFormats, T[] data) where T : struct, INumber<T>
     {
         CVImage image = new CVImage(width, height, dataFormat, channelFormats);
 
@@ -313,12 +313,12 @@ public class CVImage
         return image;
     }
 
-    public static CVImage CreateInterleaved<T>(int width, int height, CVDataFormat dataFormat, CVChannelFormat channelFormat, T[] data) where T : struct
+    public static CVImage CreateInterleaved<T>(int width, int height, CVDataFormat dataFormat, CVChannelFormat channelFormat, T[] data) where T : struct, INumber<T>
     {
         return CreateInterleaved<T>(width, height, dataFormat, new CVChannelFormats(channelFormat), data);
     }
 
-    public static CVImage CreateInterleaved<T>(int width, int height, CVDataFormat dataFormat, CVChannelFormats channelFormats, T[] data) where T : struct
+    public static CVImage CreateInterleaved<T>(int width, int height, CVDataFormat dataFormat, CVChannelFormats channelFormats, T[] data) where T : struct, INumber<T>
     {
         CVImage image = new CVImage(width, height, dataFormat, channelFormats);
 
@@ -332,7 +332,7 @@ public class CVImage
         return buffer;
     }
 
-    public byte[] GetBufferInterleaved<T>(ref byte[] bufferOut) where T : struct
+    public byte[] GetBufferInterleaved<T>(ref byte[] bufferOut) where T : struct, INumber<T>
     {
         Span<T> bufferInSpan = BufferAs<T>();
         Span<T> bufferOutSpan = MemoryMarshal.Cast<byte, T>(MemoryMarshal.AsBytes(bufferOut.AsSpan()));
@@ -401,15 +401,14 @@ public class CVImage
     }
 
     // Optimized
-    public static void SetGaussianMask<T>(ref CVImage image) where T : struct, INumber<T>
+    public static void SetGaussianMask<T>(double sigma, ref CVImage image) where T : struct, INumber<T>
     {
         Span<T> bufferSpan = image.BufferAs<T>();
 
         int rX = (image.Width - 1) / 2;
         int rY = (image.Height - 1) / 2;
 
-        double invW = 1.0 / image.Width;
-        double invH = 1.0 / image.Height;
+        double sigmaF = sigma * sigma * 2;
 
         int planeSize = image.Width * image.Height;
 
@@ -423,23 +422,20 @@ public class CVImage
             {
                 int yOff = (y + rY) * image.Width;
 
-                double yCord = y * invH;
-                double y2 = yCord * yCord;
+                double y2 = y * y;
 
                 for (int x = -rX; x <= rX; x++)
                 {
-                    double xCord = x * invW;
-
-                    double v = Math.Exp(-(xCord * xCord + y2));
+                    double v = Math.Exp(-(x * x + y2) / sigmaF);
 
                     int idx = cBase + yOff + (x + rX);
 
-                    bufferSpan[idx] = (T)Convert.ChangeType(v, typeof(T));
+                    bufferSpan[idx] = T.CreateChecked(v);
                     sum += v;
                 }
             }
 
-            T sumInv = (T)Convert.ChangeType(sum, typeof(T));
+            T sumInv = T.CreateChecked(sum);
 
             for (int y = -rY; y <= rY; y++)
             {
@@ -454,25 +450,25 @@ public class CVImage
         }
     }
 
-    public static CVImage CreateGaussianMask(int width = 0, int height = 0, CVDataFormat dataFormat = CVDataFormat.CV_NONE, CVChannelFormat channelFormat = CVChannelFormat.CV_None)
+    public static CVImage CreateGaussianMask(int width = 0, int height = 0, CVDataFormat dataFormat = CVDataFormat.CV_NONE, CVChannelFormat channelFormat = CVChannelFormat.CV_None, double sigma = 1.0)
     {
-        return CreateGaussianMask(width, height, dataFormat, new CVChannelFormats(channelFormat));
+        return CreateGaussianMask(width, height, dataFormat, new CVChannelFormats(channelFormat), sigma);
     }
 
-    public static CVImage CreateGaussianMask(int width, int height, CVDataFormat dataFormat, CVChannelFormats channelFormats)
+    public static CVImage CreateGaussianMask(int width, int height, CVDataFormat dataFormat, CVChannelFormats channelFormats, double sigma = 1.0)
     {
         CVImage image = Create(width, height, dataFormat, channelFormats);
 
-        if (image.DataFormat == CVDataFormat.CV_U8) SetGaussianMask<byte>(ref image);
-        else if (image.DataFormat == CVDataFormat.CV_S8) SetGaussianMask<sbyte>(ref image);
-        else if (image.DataFormat == CVDataFormat.CV_U16) SetGaussianMask<ushort>(ref image);
-        else if (image.DataFormat == CVDataFormat.CV_S16) SetGaussianMask<short>(ref image);
-        else if (image.DataFormat == CVDataFormat.CV_U32) SetGaussianMask<uint>(ref image);
-        else if (image.DataFormat == CVDataFormat.CV_S32) SetGaussianMask<int>(ref image);
-        else if (image.DataFormat == CVDataFormat.CV_U64) SetGaussianMask<ulong>(ref image);
-        else if (image.DataFormat == CVDataFormat.CV_S64) SetGaussianMask<long>(ref image);
-        else if (image.DataFormat == CVDataFormat.CV_F32) SetGaussianMask<float>(ref image);
-        else if (image.DataFormat == CVDataFormat.CV_F64) SetGaussianMask<double>(ref image);
+        if (image.DataFormat == CVDataFormat.CV_U8) SetGaussianMask<byte>(sigma, ref image);
+        else if (image.DataFormat == CVDataFormat.CV_S8) SetGaussianMask<sbyte>(sigma, ref image);
+        else if (image.DataFormat == CVDataFormat.CV_U16) SetGaussianMask<ushort>(sigma, ref image);
+        else if (image.DataFormat == CVDataFormat.CV_S16) SetGaussianMask<short>(sigma, ref image);
+        else if (image.DataFormat == CVDataFormat.CV_U32) SetGaussianMask<uint>(sigma, ref image);
+        else if (image.DataFormat == CVDataFormat.CV_S32) SetGaussianMask<int>(sigma, ref image);
+        else if (image.DataFormat == CVDataFormat.CV_U64) SetGaussianMask<ulong>(sigma, ref image);
+        else if (image.DataFormat == CVDataFormat.CV_S64) SetGaussianMask<long>(sigma, ref image);
+        else if (image.DataFormat == CVDataFormat.CV_F32) SetGaussianMask<float>(sigma, ref image);
+        else if (image.DataFormat == CVDataFormat.CV_F64) SetGaussianMask<double>(sigma, ref image);
 
         return image;
     }

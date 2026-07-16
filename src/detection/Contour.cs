@@ -205,11 +205,11 @@ public static class CVContourTrace
         return j;
     }
 
-    public static void TraceContours<T1, T2>(CVImage image, T2 foreground, ref List<CVContour> contours) where T1 : struct, IEqualityOperators<T1, T1, bool> where T2 : struct
+    public static void TraceContours<T1, T2>(CVImage image, T2 foreground, ref List<CVContour> contours) where T1 : struct, INumber<T1>, IEqualityOperators<T1, T1, bool> where T2 : struct, INumber<T2>
     {
         Span<T1> buffer = image.BufferAs<T1>();
 
-        T1 fg = (T1)Convert.ChangeType(foreground, typeof(T1));
+        T1 fg = T1.CreateChecked(foreground);
 
         int width = image.Width + 2;
         int height = image.Height + 2;
@@ -272,7 +272,7 @@ public static class CVContourTrace
         }
     }
 
-    public static List<CVContour> TraceContours<T>(CVImage image, T foreground) where T : struct
+    public static List<CVContour> TraceContours<T>(CVImage image, T foreground) where T : struct, INumber<T>
     {
         List<CVContour> contours = new List<CVContour>();
 

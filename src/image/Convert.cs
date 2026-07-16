@@ -5,14 +5,14 @@ namespace CVNet;
 
 public class CVConvert
 {
-    private static void convertDataFormat<InT, OutT>(CVImage imageIn, CVImage imageOut) where InT : struct where OutT : struct
+    private static void convertDataFormat<InT, OutT>(CVImage imageIn, CVImage imageOut) where InT : struct, INumber<InT> where OutT : struct, INumber<OutT>
     {
         int imageDataCount = imageIn.Width * imageIn.Height * imageIn.Channels;
 
         Span<InT> bufferIn = imageIn.BufferAs<InT>();
         Span<OutT> bufferOut = imageOut.BufferAs<OutT>();
 
-        for (int i = 0; i < imageDataCount; i++) bufferOut[i] = (OutT)Convert.ChangeType(bufferIn[i], typeof(OutT));
+        for (int i = 0; i < imageDataCount; i++) bufferOut[i] = OutT.CreateChecked(bufferIn[i]);
     }
 
     private static void ConvertByteToFloat(CVImage imageIn, ref CVImage imageOut)
@@ -75,7 +75,7 @@ public class CVConvert
         for (int i = 0; i < imageDataCount; i++) bufferOut[i] = (byte)bufferIn[i];
     }
 
-    private static void convertDataFormat<InT>(CVImage imageIn, CVImage imageOut) where InT : struct
+    private static void convertDataFormat<InT>(CVImage imageIn, CVImage imageOut) where InT : struct, INumber<InT>
     {
         if (imageIn.DataFormat == CVDataFormat.CV_U8 && imageOut.DataFormat == CVDataFormat.CV_F32) ConvertByteToFloat(imageIn, ref imageOut);
         else if (imageIn.DataFormat == CVDataFormat.CV_F32 && imageOut.DataFormat == CVDataFormat.CV_U8) ConvertFloatToByte(imageIn, ref imageOut);
@@ -101,8 +101,7 @@ public class CVConvert
         CVImage imageOut = CVImage.Create(image.Width, image.Height, dataFormat, image.ChannelFormats);
 
         if (dataFormat == image.DataFormat) imageOut = image.Clone();
-
-        if (image.DataFormat == CVDataFormat.CV_U8) convertDataFormat<byte>(image, imageOut);
+        else if (image.DataFormat == CVDataFormat.CV_U8) convertDataFormat<byte>(image, imageOut);
         else if (image.DataFormat == CVDataFormat.CV_S8) convertDataFormat<sbyte>(image, imageOut);
         else if (image.DataFormat == CVDataFormat.CV_U16) convertDataFormat<ushort>(image, imageOut);
         else if (image.DataFormat == CVDataFormat.CV_S16) convertDataFormat<short>(image, imageOut);
@@ -161,8 +160,8 @@ public class CVConvert
 
     private static int getBytesRequiredUnsigned<T>(CVImage image) where T : struct, INumber<T>
     {
-        double min = (double)Convert.ChangeType(CVProcessing.MinValue<T>(image), typeof(double));
-        double max = (double)Convert.ChangeType(CVProcessing.MaxValue<T>(image), typeof(double));
+        double min = double.CreateChecked(CVProcessing.MinValue<T>(image));
+        double max = double.CreateChecked(CVProcessing.MaxValue<T>(image));
 
         double bytes = Math.Log2(max) / 8;
 
@@ -172,8 +171,8 @@ public class CVConvert
 
     private static int getBytesRequiredSigned<T>(CVImage image) where T : struct, INumber<T>
     {
-        double min = (double)Convert.ChangeType(CVProcessing.MinValue<T>(image), typeof(double));
-        double max = (double)Convert.ChangeType(CVProcessing.MaxValue<T>(image), typeof(double));
+        double min = double.CreateChecked(CVProcessing.MinValue<T>(image));
+        double max = double.CreateChecked(CVProcessing.MaxValue<T>(image));
 
         double bytes = Math.Log2(Math.Max(max, -min)) / 4;
 
@@ -264,16 +263,16 @@ public class CVConvert
         Buffer.BlockCopy(imageIn.buffer, offsetIn, imageOut.buffer, offsetOut, byteCount);
     }
 
-    private static void fillChannel<OutT, T>(CVImage imageIn, int channel, T value) where OutT : struct where T : struct
+    private static void fillChannel<OutT, T>(CVImage imageIn, int channel, T value) where OutT : struct, INumber<OutT> where T : struct, INumber<T>
     {
         Span<OutT> bufferSpan = imageIn.BufferAs<OutT>();
 
-        OutT valueConv = (OutT)Convert.ChangeType(value, typeof(OutT));
+        OutT valueConv = OutT.CreateChecked(value);
 
         bufferSpan.Slice(channel * imageIn.Width * imageIn.Height, imageIn.Width * imageIn.Height).Fill(valueConv);
     }
 
-    public static void FillChannel<T>(CVImage image, int channel, T value) where T : struct
+    public static void FillChannel<T>(CVImage image, int channel, T value) where T : struct, INumber<T>
     {
         if (image.DataFormat == CVDataFormat.CV_U8) fillChannel<byte, T>(image, channel, value);
         else if (image.DataFormat == CVDataFormat.CV_S8) fillChannel<sbyte, T>(image, channel, value);

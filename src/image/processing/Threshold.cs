@@ -4,7 +4,7 @@ namespace CVNet;
 
 public class CVThreshold
 {
-    public static CVImage Threshold<T>(CVImage imageIn, T threshold) where T : struct
+    public static CVImage Threshold<T>(CVImage imageIn, T threshold) where T : struct, INumber<T>
     {
         return CVBigger.Bigger(imageIn, threshold);
     }
@@ -19,7 +19,7 @@ public class CVThreshold
         return CVConvert.ConvertDataFormat(thresh, imageIn.DataFormat);
     }
 
-    public static CVImage AdaptiveThresholdGauss<T>(CVImage imageIn, T offset, int size) where T : struct
+    public static CVImage AdaptiveThresholdGauss<T>(CVImage imageIn, T offset, int size) where T : struct, INumber<T>
     {
         CVImage floatImage = CVConvert.ConvertDataFormat(imageIn, CVDataFormat.CV_F32);
         CVImage meanBlur = CVBlur.GaussianBlur(floatImage, size);
@@ -75,14 +75,15 @@ public class CVThreshold
 
     private static void otsuThreshold<T>(CVImage imageIn, int bucketCount, ref CVImage outImage) where T : struct, INumber<T>
     {
-        List<int> histogram = CVProcessing.Histogram<T>(imageIn, bucketCount, out T min, out T max, out double bucketSize);
+        List<int> histogram = CVProcessing.Histogram(imageIn, bucketCount, out double min, out double max, out double bucketSize);
         int bucket = otsuBucket(imageIn, histogram);
         double otsuThreshold = (double)Convert.ChangeType(min, typeof(double)) + bucketSize * bucket;
-        outImage = CVSmaller.Smaller<double>(imageIn, otsuThreshold + 1.0);
+        outImage = CVSmaller.Smaller(imageIn, otsuThreshold + 1.0);
     }
 
     public static CVImage OtsuThreshold(CVImage image1, int bucketCount)
     {
+
         CVImage outImage = CVImage.Create(image1.Width, image1.Height, image1.DataFormat, image1.ChannelFormats);
 
         if (image1.DataFormat == CVDataFormat.CV_U8) otsuThreshold<byte>(image1, bucketCount, ref outImage);

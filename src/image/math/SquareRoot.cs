@@ -30,7 +30,7 @@ public static class CVSquareRoot
         {
             double valueD = (double)Convert.ChangeType(src[i], typeof(double));
             double sqrtD = Math.Sqrt(valueD);
-            T sqrtT = (T)Convert.ChangeType(sqrtD, typeof(T));
+            T sqrtT = T.CreateChecked(sqrtD);
             dst[i] = sqrtT;
         }
     }
@@ -53,7 +53,7 @@ public static class CVSquareRoot
         return outImage;
     }
 
-    public static CVImagePyramid SquareRoot<TV>(CVImagePyramid image) where TV : struct
+    public static CVImagePyramid SquareRoot<TV>(CVImagePyramid image) where TV : struct, INumber<TV>
     {
         CVImagePyramid outImage = new CVImagePyramid(image.Levels);
 

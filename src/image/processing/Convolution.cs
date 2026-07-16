@@ -8,8 +8,7 @@ public class CVConvolution
             CVImage image1,
             CVImage image2,
             ref CVImage imageOut)
-            where T : struct,
-                INumber<T>
+            where T : struct, INumber<T>
     {
         int kW = (image2.Width - 1) / 2;
 
@@ -69,8 +68,7 @@ public class CVConvolution
         CVImage image1,
         CVImage image2,
         ref CVImage imageOut)
-        where T : struct,
-            INumber<T>
+        where T : struct, INumber<T>
     {
         int kH = (image2.Height - 1) / 2;
         int width = image1.Width;

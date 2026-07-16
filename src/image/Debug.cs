@@ -46,13 +46,18 @@ public class CVDebug
 
     private static void printImage<T>(CVImage image) where T : struct, INumber<T>
     {
+        T min = CVProcessing.MinValue<T>(image);
+        T max = CVProcessing.MaxValue<T>(image);
+
+        T avg = (max + min) / T.CreateChecked(2);
+
         Span<T> buffer = image.BufferAs<T>();
 
-        for (int y = 0; y < image.Width; y++)
+        for (int y = 0; y < image.Height; y++)
         {
-            for (int x = 0; x < image.Height; x++)
+            for (int x = 0; x < image.Width; x++)
             {
-                Console.Write(buffer[x + y * image.Width] == T.Zero ? "." : "#");
+                Console.Write(buffer[x + y * image.Width] > avg ? "#" : ".");
             }
             Console.WriteLine();
         }
@@ -70,5 +75,39 @@ public class CVDebug
         else if (image.DataFormat == CVDataFormat.CV_S64) printImage<long>(image);
         else if (image.DataFormat == CVDataFormat.CV_F32) printImage<float>(image);
         else if (image.DataFormat == CVDataFormat.CV_F64) printImage<double>(image);
+    }
+
+    private static void printImageData<T>(CVImage image) where T : struct, INumber<T>
+    {
+        T min = CVProcessing.MinValue<T>(image);
+        T max = CVProcessing.MaxValue<T>(image);
+
+        T avg = (max + min) / T.CreateChecked(2);
+
+        Span<T> buffer = image.BufferAs<T>();
+
+        for (int y = 0; y < image.Height; y++)
+        {
+            for (int x = 0; x < image.Width; x++)
+            {
+                Console.Write(buffer[x + y * image.Width]);
+                Console.Write(", ");
+            }
+            Console.WriteLine();
+        }
+    }
+
+    public static void PrintImageData(CVImage image)
+    {
+        if (image.DataFormat == CVDataFormat.CV_U8) printImageData<byte>(image);
+        else if (image.DataFormat == CVDataFormat.CV_S8) printImageData<sbyte>(image);
+        else if (image.DataFormat == CVDataFormat.CV_U16) printImageData<ushort>(image);
+        else if (image.DataFormat == CVDataFormat.CV_S16) printImageData<short>(image);
+        else if (image.DataFormat == CVDataFormat.CV_U32) printImageData<uint>(image);
+        else if (image.DataFormat == CVDataFormat.CV_S32) printImageData<int>(image);
+        else if (image.DataFormat == CVDataFormat.CV_U64) printImageData<ulong>(image);
+        else if (image.DataFormat == CVDataFormat.CV_S64) printImageData<long>(image);
+        else if (image.DataFormat == CVDataFormat.CV_F32) printImageData<float>(image);
+        else if (image.DataFormat == CVDataFormat.CV_F64) printImageData<double>(image);
     }
 }

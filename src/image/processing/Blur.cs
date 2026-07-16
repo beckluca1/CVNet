@@ -12,10 +12,13 @@ public class CVBlur
         return imageOut;
     }
 
-    public static CVImage GaussianBlur(CVImage image, int n)
+    public static CVImage GaussianBlur(CVImage image, int n, double sigma = 0.0)
     {
-        CVImage blurMaskX = CVImage.CreateGaussianMask(n, 1, image.DataFormat, image.ChannelFormats);
-        CVImage blurMaskY = CVImage.CreateGaussianMask(1, n, image.DataFormat, image.ChannelFormats);
+        if (sigma == 0.0)
+            sigma = (n - 1) / 6.0;
+
+        CVImage blurMaskX = CVImage.CreateGaussianMask(n, 1, image.DataFormat, image.ChannelFormats, sigma);
+        CVImage blurMaskY = CVImage.CreateGaussianMask(1, n, image.DataFormat, image.ChannelFormats, sigma);
 
         CVImage imageOut = CVConvolution.ConvolutionX(image, blurMaskX);
         imageOut = CVConvolution.ConvolutionY(imageOut, blurMaskY);

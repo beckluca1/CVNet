@@ -1,4 +1,5 @@
 using System.Numerics;
+using System.Runtime.InteropServices;
 
 namespace CVNet;
 
@@ -331,8 +332,6 @@ public class CVProcessing
         int[] x0 = new int[dstWidth];
         int[] x1 = new int[dstWidth];
 
-        //T area = (T)Convert.ChangeType(((double)srcWidth / dstWidth) * ((double)srcHeight / dstHeight), typeof(T));
-
         for (int x = 0; x < dstWidth; x++)
         {
             x0[x] = (int)(x * (long)srcWidth / dstWidth);
@@ -433,53 +432,55 @@ public class CVProcessing
         return minValue;
     }
 
-    private static void normalize<T>(CVImage image, ref CVImage outImage) where T : struct, INumber<T>
+    private static void normalize<T>(CVImage image, T newMin, T newMax, ref CVImage outImage) where T : struct, INumber<T>
     {
         T min = MinValue<T>(image);
         T max = MaxValue<T>(image);
         T range = max - min;
 
+        T newRange = newMax - newMin;
+
         outImage = CVSubtract.Subtract(image, min);
         outImage = CVDivide.Divide(outImage, range);
+        outImage = CVMultiply.Multiply(outImage, newRange);
+        outImage = CVAdd.Add(outImage, newMin);
     }
 
-    public static CVImage Normalize(CVImage image)
+    public static CVImage Normalize(CVImage image, double min, double max)
     {
         // Normalization requires floating point image
         CVImage imageC = CVConvert.ConvertDataFormatToFloat(image);
         CVImage outImage = CVImage.Create(imageC.Width, imageC.Height, imageC.DataFormat, imageC.ChannelFormats);
 
-        if (imageC.DataFormat == CVDataFormat.CV_U8) normalize<byte>(imageC, ref outImage);
-        else if (imageC.DataFormat == CVDataFormat.CV_S8) normalize<sbyte>(imageC, ref outImage);
-        else if (imageC.DataFormat == CVDataFormat.CV_U16) normalize<ushort>(imageC, ref outImage);
-        else if (imageC.DataFormat == CVDataFormat.CV_S16) normalize<short>(imageC, ref outImage);
-        else if (imageC.DataFormat == CVDataFormat.CV_U32) normalize<uint>(imageC, ref outImage);
-        else if (imageC.DataFormat == CVDataFormat.CV_S32) normalize<int>(imageC, ref outImage);
-        else if (imageC.DataFormat == CVDataFormat.CV_U64) normalize<ulong>(imageC, ref outImage);
-        else if (imageC.DataFormat == CVDataFormat.CV_S64) normalize<long>(imageC, ref outImage);
-        else if (imageC.DataFormat == CVDataFormat.CV_F32) normalize<float>(imageC, ref outImage);
-        else if (imageC.DataFormat == CVDataFormat.CV_F64) normalize<double>(imageC, ref outImage);
+        if (imageC.DataFormat == CVDataFormat.CV_U8) normalize<byte>(imageC, (byte)min, (byte)max, ref outImage);
+        else if (imageC.DataFormat == CVDataFormat.CV_S8) normalize<sbyte>(imageC, (sbyte)min, (sbyte)max, ref outImage);
+        else if (imageC.DataFormat == CVDataFormat.CV_U16) normalize<ushort>(imageC, (ushort)min, (ushort)max, ref outImage);
+        else if (imageC.DataFormat == CVDataFormat.CV_S16) normalize<short>(imageC, (short)min, (short)max, ref outImage);
+        else if (imageC.DataFormat == CVDataFormat.CV_U32) normalize<uint>(imageC, (uint)min, (uint)max, ref outImage);
+        else if (imageC.DataFormat == CVDataFormat.CV_S32) normalize<int>(imageC, (int)min, (int)max, ref outImage);
+        else if (imageC.DataFormat == CVDataFormat.CV_U64) normalize<ulong>(imageC, (ulong)min, (ulong)max, ref outImage);
+        else if (imageC.DataFormat == CVDataFormat.CV_S64) normalize<long>(imageC, (long)min, (long)max, ref outImage);
+        else if (imageC.DataFormat == CVDataFormat.CV_F32) normalize<float>(imageC, (float)min, (float)max, ref outImage);
+        else if (imageC.DataFormat == CVDataFormat.CV_F64) normalize<double>(imageC, (double)min, (double)max, ref outImage);
 
         return outImage;
     }
 
-    public static List<int> Histogram<T>(CVImage imageIn, int bucketCount, out T min, out T max, out double bucketSize) where T : struct, INumber<T>
+    private static void histogram<T>(CVImage imageIn, int bucketCount, out double min, out double max, out double bucketSize, ref List<int> histogram) where T : struct, INumber<T>
     {
-        max = MaxValue<T>(imageIn);
-        min = MinValue<T>(imageIn);
-        T values = max - min;
-
-        bucketSize = (double)Convert.ChangeType(values, typeof(double)) / (bucketCount - 1);
+        max = double.CreateChecked(MaxValue<T>(imageIn));
+        min = double.CreateChecked(MinValue<T>(imageIn));
+        bucketSize = (max - min) / (bucketCount - 1);
 
         if (bucketSize == 0.0)
             bucketSize = 1.0;
 
-        List<int> histogram = Enumerable.Repeat(0, bucketCount).ToList();
+        histogram = Enumerable.Repeat(0, bucketCount).ToList();
         Span<T> buffer = imageIn.BufferAs<T>();
 
         for (int i = 0; i < imageIn.Width * imageIn.Height * imageIn.Channels; i++)
         {
-            int bucket = Convert.ToInt32((double)Convert.ChangeType(buffer[i] - min, typeof(double)) / bucketSize);
+            int bucket = Convert.ToInt32((double.CreateChecked(buffer[i]) - min) / bucketSize);
 
             if (bucket < 0)
                 bucket = 0;
@@ -489,14 +490,127 @@ public class CVProcessing
 
             histogram[bucket]++;
         }
-
-        return histogram;
     }
 
-
-    public static void getPixels<T, TV>(CVImage image, TV value, ref List<(int, int)> pixelListOut) where T : struct, INumber<T> where TV : struct
+    public static List<int> Histogram(CVImage image, int bucketCount, out double min, out double max, out double bucketSize)
     {
-        T valueC = (T)Convert.ChangeType(value, typeof(T));
+        List<int> histogramList = new List<int>();
+
+        min = 0;
+        max = 0;
+        bucketSize = 0;
+
+        if (image.DataFormat == CVDataFormat.CV_U8) histogram<byte>(image, bucketCount, out min, out max, out bucketSize, ref histogramList);
+        else if (image.DataFormat == CVDataFormat.CV_S8) histogram<sbyte>(image, bucketCount, out min, out max, out bucketSize, ref histogramList);
+        else if (image.DataFormat == CVDataFormat.CV_U16) histogram<ushort>(image, bucketCount, out min, out max, out bucketSize, ref histogramList);
+        else if (image.DataFormat == CVDataFormat.CV_S16) histogram<short>(image, bucketCount, out min, out max, out bucketSize, ref histogramList);
+        else if (image.DataFormat == CVDataFormat.CV_U32) histogram<uint>(image, bucketCount, out min, out max, out bucketSize, ref histogramList);
+        else if (image.DataFormat == CVDataFormat.CV_S32) histogram<int>(image, bucketCount, out min, out max, out bucketSize, ref histogramList);
+        else if (image.DataFormat == CVDataFormat.CV_U64) histogram<ulong>(image, bucketCount, out min, out max, out bucketSize, ref histogramList);
+        else if (image.DataFormat == CVDataFormat.CV_S64) histogram<long>(image, bucketCount, out min, out max, out bucketSize, ref histogramList);
+        else if (image.DataFormat == CVDataFormat.CV_F32) histogram<float>(image, bucketCount, out min, out max, out bucketSize, ref histogramList);
+        else if (image.DataFormat == CVDataFormat.CV_F64) histogram<double>(image, bucketCount, out min, out max, out bucketSize, ref histogramList);
+
+        return histogramList;
+    }
+
+    private static void histogram<T>(CVImage imageIn, int bucketCount, double min, double max, double bucketSize, ref List<int> histogram) where T : struct, INumber<T>
+    {
+        if (bucketSize == 0.0)
+            bucketSize = 1.0;
+
+        histogram = Enumerable.Repeat(0, bucketCount).ToList();
+        Span<T> buffer = imageIn.BufferAs<T>();
+
+        for (int i = 0; i < imageIn.Width * imageIn.Height * imageIn.Channels; i++)
+        {
+            int bucket = Convert.ToInt32((double.CreateChecked(buffer[i]) - min) / bucketSize);
+
+            if (bucket < 0)
+                bucket = 0;
+            else if (bucket >= bucketCount)
+                bucket = bucketCount - 1;
+
+
+            histogram[bucket]++;
+        }
+    }
+
+    public static List<int> Histogram(CVImage image, int bucketCount, double min, double max, double bucketSize)
+    {
+        List<int> histogramList = new List<int>();
+
+        min = 0;
+        max = 0;
+        bucketSize = 0;
+
+        if (image.DataFormat == CVDataFormat.CV_U8) histogram<byte>(image, bucketCount, min, max, bucketSize, ref histogramList);
+        else if (image.DataFormat == CVDataFormat.CV_S8) histogram<sbyte>(image, bucketCount, min, max, bucketSize, ref histogramList);
+        else if (image.DataFormat == CVDataFormat.CV_U16) histogram<ushort>(image, bucketCount, min, max, bucketSize, ref histogramList);
+        else if (image.DataFormat == CVDataFormat.CV_S16) histogram<short>(image, bucketCount, min, max, bucketSize, ref histogramList);
+        else if (image.DataFormat == CVDataFormat.CV_U32) histogram<uint>(image, bucketCount, min, max, bucketSize, ref histogramList);
+        else if (image.DataFormat == CVDataFormat.CV_S32) histogram<int>(image, bucketCount, min, max, bucketSize, ref histogramList);
+        else if (image.DataFormat == CVDataFormat.CV_U64) histogram<ulong>(image, bucketCount, min, max, bucketSize, ref histogramList);
+        else if (image.DataFormat == CVDataFormat.CV_S64) histogram<long>(image, bucketCount, min, max, bucketSize, ref histogramList);
+        else if (image.DataFormat == CVDataFormat.CV_F32) histogram<float>(image, bucketCount, min, max, bucketSize, ref histogramList);
+        else if (image.DataFormat == CVDataFormat.CV_F64) histogram<double>(image, bucketCount, min, max, bucketSize, ref histogramList);
+
+        return histogramList;
+    }
+
+    private static int histogramMap<T, TV>(CVImage imageIn, int bucketCount, TV val) where T : struct, INumber<T> where TV : struct, INumber<TV>
+    {
+        double max = double.CreateChecked(MaxValue<T>(imageIn));
+        double min = double.CreateChecked(MinValue<T>(imageIn));
+        double bucketSize = (max - min) / (bucketCount - 1);
+
+        if (bucketSize == 0.0)
+            bucketSize = 1.0;
+
+        int bucket = Convert.ToInt32((double.CreateChecked(val) - min) / bucketSize);
+
+        if (bucket < 0)
+            bucket = 0;
+        else if (bucket >= bucketCount)
+            bucket = bucketCount - 1;
+
+        return bucket;
+    }
+
+    public static int HistogramMap<TV>(CVImage image, int bucketCount, TV val) where TV : struct, INumber<TV>
+    {
+        if (image.DataFormat == CVDataFormat.CV_U8) return histogramMap<byte, TV>(image, bucketCount, val);
+        else if (image.DataFormat == CVDataFormat.CV_S8) return histogramMap<sbyte, TV>(image, bucketCount, val);
+        else if (image.DataFormat == CVDataFormat.CV_U16) return histogramMap<ushort, TV>(image, bucketCount, val);
+        else if (image.DataFormat == CVDataFormat.CV_S16) return histogramMap<short, TV>(image, bucketCount, val);
+        else if (image.DataFormat == CVDataFormat.CV_U32) return histogramMap<uint, TV>(image, bucketCount, val);
+        else if (image.DataFormat == CVDataFormat.CV_S32) return histogramMap<int, TV>(image, bucketCount, val);
+        else if (image.DataFormat == CVDataFormat.CV_U64) return histogramMap<ulong, TV>(image, bucketCount, val);
+        else if (image.DataFormat == CVDataFormat.CV_S64) return histogramMap<long, TV>(image, bucketCount, val);
+        else if (image.DataFormat == CVDataFormat.CV_F32) return histogramMap<float, TV>(image, bucketCount, val);
+        else if (image.DataFormat == CVDataFormat.CV_F64) return histogramMap<double, TV>(image, bucketCount, val);
+
+        return 0;
+    }
+
+    private static int HistogramMap<TV>(double min, double max, double bucketSize, TV val) where TV : struct, INumber<TV>
+    {
+        if (bucketSize == 0.0)
+            bucketSize = 1.0;
+
+        double valD = double.CreateChecked(val);
+
+        if (valD > max) valD = max;
+        if (valD < min) valD = min;
+
+        int bucket = Convert.ToInt32((double.CreateChecked(valD) - min) / bucketSize);
+
+        return bucket;
+    }
+
+    public static void getPixels<T, TV>(CVImage image, TV value, ref List<(int, int)> pixelListOut) where T : struct, INumber<T> where TV : struct, INumber<TV>
+    {
+        T valueC = T.CreateChecked(value);
 
         Span<T> buffer = image.BufferAs<T>();
 
@@ -509,7 +623,7 @@ public class CVProcessing
         }
     }
 
-    public static List<(int, int)> GetPixels<TV>(CVImage image, TV value) where TV : struct
+    public static List<(int, int)> GetPixels<TV>(CVImage image, TV value) where TV : struct, INumber<TV>
     {
         List<(int, int)> pixelListOut = new List<(int, int)>();
 
@@ -527,9 +641,9 @@ public class CVProcessing
         return pixelListOut;
     }
 
-    public static void getPixels<T, TV>(CVImage mask, CVImage image, TV value, ref List<(int, int, double)> pixelListOut) where T : struct, INumber<T> where TV : struct
+    public static void getPixels<T, TV>(CVImage mask, CVImage image, TV value, ref List<(int, int, double)> pixelListOut) where T : struct, INumber<T> where TV : struct, INumber<TV>
     {
-        T valueC = (T)Convert.ChangeType(value, typeof(T));
+        T valueC = T.CreateChecked(value);
 
         Span<T> maskBuffer = mask.BufferAs<T>();
         Span<T> buffer = image.BufferAs<T>();
@@ -539,12 +653,12 @@ public class CVProcessing
             for (int x = 0; x < image.Width; x++)
             {
                 int index = x + y * image.Width;
-                if (maskBuffer[index] == valueC) pixelListOut.Add((x, y, (double)Convert.ChangeType(buffer[index], typeof(double))));
+                if (maskBuffer[index] == valueC) pixelListOut.Add((x, y, double.CreateChecked(buffer[index])));
             }
         }
     }
 
-    public static List<(int, int, double)> GetPixels<TV>(CVImage mask, CVImage image, TV value) where TV : struct
+    public static List<(int, int, double)> GetPixels<TV>(CVImage mask, CVImage image, TV value) where TV : struct, INumber<TV>
     {
         List<(int, int, double)> pixelListOut = new List<(int, int, double)>();
 
@@ -560,5 +674,207 @@ public class CVProcessing
         else if (image.DataFormat == CVDataFormat.CV_F64) getPixels<double, TV>(mask, image, value, ref pixelListOut);
 
         return pixelListOut;
+    }
+
+    private static void subImage<T>(CVImage image, int startX, int startY, int endX, int endY, ref CVImage imageOut) where T : struct, INumber<T>
+    {
+        Span<T> src = image.BufferAs<T>();
+        Span<T> dst = imageOut.BufferAs<T>();
+
+        for (int c = 0; c < image.Channels; c++)
+        {
+            for (int y = startY; y < endY; y++)
+            {
+                for (int x = startX; x < endX; x++)
+                {
+                    dst[(x - startX) + (y - startY) * imageOut.Width] = src[x + y * image.Width];
+                }
+            }
+        }
+    }
+
+    private static CVImage SubImage(CVImage image, int startX, int startY, int endX, int endY)
+    {
+        CVImage outImage = CVImage.Create(endX - startX, endY - startY, image.DataFormat, image.ChannelFormats);
+
+        if (image.DataFormat == CVDataFormat.CV_U8) subImage<byte>(image, startX, startY, endX, endY, ref outImage);
+        else if (image.DataFormat == CVDataFormat.CV_S8) subImage<sbyte>(image, startX, startY, endX, endY, ref outImage);
+        else if (image.DataFormat == CVDataFormat.CV_U16) subImage<ushort>(image, startX, startY, endX, endY, ref outImage);
+        else if (image.DataFormat == CVDataFormat.CV_S16) subImage<short>(image, startX, startY, endX, endY, ref outImage);
+        else if (image.DataFormat == CVDataFormat.CV_U32) subImage<uint>(image, startX, startY, endX, endY, ref outImage);
+        else if (image.DataFormat == CVDataFormat.CV_S32) subImage<int>(image, startX, startY, endX, endY, ref outImage);
+        else if (image.DataFormat == CVDataFormat.CV_U64) subImage<ulong>(image, startX, startY, endX, endY, ref outImage);
+        else if (image.DataFormat == CVDataFormat.CV_S64) subImage<long>(image, startX, startY, endX, endY, ref outImage);
+        else if (image.DataFormat == CVDataFormat.CV_F32) subImage<float>(image, startX, startY, endX, endY, ref outImage);
+        else if (image.DataFormat == CVDataFormat.CV_F64) subImage<double>(image, startX, startY, endX, endY, ref outImage);
+
+        return outImage;
+    }
+
+    private static byte[,] buildLut(
+            CVImage image,
+            List<int> histogram,
+            double clipFactor)
+    {
+        const int bins = 256;
+
+        int pixels = image.Width * image.Height;
+
+        int clipLimit = Math.Max(1,
+            (int)(clipFactor * pixels / bins));
+
+        int excess = 0;
+
+        for (int i = 0; i < bins; i++)
+        {
+            if (histogram[i] > clipLimit)
+            {
+                excess += histogram[i] - clipLimit;
+                histogram[i] = clipLimit;
+            }
+        }
+
+        // Redistribute clipped pixels
+        int increment = excess / bins;
+        int remainder = excess % bins;
+
+        for (int i = 0; i < bins; i++)
+            histogram[i] += increment;
+
+        for (int i = 0; i < remainder; i++)
+            histogram[i]++;
+
+        // CDF
+        int[] cdf = new int[bins];
+        cdf[0] = histogram[0];
+
+        for (int i = 1; i < bins; i++)
+            cdf[i] = cdf[i - 1] + histogram[i];
+
+        int cdfMin = 0;
+
+        for (int i = 0; i < bins; i++)
+        {
+            if (cdf[i] != 0)
+            {
+                cdfMin = cdf[i];
+                break;
+            }
+        }
+
+        byte[,] lut = new byte[1, bins];
+
+        for (int i = 0; i < bins; i++)
+        {
+            double value =
+                (double)(cdf[i] - cdfMin) /
+                (pixels - cdfMin);
+
+            value = Math.Max(0, Math.Min(1, value));
+
+            lut[0, i] = (byte)Math.Round(value * 255);
+        }
+
+        return lut;
+    }
+
+    private static void clahe<T>(
+        CVImage image,
+        int tileWidth,
+        int tileHeight,
+        double clipLimit,
+        ref CVImage outImage) where T : struct, INumber<T>
+    {
+        Console.WriteLine("Clahe");
+
+        int height = image.Height;
+        int width = image.Width;
+
+        int tilesX = (width + tileWidth - 1) / tileWidth;
+        int tilesY = (height + tileHeight - 1) / tileHeight;
+
+        byte[][,] luts = new byte[tilesX * tilesY][,];
+
+        Console.WriteLine("Luts");
+
+        // Compute LUT for each tile
+        for (int ty = 0; ty < tilesY; ty++)
+        {
+            for (int tx = 0; tx < tilesX; tx++)
+            {
+                int x0 = tx * tileWidth;
+                int y0 = ty * tileHeight;
+
+                int tw = Math.Min(tileWidth, width - x0);
+                int th = Math.Min(tileHeight, height - y0);
+
+                CVImage subImage = SubImage(image, x0, y0, x0 + tw, y0 + th);
+
+                List<int> histogram = Histogram(subImage, 256, 0, 255, 1);
+
+                luts[ty * tilesX + tx] = buildLut(subImage, histogram, clipLimit);
+            }
+        }
+
+        Span<T> src = image.BufferAs<T>();
+        Span<T> dst = outImage.BufferAs<T>();
+
+        Console.WriteLine("interpolation");
+
+        // Apply bilinear interpolation
+        for (int y = 0; y < height; y++)
+        {
+            double gy = (double)y / tileHeight - 0.5;
+            int ty = (int)Math.Floor(gy);
+            double fy = gy - ty;
+
+            ty = Math.Max(0, Math.Min(tilesY - 2, ty));
+
+            for (int x = 0; x < width; x++)
+            {
+                double gx = (double)x / tileWidth - 0.5;
+                int tx = (int)Math.Floor(gx);
+                double fx = gx - tx;
+
+                tx = Math.Max(0, Math.Min(tilesX - 2, tx));
+
+                int p = HistogramMap(0, 255, 1, src[x + y * image.Width]);
+
+                byte[,] lut00 = luts[ty * tilesX + tx];
+                byte[,] lut10 = luts[ty * tilesX + tx + 1];
+                byte[,] lut01 = luts[(ty + 1) * tilesX + tx];
+                byte[,] lut11 = luts[(ty + 1) * tilesX + tx + 1];
+
+                double v =
+                    (1 - fx) * (1 - fy) * lut00[0, p] +
+                    fx * (1 - fy) * lut10[0, p] +
+                    (1 - fx) * fy * lut01[0, p] +
+                    fx * fy * lut11[0, p];
+
+                dst[x + y * outImage.Width] = T.CreateChecked(v);
+            }
+        }
+    }
+
+    public static CVImage Clahe(
+        CVImage image,
+        int tileWidth = 64,
+        int tileHeight = 64,
+        double clipLimit = 2.0)
+    {
+        CVImage outImage = CVImage.Create(image.Width, image.Height, image.DataFormat, image.ChannelFormats);
+
+        if (image.DataFormat == CVDataFormat.CV_U8) clahe<byte>(image, tileWidth, tileHeight, clipLimit, ref outImage);
+        else if (image.DataFormat == CVDataFormat.CV_S8) clahe<sbyte>(image, tileWidth, tileHeight, clipLimit, ref outImage);
+        else if (image.DataFormat == CVDataFormat.CV_U16) clahe<ushort>(image, tileWidth, tileHeight, clipLimit, ref outImage);
+        else if (image.DataFormat == CVDataFormat.CV_S16) clahe<short>(image, tileWidth, tileHeight, clipLimit, ref outImage);
+        else if (image.DataFormat == CVDataFormat.CV_U32) clahe<uint>(image, tileWidth, tileHeight, clipLimit, ref outImage);
+        else if (image.DataFormat == CVDataFormat.CV_S32) clahe<int>(image, tileWidth, tileHeight, clipLimit, ref outImage);
+        else if (image.DataFormat == CVDataFormat.CV_U64) clahe<ulong>(image, tileWidth, tileHeight, clipLimit, ref outImage);
+        else if (image.DataFormat == CVDataFormat.CV_S64) clahe<long>(image, tileWidth, tileHeight, clipLimit, ref outImage);
+        else if (image.DataFormat == CVDataFormat.CV_F32) clahe<float>(image, tileWidth, tileHeight, clipLimit, ref outImage);
+        else if (image.DataFormat == CVDataFormat.CV_F64) clahe<double>(image, tileWidth, tileHeight, clipLimit, ref outImage);
+
+        return outImage;
     }
 }

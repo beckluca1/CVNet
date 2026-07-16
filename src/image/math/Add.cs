@@ -8,9 +8,9 @@ public static class CVAdd
         CVImage imageIn,
         TV value,
         ref CVImage imageOut)
-        where T : unmanaged, INumber<T> where TV : struct
+        where T : unmanaged, INumber<T> where TV : struct, INumber<TV>
     {
-        T valueC = (T)Convert.ChangeType(value, typeof(T));
+        T valueC = T.CreateChecked(value);
 
         Span<T> src = imageIn.BufferAs<T>();
         Span<T> dst = imageOut.BufferAs<T>();
@@ -41,10 +41,10 @@ public static class CVAdd
         CVImage imageIn,
         TV[] values,
         ref CVImage imageOut)
-        where T : unmanaged, INumber<T> where TV : struct
+        where T : unmanaged, INumber<T> where TV : struct, INumber<TV>
     {
         T[] valuesC = new T[values.Length];
-        for (int i = 0; i < valuesC.Length; i++) valuesC[i] = (T)Convert.ChangeType(values[i], typeof(T));
+        for (int i = 0; i < valuesC.Length; i++) valuesC[i] = T.CreateChecked(values[i]);
 
         int planeSize = imageIn.Width * imageIn.Height;
 
@@ -115,7 +115,7 @@ public static class CVAdd
         }
     }
 
-    public static CVImage Add<TV>(CVImage image, TV arg1) where TV : struct
+    public static CVImage Add<TV>(CVImage image, TV arg1) where TV : struct, INumber<TV>
     {
         CVImage outImage = CVImage.Create(image.Width, image.Height, image.DataFormat, image.ChannelFormats);
 
@@ -133,7 +133,7 @@ public static class CVAdd
         return outImage;
     }
 
-    public static CVImage Add<TV>(CVImage image, TV[] arg1) where TV : struct
+    public static CVImage Add<TV>(CVImage image, TV[] arg1) where TV : struct, INumber<TV>
     {
         CVImage outImage = CVImage.Create(image.Width, image.Height, image.DataFormat, image.ChannelFormats);
 
@@ -174,9 +174,9 @@ public static class CVAdd
     TV value,
     int channel,
     ref CVImage imageOut)
-    where T : unmanaged, INumber<T> where TV : struct
+    where T : unmanaged, INumber<T> where TV : struct, INumber<TV>
     {
-        T valueC = (T)Convert.ChangeType(value, typeof(T));
+        T valueC = T.CreateChecked(value);
 
         Span<T> src = imageIn.ChannelAs<T>(channel);
         Span<T> dst = imageOut.ChannelAs<T>(channel);
@@ -236,7 +236,7 @@ public static class CVAdd
         }
     }
 
-    public static CVImage Add<TV>(CVImage image, TV arg1, int channel) where TV : struct
+    public static CVImage Add<TV>(CVImage image, TV arg1, int channel) where TV : struct, INumber<TV>
     {
         CVImage outImage = CVImage.Create(image.Width, image.Height, image.DataFormat, image.ChannelFormats);
 
@@ -272,7 +272,7 @@ public static class CVAdd
         return outImage;
     }
 
-    public static CVImagePyramid Add<TV>(CVImagePyramid image, TV arg1) where TV : struct
+    public static CVImagePyramid Add<TV>(CVImagePyramid image, TV arg1) where TV : struct, INumber<TV>
     {
         CVImagePyramid outImage = new CVImagePyramid(image.Levels);
 
@@ -282,7 +282,7 @@ public static class CVAdd
         return outImage;
     }
 
-    public static CVImagePyramid Add<TV>(CVImagePyramid image, TV[] arg1) where TV : struct
+    public static CVImagePyramid Add<TV>(CVImagePyramid image, TV[] arg1) where TV : struct, INumber<TV>
     {
         CVImagePyramid outImage = new CVImagePyramid(image.Levels);
 
@@ -302,7 +302,7 @@ public static class CVAdd
         return outImage;
     }
 
-    public static CVImagePyramid Add<TV>(CVImagePyramid image, TV arg1, int channel) where TV : struct
+    public static CVImagePyramid Add<TV>(CVImagePyramid image, TV arg1, int channel) where TV : struct, INumber<TV>
     {
         CVImagePyramid outImage = new CVImagePyramid(image.Levels);
 
