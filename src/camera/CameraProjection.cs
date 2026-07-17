@@ -60,15 +60,11 @@ public class CVProjection
 
     public static void CalculatePlaneProjection(List<Vector<double>> imagePoints, List<Vector<double>> worldPoints, Matrix<double> K, Vector<double> d, out Matrix<double> R, out Vector<double> t)
     {
-        List<Vector<double>> normalizedImagePoints = CVCamera.Normalize(imagePoints, out var TImg);
-        List<Vector<double>> normalizedWorldPoints = CVCamera.Normalize(worldPoints, out var TWrld);
-
-        Matrix<double> homography = CVCamera.ComputeHomography(normalizedImagePoints, normalizedWorldPoints);
-        Matrix<double> denormalizedHomography = CVCamera.Denormalize(homography, TImg, TWrld);
+        Matrix<double> homography = CVCamera.ComputeHomographyStable(imagePoints, worldPoints);
 
         Matrix<double> Kinv = K.Inverse();
 
-        CVCamera.ComputeExtrinsics(denormalizedHomography, Kinv, out Matrix<double> RO, out Vector<double> tO);
+        CVCamera.ComputeExtrinsics(homography, Kinv, out Matrix<double> RO, out Vector<double> tO);
 
         R = RO;
         t = tO;

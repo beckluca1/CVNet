@@ -12,33 +12,25 @@ public class CVCamera
         double cy = pts.Average(p => p[1]);
 
         double meanDist = pts
-            .Select(p =>
+            .Average(p =>
             {
                 double dx = p[0] - cx;
                 double dy = p[1] - cy;
                 return Math.Sqrt(dx * dx + dy * dy);
-            })
-            .Average();
+            });
 
         double s = Math.Sqrt(2) / meanDist;
 
         T = DenseMatrix.OfArray(new double[,]
         {
-        { s, 0, -s * cx },
-        { 0, s, -s * cy },
-        { 0, 0, 1 }
+            { s, 0, -s * cx },
+            { 0, s, -s * cy },
+            { 0, 0, 1 }
         });
 
         var norm = new List<Vector<double>>();
-
         foreach (var p in pts)
-        {
-            norm.Add(DenseVector.OfArray(new double[]
-            {
-            s * (p[0] - cx),
-            s * (p[1] - cy)
-            }));
-        }
+            norm.Add(DenseVector.OfArray([s * (p[0] - cx), s * (p[1] - cy)]));
 
         return norm;
     }
@@ -90,6 +82,112 @@ public class CVCamera
         });
 
         return H / H[2, 2];
+    }
+
+    public static Matrix<double> ComputeHomographyStable(List<Vector<double>> src, List<Vector<double>> dst)
+    {
+        if (src.Count < 4)
+            return DenseMatrix.OfArray(new double[,]
+            {
+                { 1, 0, 0 },
+                { 0, 1, 0 },
+                {0,0, 1 }
+            });
+
+        List<Vector<double>> normalizedSrcPoints = Normalize(src, out var TSrc);
+        List<Vector<double>> normalizedDstPoints = Normalize(dst, out var TDst);
+
+        Matrix<double> homography = ComputeHomography(normalizedSrcPoints, normalizedDstPoints);
+
+        return Denormalize(homography, TSrc, TDst);
+    }
+
+    public static Matrix<double> ComputeHomographyRansac(
+        List<Vector<double>> src,
+        List<Vector<double>> dst,
+        int iterations,
+        double threshold,
+        out List<int> bestInliers)
+    {
+        bestInliers = new List<int>();
+        Matrix<double> bestH = Matrix<double>.Build.DenseIdentity(3);
+
+        if (src.Count != dst.Count || src.Count < 4)
+            return bestH;
+
+        Random random = new Random();
+
+        int n = src.Count;
+
+        for (int iter = 0; iter < iterations; iter++)
+        {
+            // 1. Pick 4 random matches
+            HashSet<int> indices = new HashSet<int>();
+
+            while (indices.Count < 4)
+                indices.Add(random.Next(n));
+
+            List<Vector<double>> srcSample = new();
+            List<Vector<double>> dstSample = new();
+
+            foreach (int i in indices)
+            {
+                srcSample.Add(src[i]);
+                dstSample.Add(dst[i]);
+            }
+
+            Matrix<double> H;
+
+            try
+            {
+                H = CVWarp.GetPerspectiveTransform(
+                    srcSample,
+                    dstSample);
+            }
+            catch
+            {
+                continue;
+            }
+
+            // 2. Count inliers
+            List<int> inliers = new();
+
+            for (int i = 0; i < n; i++)
+            {
+                Vector<double> projected = CVWarp.TransformPoint(src[i], H);
+
+                double dx = projected[0] - dst[i][0];
+                double dy = projected[1] - dst[i][1];
+                double error = Math.Sqrt(dx * dx + dy * dy);
+
+                if (error < threshold)
+                    inliers.Add(i);
+            }
+
+
+            // 3. Keep best model
+            if (inliers.Count > bestInliers.Count)
+            {
+                bestInliers = inliers;
+                bestH = H;
+            }
+        }
+
+        if (bestInliers.Count < 4)
+            throw new Exception("No valid homography found");
+
+
+        // 4. Recalculate using all inliers
+        List<Vector<double>> finalSrc = new();
+        List<Vector<double>> finalDst = new();
+
+        foreach (int i in bestInliers)
+        {
+            finalSrc.Add(src[i]);
+            finalDst.Add(dst[i]);
+        }
+
+        return ComputeHomographyStable(finalSrc, finalDst);
     }
 
     private static Vector<double> Vij(Matrix<double> H, int i, int j)
@@ -483,5 +581,342 @@ public class CVCamera
         }
 
         return x;
+    }
+
+    private static List<Vector<double>> NormalizeCameraPoints(List<Vector<double>> pixels, Matrix<double> K)
+    {
+        var Kinv = K.Inverse();
+
+        var result = new List<Vector<double>>();
+
+        foreach (var p in pixels)
+        {
+            var hp = DenseVector.OfArray([p[0], p[1], 1.0]);
+
+            var x = Kinv * hp;
+
+            result.Add(DenseVector.OfArray([x[0] / x[2], x[1] / x[2], 1.0]));
+        }
+
+        return result;
+    }
+
+
+    private static Matrix<double> EnforceEssential(
+        Matrix<double> E)
+    {
+        var svd = E.Svd(true);
+
+        var U = svd.U;
+        var Vt = svd.VT;
+
+        // Ensure proper rotations
+        if (U.Determinant() < 0)
+        {
+            for (int i = 0; i < 3; i++)
+                U[i, 2] *= -1;
+        }
+
+        if (Vt.Determinant() < 0)
+        {
+            for (int i = 0; i < 3; i++)
+                Vt[2, i] *= -1;
+        }
+
+        double s = (svd.S[0] + svd.S[1]) * 0.5;
+
+        var S = DenseMatrix.OfArray(new double[,] {
+            {s,0,0},
+            {0,s,0},
+            {0,0,0}
+        });
+
+        return U * S * Vt;
+    }
+
+
+    private static Matrix<double> EstimateEssential(
+        List<Vector<double>> p1,
+        List<Vector<double>> p2)
+    {
+        int n = p1.Count;
+
+        if (n < 8) throw new Exception("Essential matrix requires at least 8 points");
+
+        var A = DenseMatrix.Create(n, 9, 0);
+
+        for (int i = 0; i < n; i++)
+        {
+            double x1 = p1[i][0];
+            double y1 = p1[i][1];
+
+            double x2 = p2[i][0];
+            double y2 = p2[i][1];
+
+            A[i, 0] = x2 * x1;
+            A[i, 1] = x2 * y1;
+            A[i, 2] = x2;
+
+            A[i, 3] = y2 * x1;
+            A[i, 4] = y2 * y1;
+            A[i, 5] = y2;
+
+            A[i, 6] = x1;
+            A[i, 7] = y1;
+            A[i, 8] = 1;
+        }
+
+        var svd = A.Svd(true);
+        Vector<double> e = svd.VT.Row(8);
+
+        var E = DenseMatrix.OfArray(new double[,] {
+            {e[0],e[1],e[2]},
+            {e[3],e[4],e[5]},
+            {e[6],e[7],e[8]}
+        });
+
+        return EnforceEssential(E);
+    }
+
+    private static void DecomposeEssential(
+       Matrix<double> E,
+       out List<Matrix<double>> rotations,
+       out List<Vector<double>> translations)
+    {
+        var svd = E.Svd(true);
+
+        var U = svd.U;
+        var Vt = svd.VT;
+
+        // Fix SVD signs
+        if (U.Determinant() < 0)
+            U.SetColumn(2, -U.Column(2));
+
+        if (Vt.Determinant() < 0)
+            Vt.SetRow(2, -Vt.Row(2));
+
+        var W = DenseMatrix.OfArray(new double[,] {
+            {0,-1,0},
+            {1, 0,0},
+            {0, 0,1}
+        });
+
+
+        Matrix<double> R1 = U * W * Vt;
+        Matrix<double> R2 = U * W.Transpose() * Vt;
+
+        Vector<double> t = U.Column(2);
+
+        rotations = new List<Matrix<double>> { R1, R1, R2, R2 };
+        translations = new List<Vector<double>> { t, -t, t, -t };
+    }
+
+
+
+    private static Vector<double> Triangulate(
+        Matrix<double> R,
+        Vector<double> t,
+        Vector<double> x1,
+        Vector<double> x2)
+    {
+        //Camera 1: P1 = [I | 0]
+        //Camera 2: P2 = [R | t]
+
+        var P1 = DenseMatrix.OfArray(new double[,]
+        {
+            {1,0,0,0},
+            {0,1,0,0},
+            {0,0,1,0}
+        });
+
+        var P2 = DenseMatrix.Create(3, 4, 0);
+        for (int r = 0; r < 3; r++)
+        {
+            for (int c = 0; c < 3; c++)
+                P2[r, c] = R[r, c];
+
+            P2[r, 3] = t[r];
+        }
+
+        var A = DenseMatrix.Create(4, 4, 0);
+
+        // first camera
+        A.SetRow(0, x1[0] * P1.Row(2) - P1.Row(0));
+        A.SetRow(1, x1[1] * P1.Row(2) - P1.Row(1));
+
+        // second camera
+        A.SetRow(2, x2[0] * P2.Row(2) - P2.Row(0));
+        A.SetRow(3, x2[1] * P2.Row(2) - P2.Row(1));
+
+        var svd = A.Svd(true);
+
+        Vector<double> X = svd.VT.Row(3);
+
+        if (Math.Abs(X[3]) < 1e-12)
+            return DenseVector.OfArray([double.NaN, double.NaN, double.NaN]);
+
+        return DenseVector.OfArray([X[0] / X[3], X[1] / X[3], X[2] / X[3]]);
+    }
+
+    private static int SelectPose(
+        List<Matrix<double>> rotations,
+        List<Vector<double>> translations,
+        List<Vector<double>> p1,
+        List<Vector<double>> p2)
+    {
+        int bestIndex = -1;
+        int bestCount = -1;
+
+        for (int pose = 0; pose < 4; pose++)
+        {
+            int count = 0;
+
+            for (int i = 0; i < p1.Count; i++)
+            {
+                Vector<double> X = Triangulate(rotations[pose], translations[pose], p1[i], p2[i]);
+
+                if (double.IsNaN(X[0]))
+                    continue;
+
+                double z1 = X[2];
+
+                Vector<double> X2 = rotations[pose] * X + translations[pose];
+
+                double z2 = X2[2];
+
+                if (z1 > 0 && z2 > 0)
+                    count++;
+            }
+
+            if (count > bestCount)
+            {
+                bestCount = count;
+                bestIndex = pose;
+            }
+        }
+
+        if (bestIndex < 0)
+            throw new Exception("No valid camera pose found");
+
+        return bestIndex;
+    }
+
+    private static (List<Vector<double>>, Matrix<double> T) HartleyNormalize(
+        List<Vector<double>> points)
+    {
+        int n = points.Count;
+
+        double cx = 0;
+        double cy = 0;
+
+        // Compute centroid
+        foreach (var p in points)
+        {
+            cx += p[0];
+            cy += p[1];
+        }
+
+        cx /= n;
+        cy /= n;
+
+        // Average distance from centroid
+        double meanDistance = 0;
+
+        foreach (var p in points)
+        {
+            double dx = p[0] - cx;
+            double dy = p[1] - cy;
+
+            meanDistance += Math.Sqrt(dx * dx + dy * dy);
+        }
+
+        meanDistance /= n;
+
+        // Scale so average distance = sqrt(2)
+        double s = Math.Sqrt(2.0) / meanDistance;
+
+        var T = DenseMatrix.OfArray(new double[,] {
+            {s, 0, -s * cx},
+            {0, s, -s * cy},
+            {0, 0, 1}
+        });
+
+
+        var normalized = new List<Vector<double>>();
+
+        foreach (var p in points)
+        {
+            Vector<double> hp = DenseVector.OfArray([p[0], p[1], 1.0]);
+            Vector<double> pn = T * hp;
+            normalized.Add(DenseVector.OfArray([pn[0] / pn[2], pn[1] / pn[2], 1.0]));
+        }
+
+        return (normalized, T);
+    }
+
+    public static void EstimateCamera2Pose(
+       List<Vector<double>> normalizedPixels1,
+       List<Vector<double>> normalizedPixels2,
+       out Matrix<double> R,
+       out Vector<double> t)
+    {
+        // Estimate essential matrix
+        var h1 = HartleyNormalize(normalizedPixels1);
+        var h2 = HartleyNormalize(normalizedPixels2);
+
+        Matrix<double> En = EstimateEssential(h1.Item1, h2.Item1);
+
+        // Undo Hartley normalization
+        Matrix<double> E = h2.T.Transpose() * En * h1.T;
+
+        E = EnforceEssential(E);
+
+        // Four possible poses
+        DecomposeEssential(E, out var rotations, out var translations);
+
+        // Pick the pose where points are in front
+        // of both cameras
+        int index = SelectPose(rotations, translations, normalizedPixels1, normalizedPixels2);
+
+        R = rotations[index];
+        t = translations[index];
+    }
+
+    public static List<Vector<double>> TriangulateAll(
+        List<Vector<double>> pixels1,
+        List<Vector<double>> pixels2,
+        Matrix<double> K1,
+        Matrix<double> K2,
+        double baseline,
+        out Matrix<double> R,
+        out Vector<double> t)
+    {
+        if (pixels1.Count != pixels2.Count)
+            throw new ArgumentException(
+                "Point lists must have same length");
+
+        List<Vector<double>> normalizedPixels1 = NormalizeCameraPoints(pixels1, K1);
+        List<Vector<double>> normalizedPixels2 = NormalizeCameraPoints(pixels2, K2);
+
+        EstimateCamera2Pose(normalizedPixels1, normalizedPixels2, out R, out t);
+
+        var points = new List<Vector<double>>();
+
+        for (int i = 0; i < normalizedPixels1.Count; i++)
+        {
+            Vector<double> X = Triangulate(R, t, normalizedPixels1[i], normalizedPixels2[i]);
+            points.Add(X);
+        }
+
+        // Scale translation and reconstructed points
+        double scale = baseline / t.L2Norm();
+        t *= scale;
+
+        for (int i = 0; i < points.Count; i++)
+        {
+            points[i] *= scale;
+        }
+
+        return points;
     }
 };

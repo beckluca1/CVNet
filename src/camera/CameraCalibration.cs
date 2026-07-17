@@ -11,12 +11,7 @@ public class CVCalibration
 
         for (int i = 0; i < imagePointGroups.Count; i++)
         {
-            List<Vector<double>> normalizedImagePoints = CVCamera.Normalize(imagePointGroups[i], out var TImg);
-            List<Vector<double>> normalizedWorldPoints = CVCamera.Normalize(worldPointGroup[i], out var TWrld);
-
-            Matrix<double> homography = CVCamera.ComputeHomography(normalizedImagePoints, normalizedWorldPoints);
-
-            homographies.Add(CVCamera.Denormalize(homography, TImg, TWrld));
+            homographies.Add(CVCamera.ComputeHomographyStable(imagePointGroups[i], worldPointGroup[i]));
         }
 
         K = CVCamera.ComputeIntrinsics(homographies);

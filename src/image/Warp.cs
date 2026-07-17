@@ -12,7 +12,7 @@ public static class CVWarp
     public static MatrixD GetPerspectiveTransform(List<VectorD> src, List<VectorD> dst)
     {
         if (src.Count != 4 || dst.Count != 4)
-            throw new ArgumentException("Need exactly 4 points");
+            return MatrixD.Build.DenseIdentity(3);
 
         var A = MatrixD.Build.Dense(8, 8);
         var b = VectorD.Build.Dense(8);
@@ -78,7 +78,7 @@ public static class CVWarp
         return DenseVectorD.OfArray(new double[] { x, y });
     }
 
-    public static void WarpPerspective<T>(
+    private static void warpPerspective<T>(
         CVImage image,
         MatrixD Hinv,
         ref CVImage imageOut)
@@ -130,15 +130,10 @@ public static class CVWarp
                         int sx = (int)(px * inv + 0.5);
                         int sy = (int)(py * inv + 0.5);
 
-                        if ((uint)sx < (uint)srcWidth &&
-                            (uint)sy < (uint)srcHeight)
-                        {
+                        if ((uint)sx < (uint)srcWidth && (uint)sy < (uint)srcHeight)
                             dst[dstRow + x] = src[srcChannel + sy * srcWidth + sx];
-                        }
                         else
-                        {
                             dst[dstRow + x] = T.Zero;
-                        }
                     }
 
                     // incremental update (critical optimization)
@@ -150,7 +145,25 @@ public static class CVWarp
         }
     }
 
-    public static CVImage WarpPerspective(CVImage image, List<VectorD> srcPoints, out MatrixD H)
+    public static CVImage WarpPerspective(CVImage image, MatrixD H)
+    {
+        CVImage imageOut = CVImage.Create(image.Width, image.Height, image.DataFormat, image.ChannelFormats);
+
+        if (image.DataFormat == CVDataFormat.CV_U8) warpPerspective<byte>(image, H, ref imageOut);
+        else if (image.DataFormat == CVDataFormat.CV_S8) warpPerspective<sbyte>(image, H, ref imageOut);
+        else if (image.DataFormat == CVDataFormat.CV_U16) warpPerspective<ushort>(image, H, ref imageOut);
+        else if (image.DataFormat == CVDataFormat.CV_S16) warpPerspective<short>(image, H, ref imageOut);
+        else if (image.DataFormat == CVDataFormat.CV_U32) warpPerspective<uint>(image, H, ref imageOut);
+        else if (image.DataFormat == CVDataFormat.CV_S32) warpPerspective<int>(image, H, ref imageOut);
+        else if (image.DataFormat == CVDataFormat.CV_U64) warpPerspective<ulong>(image, H, ref imageOut);
+        else if (image.DataFormat == CVDataFormat.CV_S64) warpPerspective<long>(image, H, ref imageOut);
+        else if (image.DataFormat == CVDataFormat.CV_F32) warpPerspective<float>(image, H, ref imageOut);
+        else if (image.DataFormat == CVDataFormat.CV_F64) warpPerspective<double>(image, H, ref imageOut);
+
+        return imageOut;
+    }
+
+    public static CVImage WarpPerspectiveQuad(CVImage image, List<VectorD> srcPoints, out MatrixD H)
     {
         double widthA = Math.Sqrt(
             Math.Pow(srcPoints[2][0] - srcPoints[3][0], 2) +
@@ -180,28 +193,49 @@ public static class CVWarp
         if (aspect < 1.0) targetWidth = (int)(imageSize * aspect);
         else targetHeight = (int)(imageSize / aspect);
 
-        List<VectorD> dstPoints = new List<VectorD>();
-        dstPoints.Add(DenseVectorD.OfArray(new double[] { 0.0, 0.0 }));
-        dstPoints.Add(DenseVectorD.OfArray(new double[] { targetWidth - 1, 0.0 }));
-        dstPoints.Add(DenseVectorD.OfArray(new double[] { targetWidth - 1, targetHeight - 1 }));
-        dstPoints.Add(DenseVectorD.OfArray(new double[] { 0.0, targetHeight - 1 }));
+        List<VectorD> dstPoints =
+        [
+            DenseVectorD.OfArray([0.0, 0.0]),
+            DenseVectorD.OfArray([targetWidth - 1, 0.0]),
+            DenseVectorD.OfArray([targetWidth - 1, targetHeight - 1]),
+            DenseVectorD.OfArray([0.0, targetHeight - 1]),
+        ];
 
         CVImage imageOut = CVImage.Create(targetWidth, targetHeight, image.DataFormat, image.ChannelFormats);
 
         H = GetPerspectiveTransform(srcPoints, dstPoints);
         MatrixD HInv = H.Inverse();
 
-        if (image.DataFormat == CVDataFormat.CV_U8) WarpPerspective<byte>(image, HInv, ref imageOut);
-        else if (image.DataFormat == CVDataFormat.CV_S8) WarpPerspective<sbyte>(image, HInv, ref imageOut);
-        else if (image.DataFormat == CVDataFormat.CV_U16) WarpPerspective<ushort>(image, HInv, ref imageOut);
-        else if (image.DataFormat == CVDataFormat.CV_S16) WarpPerspective<short>(image, HInv, ref imageOut);
-        else if (image.DataFormat == CVDataFormat.CV_U32) WarpPerspective<uint>(image, HInv, ref imageOut);
-        else if (image.DataFormat == CVDataFormat.CV_S32) WarpPerspective<int>(image, HInv, ref imageOut);
-        else if (image.DataFormat == CVDataFormat.CV_U64) WarpPerspective<ulong>(image, HInv, ref imageOut);
-        else if (image.DataFormat == CVDataFormat.CV_S64) WarpPerspective<long>(image, HInv, ref imageOut);
-        else if (image.DataFormat == CVDataFormat.CV_F32) WarpPerspective<float>(image, HInv, ref imageOut);
-        else if (image.DataFormat == CVDataFormat.CV_F64) WarpPerspective<double>(image, HInv, ref imageOut);
+        if (image.DataFormat == CVDataFormat.CV_U8) warpPerspective<byte>(image, HInv, ref imageOut);
+        else if (image.DataFormat == CVDataFormat.CV_S8) warpPerspective<sbyte>(image, HInv, ref imageOut);
+        else if (image.DataFormat == CVDataFormat.CV_U16) warpPerspective<ushort>(image, HInv, ref imageOut);
+        else if (image.DataFormat == CVDataFormat.CV_S16) warpPerspective<short>(image, HInv, ref imageOut);
+        else if (image.DataFormat == CVDataFormat.CV_U32) warpPerspective<uint>(image, HInv, ref imageOut);
+        else if (image.DataFormat == CVDataFormat.CV_S32) warpPerspective<int>(image, HInv, ref imageOut);
+        else if (image.DataFormat == CVDataFormat.CV_U64) warpPerspective<ulong>(image, HInv, ref imageOut);
+        else if (image.DataFormat == CVDataFormat.CV_S64) warpPerspective<long>(image, HInv, ref imageOut);
+        else if (image.DataFormat == CVDataFormat.CV_F32) warpPerspective<float>(image, HInv, ref imageOut);
+        else if (image.DataFormat == CVDataFormat.CV_F64) warpPerspective<double>(image, HInv, ref imageOut);
 
         return imageOut;
+    }
+
+    public static CVImage MatchImage(CVImage image1, CVImage image2, int hammingDistance)
+    {
+        CVFeatureDetector.MatchFeatures(image1, image2, hammingDistance, out List<(int x, int y)> matchedFeatures1, out List<(int x, int y)> matchedFeatures2);
+
+        List<VectorD> matchedFeatures1Vec = new List<VectorD>();
+        List<VectorD> matchedFeatures2Vec = new List<VectorD>();
+
+        for (int i = 0; i < matchedFeatures1.Count; i++)
+        {
+            matchedFeatures1Vec.Add(DenseVectorD.OfArray([matchedFeatures1[i].x, matchedFeatures1[i].y]));
+            matchedFeatures2Vec.Add(DenseVectorD.OfArray([matchedFeatures2[i].x, matchedFeatures2[i].y]));
+        }
+
+        MatrixD H = CVCamera.ComputeHomographyRansac(matchedFeatures1Vec, matchedFeatures2Vec, 1000, 3.0, out List<int> bestInliers);
+        MatrixD HInv = H.Inverse();
+
+        return WarpPerspective(image2, HInv);
     }
 }

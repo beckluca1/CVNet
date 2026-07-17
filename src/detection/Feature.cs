@@ -6,18 +6,18 @@ namespace CVNet;
 
 public class CVBriefDescriptor
 {
-    public List<(int x, int y)> Positions;
+    public (int x, int y) Position;
     public ulong[] Descriptor;
 
     public CVBriefDescriptor((int x, int y) position)
     {
-        Positions = [position];
+        Position = position;
         Descriptor = [0, 0, 0, 0];
     }
 
-    public CVBriefDescriptor(List<(int x, int y)> positions, ulong[] descriptor)
+    public CVBriefDescriptor((int x, int y) position, ulong[] descriptor)
     {
-        Positions = positions;
+        Position = position;
         Descriptor = descriptor;
     }
 
@@ -678,7 +678,7 @@ public class CVFeatureDetector
                 int x = (int)(points[i].Item1 / scale);
                 int y = (int)(points[i].Item2 / scale);
 
-                d.Positions = [(x, y)];
+                d.Position = (x, y);
 
                 descriptors.Add(d);
             }
@@ -730,16 +730,16 @@ public class CVFeatureDetector
         }
     }
 
-    public static List<CVBriefDescriptor> MatchFeatures(CVImage image1, CVImage image2, int hammingDistance = 60)
+    public static void MatchFeatures(CVImage image1, CVImage image2, int hammingDistance, out List<(int x, int y)> matchedFeatures1, out List<(int x, int y)> matchedFeatures2)
     {
         List<CVBriefDescriptor> features1 = Orb(image1);
         List<CVBriefDescriptor> features2 = Orb(image2);
 
-        List<CVBriefDescriptor> matchedFeatures = new List<CVBriefDescriptor>();
+        matchedFeatures1 = new List<(int x, int y)>();
+        matchedFeatures2 = new List<(int x, int y)>();
 
         if (features1.Count == 0 || features2.Count == 0)
-            return matchedFeatures;
-
+            return;
 
         int[] best12 = new int[features1.Count];
         int[] best21 = new int[features2.Count];
@@ -770,16 +770,11 @@ public class CVFeatureDetector
             if (distance > hammingDistance)
                 continue;
 
-
             Console.WriteLine($"Match {i} <-> {j}, Hamming {distance}");
 
-
-            matchedFeatures.Add(new CVBriefDescriptor([features1[i].Positions[0], features2[j].Positions[0]], (ulong[])features1[i].Descriptor.Clone())
-);
+            matchedFeatures1.Add(features1[i].Position);
+            matchedFeatures2.Add(features2[j].Position);
         }
-
-
-        return matchedFeatures;
     }
 
     public static List<(int, int, double)> DetectFeatureFast(
