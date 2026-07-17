@@ -645,6 +645,68 @@ public class CVFeatureDetector
         return descriptors;
     }
 
+    public static List<(int x, int y)> GridKeypointSelection(
+        CVImage image,
+        List<(int x, int y)> keypoints,
+        List<double> harrisScores,
+        int gridCols = 8,
+        int gridRows = 8,
+        int maxPerCell = 10)
+    {
+        List<(int x, int y)> selected = new();
+
+        // Create grid cells
+        List<(int x, int y, double score)>[,] grid = new List<(int x, int y, double score)>[gridCols, gridRows];
+
+        for (int x = 0; x < gridCols; x++)
+        {
+            for (int y = 0; y < gridRows; y++)
+            {
+                grid[x, y] = new List<(int x, int y, double score)>();
+            }
+        }
+
+        // Assign keypoints to cells
+        for (int i = 0; i < keypoints.Count; i++)
+        {
+            int cellX = Math.Clamp(
+                keypoints[i].x * gridCols / image.Width,
+                0,
+                gridCols - 1);
+
+            int cellY = Math.Clamp(
+                keypoints[i].y * gridRows / image.Height,
+                0,
+                gridRows - 1);
+
+            grid[cellX, cellY].Add((keypoints[i].x, keypoints[i].y, harrisScores[i]));
+        }
+
+        // Keep strongest points in each cell
+        for (int x = 0; x < gridCols; x++)
+        {
+            for (int y = 0; y < gridRows; y++)
+            {
+                var cell = grid[x, y];
+
+                if (cell.Count == 0)
+                    continue;
+
+                cell.Sort((a, b) =>
+                    b.score.CompareTo(a.score));
+
+                int count = Math.Min(maxPerCell, cell.Count);
+
+                for (int i = 0; i < count; i++)
+                {
+                    selected.Add((cell[i].x, cell[i].y));
+                }
+            }
+        }
+
+        return selected;
+    }
+
     public static List<CVBriefDescriptor> Orb(CVImage image)
     {
         CVImage gray = CVConvert.ConvertChannelFormat(image, CVChannelFormat.CV_Grayscale);
@@ -659,32 +721,27 @@ public class CVFeatureDetector
             CVImage levelImage = pyramid[level].image;
             double scale = pyramid[level].scale;
 
-            List<(int, int)> fastKeypoints = Fast(levelImage, 10.0, 16);
+            List<(int, int)> fastKeypoints = Fast(levelImage, 5.0, 8);
             List<double> harrisScores = CVCornerDetector.HarrisStrengthPoints<double>(levelImage, fastKeypoints, 25, 3);
 
-            var indices = Enumerable.Range(0, harrisScores.Count).OrderByDescending(i => harrisScores[i]).Take(500).ToList();
-            var scoredPoints = indices.Select(i => (x: fastKeypoints[i].Item1, y: fastKeypoints[i].Item2, score: harrisScores[i])).ToList();
-            var supressedPoints = CVCornerDetector.NonMaximumSuppression(scoredPoints, 3);
-            var points = supressedPoints.Select(i => (i.x, i.y)).ToList();
+            var selectedPoints = GridKeypointSelection(levelImage, fastKeypoints, harrisScores);
 
-            List<double> angles = IntensityCentroidAngles(levelImage, points, 15);
-            List<CVBriefDescriptor> levelDescriptors = Brief(levelImage, points, angles, scale);
+            List<double> angles = IntensityCentroidAngles(levelImage, selectedPoints, 15);
+            List<CVBriefDescriptor> levelDescriptors = Brief(levelImage, selectedPoints, angles, scale);
 
             for (int i = 0; i < levelDescriptors.Count; i++)
             {
                 var d = levelDescriptors[i];
 
                 // Convert back to original coordinates
-                int x = (int)(points[i].Item1 / scale);
-                int y = (int)(points[i].Item2 / scale);
+                int x = (int)(selectedPoints[i].Item1 / scale);
+                int y = (int)(selectedPoints[i].Item2 / scale);
 
                 d.Position = (x, y);
 
                 descriptors.Add(d);
             }
         }
-
-        Console.WriteLine($"Fast (All) {descriptors.Count}");
 
         return descriptors;
     }
@@ -725,7 +782,7 @@ public class CVFeatureDetector
             dist[i] = bestDistance;
 
             // Lowe ratio
-            if (secondDistance > 5 && bestDistance >= secondDistance * 0.8)
+            if (secondDistance > 5 && bestDistance >= secondDistance * 0.95)
                 best[i] = -1;
         }
     }
@@ -770,8 +827,6 @@ public class CVFeatureDetector
             if (distance > hammingDistance)
                 continue;
 
-            Console.WriteLine($"Match {i} <-> {j}, Hamming {distance}");
-
             matchedFeatures1.Add(features1[i].Position);
             matchedFeatures2.Add(features2[j].Position);
         }
@@ -798,8 +853,6 @@ public class CVFeatureDetector
             .ToList();
 
         var supressedPoints = CVCornerDetector.NonMaximumSuppression(fastPoints, 3);
-        Console.WriteLine($"Found {supressedPoints.Count} initial corners");
-
         var bestPoints = supressedPoints.Take(500).ToList();
 
         return bestPoints;

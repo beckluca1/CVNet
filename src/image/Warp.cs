@@ -233,7 +233,7 @@ public static class CVWarp
             matchedFeatures2Vec.Add(DenseVectorD.OfArray([matchedFeatures2[i].x, matchedFeatures2[i].y]));
         }
 
-        MatrixD H = CVCamera.ComputeHomographyRansac(matchedFeatures1Vec, matchedFeatures2Vec, 1000, 3.0, out List<int> bestInliers);
+        MatrixD H = CVCamera.ComputeHomographyRansac(matchedFeatures1Vec, matchedFeatures2Vec, 1000, 5.0, out List<int> bestInliers);
         MatrixD HInv = H.Inverse();
 
         return WarpPerspective(image2, HInv);
