@@ -785,8 +785,6 @@ public class CVProcessing
         double clipLimit,
         ref CVImage outImage) where T : struct, INumber<T>
     {
-        Console.WriteLine("Clahe");
-
         int height = image.Height;
         int width = image.Width;
 
@@ -794,8 +792,6 @@ public class CVProcessing
         int tilesY = (height + tileHeight - 1) / tileHeight;
 
         byte[][,] luts = new byte[tilesX * tilesY][,];
-
-        Console.WriteLine("Luts");
 
         // Compute LUT for each tile
         for (int ty = 0; ty < tilesY; ty++)
@@ -818,8 +814,6 @@ public class CVProcessing
 
         Span<T> src = image.BufferAs<T>();
         Span<T> dst = outImage.BufferAs<T>();
-
-        Console.WriteLine("interpolation");
 
         // Apply bilinear interpolation
         for (int y = 0; y < height; y++)
@@ -876,5 +870,10 @@ public class CVProcessing
         else if (image.DataFormat == CVDataFormat.CV_F64) clahe<double>(image, tileWidth, tileHeight, clipLimit, ref outImage);
 
         return outImage;
+    }
+
+    public static int HammingDistance(ulong a, ulong b)
+    {
+        return BitOperations.PopCount(a ^ b);
     }
 }

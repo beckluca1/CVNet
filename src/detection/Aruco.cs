@@ -57,19 +57,14 @@ public class CVAruco
         53254811598,53240930621,53296271946,51872852962,52908447441,53499649787,51902594505,54261129756,55775808857,55886118438,57033441504,56243721634,58867468203,58926332168,60093916928,60710168064,60466006230,60560050770,62263136169,64069822520,64454862785,66410152548,66551822925,66619524884,68322655451,66810392758,68407255551,
     };
 
-    public static int HammingDistance(ulong a, ulong b)
-    {
-        return BitOperations.PopCount(a ^ b);
-    }
-
     public static int ClosestId(ulong binarySequence, out int distance)
     {
         int bestIndex = 0;
-        distance = HammingDistance(binarySequence, Aruco_6x6_50[0]);
+        distance = CVProcessing.HammingDistance(binarySequence, Aruco_6x6_50[0]);
 
         for (int i = 1; i < Aruco_6x6_50.Count; i++)
         {
-            int dist = HammingDistance(binarySequence, Aruco_6x6_50[i]);
+            int dist = CVProcessing.HammingDistance(binarySequence, Aruco_6x6_50[i]);
 
             if (dist < distance)
             {

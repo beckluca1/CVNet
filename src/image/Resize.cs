@@ -236,7 +236,7 @@ public static class CVResize
         return imageOut;
     }
 
-    public static CVImage ResizeImage<T>(CVImage image,
+    public static CVImage Resize<T>(CVImage image,
                                     int targetWidth,
                                     int targetHeight,
                                     CV_ResizeMode resizeMode,
@@ -248,7 +248,7 @@ public static class CVResize
         throw new Exception("Unknown Resize mode");
     }
 
-    public static CVImage ResizeImage(CVImage image,
+    public static CVImage Resize(CVImage image,
                                     int targetWidth,
                                     int targetHeight,
                                     CV_ResizeMode resizeMode)
