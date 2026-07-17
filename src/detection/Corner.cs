@@ -124,48 +124,80 @@ public class CVCornerDetector
         return outImage;
     }
 
-    public static void Sobel<T>(
+    static void Sobel<T>(
         CVImage image,
         ref CVImage gradientX,
         ref CVImage gradientY) where T : struct, INumber<T>
     {
-        T Two = T.One + T.One;
-
-        T[,] sx =
-        {
-            { -T.One, T.Zero, T.One },
-            { -Two, T.Zero, Two },
-            { -T.One, T.Zero, T.One }
-        };
-
-        T[,] sy =
-        {
-            { -T.One, -Two, -T.One },
-            {  T.Zero,  T.Zero,  T.Zero },
-            {  T.One,  Two,  T.One }
-        };
+        int width = image.Width;
+        int height = image.Height;
 
         Span<T> bufferSpan = image.BufferAs<T>();
         Span<T> bgx = gradientX.BufferAs<T>();
         Span<T> bgy = gradientY.BufferAs<T>();
 
-        for (int y = 1; y < image.Height - 1; y++)
-            for (int x = 1; x < image.Width - 1; x++)
+        int lanes = Vector<T>.Count;
+        T two = T.One + T.One;
+        var twoVec = new Vector<T>(two);
+
+        for (int y = 1; y < height - 1; y++)
+        {
+            int r0 = (y - 1) * width;
+            int r1 = y * width;
+            int r2 = (y + 1) * width;
+
+            int x = 1;
+
+            if (Vector.IsHardwareAccelerated)
             {
-                T sumX = T.Zero;
-                T sumY = T.Zero;
+                for (; x <= width - lanes - 1; x += lanes)
+                {
+                    Vector<T> tl = new Vector<T>(bufferSpan.Slice(r0 + x - 1));
+                    Vector<T> tc = new Vector<T>(bufferSpan.Slice(r0 + x));
+                    Vector<T> tr = new Vector<T>(bufferSpan.Slice(r0 + x + 1));
 
-                for (int j = -1; j <= 1; j++)
-                    for (int i = -1; i <= 1; i++)
-                    {
-                        T p = bufferSpan[(x + i) + (y + j) * image.Width];
+                    Vector<T> ml = new Vector<T>(bufferSpan.Slice(r1 + x - 1));
+                    Vector<T> mr = new Vector<T>(bufferSpan.Slice(r1 + x + 1));
 
-                        sumX += p * sx[j + 1, i + 1];
-                        sumY += p * sy[j + 1, i + 1];
-                    }
-                bgx[x + y * gradientX.Width] = sumX;
-                bgy[x + y * gradientY.Width] = sumY;
+                    Vector<T> bl = new Vector<T>(bufferSpan.Slice(r2 + x - 1));
+                    Vector<T> bc = new Vector<T>(bufferSpan.Slice(r2 + x));
+                    Vector<T> br = new Vector<T>(bufferSpan.Slice(r2 + x + 1));
+
+                    Vector<T> vx = (tr - tl) + (mr - ml) * twoVec + (br - bl);
+                    Vector<T> vy = (bl - tl) + (bc - tc) * twoVec + (br - tr);
+
+                    vx.CopyTo(bgx.Slice(r1 + x));
+                    vy.CopyTo(bgy.Slice(r1 + x));
+                }
             }
+
+            // scalar tail
+            for (; x < width - 1; x++)
+            {
+                int idx = r1 + x;
+
+                T tl = bufferSpan[r0 + x - 1];
+                T tc = bufferSpan[r0 + x];
+                T tr = bufferSpan[r0 + x + 1];
+
+                T ml = bufferSpan[r1 + x - 1];
+                T mr = bufferSpan[r1 + x + 1];
+
+                T bl = bufferSpan[r2 + x - 1];
+                T bc = bufferSpan[r2 + x];
+                T br = bufferSpan[r2 + x + 1];
+
+                bgx[idx] =
+                    (tr - tl) +
+                    two * (mr - ml) +
+                    (br - bl);
+
+                bgy[idx] =
+                    (bl - tl) +
+                    two * (bc - tc) +
+                    (br - tr);
+            }
+        }
     }
 
     public static void Sobel(CVImage image, out CVImage gradientX, out CVImage gradientY)

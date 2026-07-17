@@ -6,17 +6,27 @@ namespace CVNet;
 
 public class CVBriefDescriptor
 {
+    public bool Valid;
     public (int x, int y) Position;
     public ulong[] Descriptor;
 
+    public CVBriefDescriptor()
+    {
+        Valid = false;
+        Position = (0, 0);
+        Descriptor = [0, 0, 0, 0];
+    }
+
     public CVBriefDescriptor((int x, int y) position)
     {
+        Valid = true;
         Position = position;
         Descriptor = [0, 0, 0, 0];
     }
 
     public CVBriefDescriptor((int x, int y) position, ulong[] descriptor)
     {
+        Valid = true;
         Position = position;
         Descriptor = descriptor;
     }
@@ -33,6 +43,135 @@ public class CVBriefDescriptor
                 Descriptor[word] |= mask;
             else
                 Descriptor[word] &= ~mask;
+        }
+    }
+}
+
+class BinaryLSH
+{
+    private class HashTable
+    {
+        public Dictionary<int, List<int>> Buckets = new();
+        public int[] Bits;
+    }
+
+    private readonly List<CVBriefDescriptor> descriptors;
+    private readonly List<HashTable> tables = new();
+
+    private readonly Random random = new();
+
+    private const int TABLES = 8;       // number of hash tables
+    private const int HASH_BITS = 16;   // bits used per table
+
+
+    public BinaryLSH(List<CVBriefDescriptor> descriptors)
+    {
+        this.descriptors = descriptors;
+
+        for (int t = 0; t < TABLES; t++)
+        {
+            var table = new HashTable();
+
+            table.Bits = new int[HASH_BITS];
+
+            for (int i = 0; i < HASH_BITS; i++)
+                table.Bits[i] = random.Next(128);
+
+            tables.Add(table);
+        }
+
+        Build();
+    }
+
+
+    private void Build()
+    {
+        for (int i = 0; i < descriptors.Count; i++)
+        {
+            foreach (var table in tables)
+            {
+                int key = Hash(descriptors[i], table.Bits);
+
+                if (!table.Buckets.TryGetValue(key, out var list))
+                {
+                    list = new List<int>();
+                    table.Buckets[key] = list;
+                }
+
+                list.Add(i);
+            }
+        }
+    }
+
+
+    private int Hash(CVBriefDescriptor d, int[] bits)
+    {
+        int hash = 0;
+
+        for (int i = 0; i < bits.Length; i++)
+        {
+            int bit = bits[i];
+
+            int word = bit >> 5;       // /32
+            int offset = bit & 31;     // %32
+
+            if (((d.Descriptor[word] >> offset) & 1) != 0)
+                hash |= (1 << i);
+        }
+
+        return hash;
+    }
+
+
+
+    public void FindBest(
+        CVBriefDescriptor query,
+        out int bestIndex,
+        out int bestDistance,
+        out int secondDistance)
+    {
+        HashSet<int> candidates = new();
+
+
+        foreach (var table in tables)
+        {
+            int key = Hash(query, table.Bits);
+
+            if (table.Buckets.TryGetValue(key, out var bucket))
+            {
+                foreach (int id in bucket)
+                    candidates.Add(id);
+            }
+        }
+
+
+        bestIndex = -1;
+        bestDistance = int.MaxValue;
+        secondDistance = int.MaxValue;
+
+
+        foreach (int id in candidates)
+        {
+            int distance = 0;
+
+            for (int k = 0; k < 4; k++)
+            {
+                distance += CVProcessing.HammingDistance(
+                    query.Descriptor[k],
+                    descriptors[id].Descriptor[k]);
+            }
+
+
+            if (distance < bestDistance)
+            {
+                secondDistance = bestDistance;
+                bestDistance = distance;
+                bestIndex = id;
+            }
+            else if (distance < secondDistance)
+            {
+                secondDistance = distance;
+            }
         }
     }
 }
@@ -83,15 +222,14 @@ public class CVFeatureDetector
 
         return false;
     }
+    private static int[] xOffsets = [0, 1, 2, 3, 3, 3, 2, 1, 0, -1, -2, -3, -3, -3, -2, -1];
+    private static int[] yOffsets = [-3, -3, -2, -1, 0, 1, 2, 3, 3, 3, 2, 1, 0, -1, -2, -3,];
+
+    private static int[] earlyChecks = [1, 5, 9, 13];
+    private static int[] lateChecks = [0, 2, 3, 4, 6, 7, 8, 10, 11, 12, 14, 15];
 
     private static void fast<T, TV>(CVImage image, TV threshold, int edgeDistance, ref List<(int, int)> keypoints) where T : struct, INumber<T> where TV : struct, INumber<TV>
     {
-        int[] xOffsets = [0, 1, 2, 3, 3, 3, 2, 1, 0, -1, -2, -3, -3, -3, -2, -1];
-        int[] yOffsets = [-3, -3, -2, -1, 0, 1, 2, 3, 3, 3, 2, 1, 0, -1, -2, -3,];
-
-        int[] earlyChecks = [1, 5, 9, 13];
-        int[] lateChecks = [0, 2, 3, 4, 6, 7, 8, 10, 11, 12, 14, 15];
-
         T thresholdT = T.CreateChecked(threshold);
 
         Span<T> buffer = image.BufferAs<T>();
@@ -568,15 +706,10 @@ public class CVFeatureDetector
         -1,-6, 0,-11/*mean (0.127148), correlation (0.547401)*/
     };
 
-    private static double briefSample<T>(CVImage image, double x, double y) where T : struct, INumber<T>
+    private static double briefSample<T>(CVImage image, Span<T> buffer, double x, double y) where T : struct, INumber<T>
     {
-        Span<T> buffer = image.BufferAs<T>();
-
-        if (x < 0 || y < 0 || x >= image.Width - 2 || y >= image.Height - 2)
-            return 0;
-
-        int x0 = (int)Math.Floor(x);
-        int y0 = (int)Math.Floor(y);
+        int x0 = (int)(x);
+        int y0 = (int)(y);
 
         double dx = x - x0;
         double dy = y - y0;
@@ -596,6 +729,11 @@ public class CVFeatureDetector
         double cosA = Math.Cos(angle);
         double sinA = Math.Sin(angle);
 
+        Span<T> buffer = image.BufferAs<T>();
+
+        if (point.x < 18 || point.y < 18 || point.x >= image.Width - 2 - 18 || point.y >= image.Height - 2 - 18)
+            return new CVBriefDescriptor();
+
         CVBriefDescriptor briefDescriptor = new CVBriefDescriptor(point);
         for (int i = 0; i < 256; i++)
         {
@@ -611,8 +749,8 @@ public class CVFeatureDetector
             double rotated1X = point.x + (index1X * cosA - index1Y * sinA);
             double rotated1Y = point.y + (index1X * sinA + index1Y * cosA);
 
-            double imageP1 = briefSample<T>(image, rotated0X, rotated0Y);
-            double imageP2 = briefSample<T>(image, rotated1X, rotated1Y);
+            double imageP1 = briefSample<T>(image, buffer, rotated0X, rotated0Y);
+            double imageP2 = briefSample<T>(image, buffer, rotated1X, rotated1Y);
             briefDescriptor[i] = imageP1 <= imageP2;
         }
 
@@ -623,7 +761,10 @@ public class CVFeatureDetector
     {
         for (int i = 0; i < points.Count; i++)
         {
-            descriptors.Add(briefSingle<T>(image, points[i], angles[i], scale));
+            CVBriefDescriptor descriptor = briefSingle<T>(image, points[i], angles[i], scale);
+
+            if (descriptor.Valid)
+                descriptors.Add(descriptor);
         }
     }
 
@@ -746,48 +887,41 @@ public class CVFeatureDetector
         return descriptors;
     }
 
-    private static void getBestMatches(List<CVBriefDescriptor> features1, List<CVBriefDescriptor> features2, ref int[] best, ref int[] dist)
+    private static void getBestMatches(
+    List<CVBriefDescriptor> features1,
+    BinaryLSH lsh,
+    ref int[] best,
+    ref int[] dist)
     {
         for (int i = 0; i < features1.Count; i++)
         {
-            int bestDistance = int.MaxValue;
-            int secondDistance = int.MaxValue;
-            int bestIndex = -1;
+            lsh.FindBest(
+                features1[i],
+                out int bestIndex,
+                out int bestDistance,
+                out int secondDistance);
 
-            for (int j = 0; j < features2.Count; j++)
-            {
-                int distance = 0;
-
-                for (int k = 0; k < 4; k++)
-                {
-                    distance += CVProcessing.HammingDistance(
-                        features1[i].Descriptor[k],
-                        features2[j].Descriptor[k]);
-                }
-
-
-                if (distance < bestDistance)
-                {
-                    secondDistance = bestDistance;
-                    bestDistance = distance;
-                    bestIndex = j;
-                }
-                else if (distance < secondDistance)
-                {
-                    secondDistance = distance;
-                }
-            }
 
             best[i] = bestIndex;
             dist[i] = bestDistance;
 
+
             // Lowe ratio
-            if (secondDistance > 5 && bestDistance >= secondDistance * 0.95)
+            if (secondDistance != int.MaxValue &&
+                secondDistance > 5 &&
+                bestDistance >= secondDistance * 0.95)
+            {
                 best[i] = -1;
+            }
         }
     }
 
-    public static void MatchFeatures(CVImage image1, CVImage image2, int hammingDistance, out List<(int x, int y)> matchedFeatures1, out List<(int x, int y)> matchedFeatures2)
+    public static void MatchFeatures(
+        CVImage image1,
+        CVImage image2,
+        int hammingDistance,
+        out List<(int x, int y)> matchedFeatures1,
+        out List<(int x, int y)> matchedFeatures2)
     {
         List<CVBriefDescriptor> features1 = Orb(image1);
         List<CVBriefDescriptor> features2 = Orb(image2);
@@ -798,16 +932,43 @@ public class CVFeatureDetector
         if (features1.Count == 0 || features2.Count == 0)
             return;
 
+
         int[] best12 = new int[features1.Count];
         int[] best21 = new int[features2.Count];
 
         int[] dist12 = new int[features1.Count];
         int[] dist21 = new int[features2.Count];
 
-        getBestMatches(features1, features2, ref best12, ref dist12);
-        getBestMatches(features2, features1, ref best21, ref dist21);
 
-        // Cross-check
+        // Build LSH indexes
+        BinaryLSH lsh2 = new BinaryLSH(features2);
+        BinaryLSH lsh1 = new BinaryLSH(features1);
+
+
+        // features1 -> features2
+        for (int i = 0; i < features1.Count; i++)
+        {
+            lsh2.FindBest(
+                features1[i],
+                out best12[i],
+                out dist12[i],
+                out _);
+        }
+
+
+        // features2 -> features1
+        for (int i = 0; i < features2.Count; i++)
+        {
+            lsh1.FindBest(
+                features2[i],
+                out best21[i],
+                out dist21[i],
+                out _);
+        }
+
+
+
+        // Cross-check + threshold
         for (int i = 0; i < features1.Count; i++)
         {
             int j = best12[i];
@@ -816,16 +977,17 @@ public class CVFeatureDetector
                 continue;
 
 
-            // Must agree in both directions
+            // Mutual nearest neighbor
             if (best21[j] != i)
                 continue;
 
 
             int distance = dist12[i];
 
-            // Absolute Hamming threshold
+
             if (distance > hammingDistance)
                 continue;
+
 
             matchedFeatures1.Add(features1[i].Position);
             matchedFeatures2.Add(features2[j].Position);

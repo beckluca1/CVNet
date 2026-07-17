@@ -412,24 +412,105 @@ public class CVProcessing
         return outImage;
     }
 
-    public static T MaxValue<T>(CVImage imageIn) where T : struct, INumber<T>
-    {
-        Span<T> buffer = imageIn.BufferAs<T>();
-        T maxValue = buffer[0];
-        for (int i = 1; i < imageIn.Width * imageIn.Height * imageIn.Channels; i++)
-            if (buffer[i] > maxValue) maxValue = buffer[i];
-
-        return maxValue;
-    }
-
     public static T MinValue<T>(CVImage imageIn) where T : struct, INumber<T>
     {
         Span<T> buffer = imageIn.BufferAs<T>();
-        T minValue = buffer[0];
-        for (int i = 1; i < imageIn.Width * imageIn.Height * imageIn.Channels; i++)
-            if (buffer[i] < minValue) minValue = buffer[i];
+
+        int length = buffer.Length;
+
+        if (length == 0)
+            throw new ArgumentException("Buffer is empty");
+
+        int vectorSize = Vector<T>.Count;
+        int i = 0;
+
+        T minValue;
+
+        if (length >= vectorSize)
+        {
+            Vector<T> minVector = new(buffer);
+
+            i = vectorSize;
+
+            for (; i <= length - vectorSize; i += vectorSize)
+            {
+                Vector<T> v = new(buffer.Slice(i));
+
+                minVector = Vector.Min(minVector, v);
+            }
+
+            minValue = minVector[0];
+
+            for (int j = 1; j < vectorSize; j++)
+            {
+                if (minVector[j] < minValue)
+                    minValue = minVector[j];
+            }
+        }
+        else
+        {
+            minValue = buffer[0];
+            i = 1;
+        }
+
+        for (; i < length; i++)
+        {
+            if (buffer[i] < minValue)
+                minValue = buffer[i];
+        }
 
         return minValue;
+    }
+
+
+    public static T MaxValue<T>(CVImage imageIn) where T : struct, INumber<T>
+    {
+        Span<T> buffer = imageIn.BufferAs<T>();
+
+        int length = buffer.Length;
+
+        if (length == 0)
+            throw new ArgumentException("Buffer is empty");
+
+        int vectorSize = Vector<T>.Count;
+        int i = 0;
+
+        T maxValue;
+
+        if (length >= vectorSize)
+        {
+            Vector<T> maxVector = new(buffer);
+
+            i = vectorSize;
+
+            for (; i <= length - vectorSize; i += vectorSize)
+            {
+                Vector<T> v = new(buffer.Slice(i));
+
+                maxVector = Vector.Max(maxVector, v);
+            }
+
+            maxValue = maxVector[0];
+
+            for (int j = 1; j < vectorSize; j++)
+            {
+                if (maxVector[j] > maxValue)
+                    maxValue = maxVector[j];
+            }
+        }
+        else
+        {
+            maxValue = buffer[0];
+            i = 1;
+        }
+
+        for (; i < length; i++)
+        {
+            if (buffer[i] > maxValue)
+                maxValue = buffer[i];
+        }
+
+        return maxValue;
     }
 
     private static void normalize<T>(CVImage image, T newMin, T newMax, ref CVImage outImage) where T : struct, INumber<T>
