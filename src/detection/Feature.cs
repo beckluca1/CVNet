@@ -706,8 +706,13 @@ public class CVFeatureDetector
         -1,-6, 0,-11/*mean (0.127148), correlation (0.547401)*/
     };
 
-    private static double briefSample<T>(CVImage image, Span<T> buffer, double x, double y) where T : struct, INumber<T>
+    private static double briefSample<T>(CVImage image, double x, double y) where T : struct, INumber<T>
     {
+        Span<T> buffer = image.BufferAs<T>();
+
+        if (x < 0 || y < 0 || x >= image.Width - 2 || y >= image.Height - 2)
+            return 0;
+
         int x0 = (int)(x);
         int y0 = (int)(y);
 
@@ -729,11 +734,6 @@ public class CVFeatureDetector
         double cosA = Math.Cos(angle);
         double sinA = Math.Sin(angle);
 
-        Span<T> buffer = image.BufferAs<T>();
-
-        if (point.x < 18 || point.y < 18 || point.x >= image.Width - 2 - 18 || point.y >= image.Height - 2 - 18)
-            return new CVBriefDescriptor();
-
         CVBriefDescriptor briefDescriptor = new CVBriefDescriptor(point);
         for (int i = 0; i < 256; i++)
         {
@@ -749,8 +749,8 @@ public class CVFeatureDetector
             double rotated1X = point.x + (index1X * cosA - index1Y * sinA);
             double rotated1Y = point.y + (index1X * sinA + index1Y * cosA);
 
-            double imageP1 = briefSample<T>(image, buffer, rotated0X, rotated0Y);
-            double imageP2 = briefSample<T>(image, buffer, rotated1X, rotated1Y);
+            double imageP1 = briefSample<T>(image, rotated0X, rotated0Y);
+            double imageP2 = briefSample<T>(image, rotated1X, rotated1Y);
             briefDescriptor[i] = imageP1 <= imageP2;
         }
 
@@ -761,10 +761,7 @@ public class CVFeatureDetector
     {
         for (int i = 0; i < points.Count; i++)
         {
-            CVBriefDescriptor descriptor = briefSingle<T>(image, points[i], angles[i], scale);
-
-            if (descriptor.Valid)
-                descriptors.Add(descriptor);
+            descriptors.Add(briefSingle<T>(image, points[i], angles[i], scale));
         }
     }
 
