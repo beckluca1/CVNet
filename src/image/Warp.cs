@@ -222,7 +222,7 @@ public static class CVWarp
 
     public static CVImage MatchImage(CVImage image1, CVImage image2, int hammingDistance)
     {
-        CVFeatureDetector.MatchFeatures(image1, image2, hammingDistance, out List<(int x, int y)> matchedFeatures1, out List<(int x, int y)> matchedFeatures2);
+        CVFeatureDetector.MatchFeaturesOrb(image1, image2, hammingDistance, out List<(int x, int y)> matchedFeatures1, out List<(int x, int y)> matchedFeatures2);
 
         List<VectorD> matchedFeatures1Vec = new List<VectorD>();
         List<VectorD> matchedFeatures2Vec = new List<VectorD>();

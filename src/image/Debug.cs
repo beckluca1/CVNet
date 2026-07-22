@@ -21,8 +21,8 @@ public class CVDebug
     {
         PrintImageInfo(image);
 
-        T min = CVProcessing.MinValue<T>(image);
-        T max = CVProcessing.MaxValue<T>(image);
+        double min = CVProcessing.MinValue(image);
+        double max = CVProcessing.MaxValue(image);
 
         Console.Write("[Extended Image Info] ");
         Console.Write($"Min Value: {min} ");
@@ -46,10 +46,10 @@ public class CVDebug
 
     private static void printImage<T>(CVImage image) where T : struct, INumber<T>
     {
-        T min = CVProcessing.MinValue<T>(image);
-        T max = CVProcessing.MaxValue<T>(image);
+        double min = CVProcessing.MinValue(image);
+        double max = CVProcessing.MaxValue(image);
 
-        T avg = (max + min) / T.CreateChecked(2);
+        T avg = T.CreateChecked((max + min) / 2);
 
         Span<T> buffer = image.BufferAs<T>();
 
@@ -79,10 +79,10 @@ public class CVDebug
 
     private static void printImageData<T>(CVImage image) where T : struct, INumber<T>
     {
-        T min = CVProcessing.MinValue<T>(image);
-        T max = CVProcessing.MaxValue<T>(image);
+        double min = CVProcessing.MinValue(image);
+        double max = CVProcessing.MaxValue(image);
 
-        T avg = (max + min) / T.CreateChecked(2);
+        T avg = T.CreateChecked((max + min) / 2);
 
         Span<T> buffer = image.BufferAs<T>();
 

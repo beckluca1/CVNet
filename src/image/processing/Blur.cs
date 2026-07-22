@@ -2,27 +2,25 @@ namespace CVNet;
 
 public class CVBlur
 {
-    public static CVImage MeanBlur(CVImage image, int n)
+    public static CVImage MeanBlur(CVImage image, int radius)
     {
-        // Sum window casts type so it has space for the sum
-        CVImage imageOut = CVProcessing.SumWindow(image, n);
-        imageOut = CVDivide.Divide(imageOut, n * n);
-        // Recast to original type
-        imageOut = CVConvert.ConvertDataFormat(imageOut, image.DataFormat);
+        CVImage imageOut = CVWindowing.AverageWindow(image, radius);
         return imageOut;
     }
 
-    public static CVImage GaussianBlur(CVImage image, int n, double sigma = 0.0)
+    public static CVImage GaussianBlur(CVImage image, int radius, double sigma = 0.0)
     {
         if (sigma == 0.0)
-            sigma = (n - 1) / 6.0;
+            sigma = radius / 3.0;
 
-        CVImage blurMaskX = CVImage.CreateGaussianMask(n, 1, image.DataFormat, image.ChannelFormats, sigma);
-        CVImage blurMaskY = CVImage.CreateGaussianMask(1, n, image.DataFormat, image.ChannelFormats, sigma);
+        CVImage doubleImage = CVConvert.ConvertDataFormat(image, CVDataFormat.CV_F64);
 
-        CVImage imageOut = CVConvolution.ConvolutionX(image, blurMaskX);
+        CVImage blurMaskX = CVImage.CreateGaussianMask(radius * 2 + 1, 1, sigma);
+        CVImage blurMaskY = CVImage.CreateGaussianMask(1, radius * 2 + 1, sigma);
+
+        CVImage imageOut = CVConvolution.ConvolutionX(doubleImage, blurMaskX);
         imageOut = CVConvolution.ConvolutionY(imageOut, blurMaskY);
 
-        return imageOut;
+        return CVConvert.ConvertDataFormat(imageOut, image.DataFormat);
     }
 }

@@ -448,11 +448,9 @@ public class CVDetection
             DenseVectorD.OfArray([contour.points[3].Item1, contour.points[3].Item2]),
         ];
 
-
         CVImage warped = CVWarp.WarpPerspectiveQuad(image, srcPoints, out MatrixD _);
-        warped = CVProcessing.SumWindowResample(warped, markerSize + 2, markerSize + 2);
+        warped = CVWindowing.AverageWindowResample(warped, markerSize + 2, markerSize + 2);
         warped = CVThreshold.OtsuThreshold(warped, 256);
-        warped = CVConvert.ConvertDataFormat(warped, image.DataFormat);
 
         return warped;
     }

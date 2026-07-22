@@ -53,10 +53,14 @@ public enum CVChannelFormat
     CV_R,
     CV_RGB,
     CV_RGBA,
+    CV_RGB255,
     CV_ARGB,
+    CV_255RGB,
     CV_BGR,
     CV_BGRA,
+    CV_BGR255,
     CV_ABGR,
+    CV_255BGR,
 }
 
 public struct CVChannelFormats
@@ -89,10 +93,14 @@ public struct CVChannelFormats
         else if (id == CVChannelFormat.CV_R) Channels = [CVChannel.CV_R];
         else if (id == CVChannelFormat.CV_RGB) Channels = [CVChannel.CV_R, CVChannel.CV_G, CVChannel.CV_B];
         else if (id == CVChannelFormat.CV_RGBA) Channels = [CVChannel.CV_R, CVChannel.CV_G, CVChannel.CV_B, CVChannel.CV_A];
+        else if (id == CVChannelFormat.CV_RGB255) Channels = [CVChannel.CV_R, CVChannel.CV_G, CVChannel.CV_B, CVChannel.CV_A_255];
         else if (id == CVChannelFormat.CV_ARGB) Channels = [CVChannel.CV_A, CVChannel.CV_R, CVChannel.CV_G, CVChannel.CV_B];
+        else if (id == CVChannelFormat.CV_255RGB) Channels = [CVChannel.CV_A_255, CVChannel.CV_R, CVChannel.CV_G, CVChannel.CV_B];
         else if (id == CVChannelFormat.CV_BGR) Channels = [CVChannel.CV_B, CVChannel.CV_G, CVChannel.CV_R];
         else if (id == CVChannelFormat.CV_BGRA) Channels = [CVChannel.CV_B, CVChannel.CV_G, CVChannel.CV_R, CVChannel.CV_A];
+        else if (id == CVChannelFormat.CV_BGR255) Channels = [CVChannel.CV_B, CVChannel.CV_G, CVChannel.CV_R, CVChannel.CV_A_255];
         else if (id == CVChannelFormat.CV_ABGR) Channels = [CVChannel.CV_A, CVChannel.CV_B, CVChannel.CV_G, CVChannel.CV_R];
+        else if (id == CVChannelFormat.CV_255BGR) Channels = [CVChannel.CV_A_255, CVChannel.CV_B, CVChannel.CV_G, CVChannel.CV_R];
     }
 }
 
@@ -400,75 +408,50 @@ public class CVImage
         return image;
     }
 
-    // Optimized
-    public static void SetGaussianMask<T>(double sigma, ref CVImage image) where T : struct, INumber<T>
+    public static CVImage CreateGaussianMask(int width, int height, double sigma = 1.0)
     {
-        Span<T> bufferSpan = image.BufferAs<T>();
+        CVImage image = Create(width, height, CVDataFormat.CV_F64, CVChannelFormat.CV_R);
+
+        Span<double> bufferSpan = image.BufferAs<double>();
 
         int rX = (image.Width - 1) / 2;
         int rY = (image.Height - 1) / 2;
 
         double sigmaF = sigma * sigma * 2;
 
-        int planeSize = image.Width * image.Height;
+        double sum = 0.0;
 
-        for (int c = 0; c < image.Channels; c++)
+        for (int y = -rY; y <= rY; y++)
         {
-            int cBase = c * planeSize;
+            int yOff = (y + rY) * image.Width;
 
-            double sum = 0.0;
+            double y2 = y * y;
 
-            for (int y = -rY; y <= rY; y++)
+            for (int x = -rX; x <= rX; x++)
             {
-                int yOff = (y + rY) * image.Width;
+                double v = Math.Exp(-(x * x + y2) / sigmaF);
 
-                double y2 = y * y;
+                int idx = yOff + (x + rX);
 
-                for (int x = -rX; x <= rX; x++)
-                {
-                    double v = Math.Exp(-(x * x + y2) / sigmaF);
-
-                    int idx = cBase + yOff + (x + rX);
-
-                    bufferSpan[idx] = T.CreateChecked(v);
-                    sum += v;
-                }
-            }
-
-            T sumInv = T.CreateChecked(sum);
-
-            for (int y = -rY; y <= rY; y++)
-            {
-                int yOff = (y + rY) * image.Width;
-
-                for (int x = -rX; x <= rX; x++)
-                {
-                    int idx = cBase + yOff + (x + rX);
-                    bufferSpan[idx] /= sumInv;
-                }
+                bufferSpan[idx] = v;
+                sum += v;
             }
         }
-    }
 
-    public static CVImage CreateGaussianMask(int width = 0, int height = 0, CVDataFormat dataFormat = CVDataFormat.CV_NONE, CVChannelFormat channelFormat = CVChannelFormat.CV_None, double sigma = 1.0)
-    {
-        return CreateGaussianMask(width, height, dataFormat, new CVChannelFormats(channelFormat), sigma);
-    }
+        if (sum == 0.0) return image;
 
-    public static CVImage CreateGaussianMask(int width, int height, CVDataFormat dataFormat, CVChannelFormats channelFormats, double sigma = 1.0)
-    {
-        CVImage image = Create(width, height, dataFormat, channelFormats);
+        double sumInv = 1.0 / sum;
 
-        if (image.DataFormat == CVDataFormat.CV_U8) SetGaussianMask<byte>(sigma, ref image);
-        else if (image.DataFormat == CVDataFormat.CV_S8) SetGaussianMask<sbyte>(sigma, ref image);
-        else if (image.DataFormat == CVDataFormat.CV_U16) SetGaussianMask<ushort>(sigma, ref image);
-        else if (image.DataFormat == CVDataFormat.CV_S16) SetGaussianMask<short>(sigma, ref image);
-        else if (image.DataFormat == CVDataFormat.CV_U32) SetGaussianMask<uint>(sigma, ref image);
-        else if (image.DataFormat == CVDataFormat.CV_S32) SetGaussianMask<int>(sigma, ref image);
-        else if (image.DataFormat == CVDataFormat.CV_U64) SetGaussianMask<ulong>(sigma, ref image);
-        else if (image.DataFormat == CVDataFormat.CV_S64) SetGaussianMask<long>(sigma, ref image);
-        else if (image.DataFormat == CVDataFormat.CV_F32) SetGaussianMask<float>(sigma, ref image);
-        else if (image.DataFormat == CVDataFormat.CV_F64) SetGaussianMask<double>(sigma, ref image);
+        for (int y = -rY; y <= rY; y++)
+        {
+            int yOff = (y + rY) * image.Width;
+
+            for (int x = -rX; x <= rX; x++)
+            {
+                int idx = yOff + (x + rX);
+                bufferSpan[idx] *= sumInv;
+            }
+        }
 
         return image;
     }

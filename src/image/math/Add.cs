@@ -115,38 +115,38 @@ public static class CVAdd
         }
     }
 
-    public static CVImage Add<TV>(CVImage image, TV arg1) where TV : struct, INumber<TV>
+    public static CVImage Add<T>(CVImage image, T arg1) where T : struct, INumber<T>
     {
         CVImage outImage = CVImage.Create(image.Width, image.Height, image.DataFormat, image.ChannelFormats);
 
-        if (image.DataFormat == CVDataFormat.CV_U8) Add<byte, TV>(image, arg1, ref outImage);
-        else if (image.DataFormat == CVDataFormat.CV_S8) Add<sbyte, TV>(image, arg1, ref outImage);
-        else if (image.DataFormat == CVDataFormat.CV_U16) Add<ushort, TV>(image, arg1, ref outImage);
-        else if (image.DataFormat == CVDataFormat.CV_S16) Add<short, TV>(image, arg1, ref outImage);
-        else if (image.DataFormat == CVDataFormat.CV_U32) Add<uint, TV>(image, arg1, ref outImage);
-        else if (image.DataFormat == CVDataFormat.CV_S32) Add<int, TV>(image, arg1, ref outImage);
-        else if (image.DataFormat == CVDataFormat.CV_U64) Add<ulong, TV>(image, arg1, ref outImage);
-        else if (image.DataFormat == CVDataFormat.CV_S64) Add<long, TV>(image, arg1, ref outImage);
-        else if (image.DataFormat == CVDataFormat.CV_F32) Add<float, TV>(image, arg1, ref outImage);
-        else if (image.DataFormat == CVDataFormat.CV_F64) Add<double, TV>(image, arg1, ref outImage);
+        if (image.DataFormat == CVDataFormat.CV_U8) Add<byte, T>(image, arg1, ref outImage);
+        else if (image.DataFormat == CVDataFormat.CV_S8) Add<sbyte, T>(image, arg1, ref outImage);
+        else if (image.DataFormat == CVDataFormat.CV_U16) Add<ushort, T>(image, arg1, ref outImage);
+        else if (image.DataFormat == CVDataFormat.CV_S16) Add<short, T>(image, arg1, ref outImage);
+        else if (image.DataFormat == CVDataFormat.CV_U32) Add<uint, T>(image, arg1, ref outImage);
+        else if (image.DataFormat == CVDataFormat.CV_S32) Add<int, T>(image, arg1, ref outImage);
+        else if (image.DataFormat == CVDataFormat.CV_U64) Add<ulong, T>(image, arg1, ref outImage);
+        else if (image.DataFormat == CVDataFormat.CV_S64) Add<long, T>(image, arg1, ref outImage);
+        else if (image.DataFormat == CVDataFormat.CV_F32) Add<float, T>(image, arg1, ref outImage);
+        else if (image.DataFormat == CVDataFormat.CV_F64) Add<double, T>(image, arg1, ref outImage);
 
         return outImage;
     }
 
-    public static CVImage Add<TV>(CVImage image, TV[] arg1) where TV : struct, INumber<TV>
+    public static CVImage Add<T>(CVImage image, T[] arg1) where T : struct, INumber<T>
     {
         CVImage outImage = CVImage.Create(image.Width, image.Height, image.DataFormat, image.ChannelFormats);
 
-        if (image.DataFormat == CVDataFormat.CV_U8) Add<byte, TV>(image, arg1, ref outImage);
-        else if (image.DataFormat == CVDataFormat.CV_S8) Add<sbyte, TV>(image, arg1, ref outImage);
-        else if (image.DataFormat == CVDataFormat.CV_U16) Add<ushort, TV>(image, arg1, ref outImage);
-        else if (image.DataFormat == CVDataFormat.CV_S16) Add<short, TV>(image, arg1, ref outImage);
-        else if (image.DataFormat == CVDataFormat.CV_U32) Add<uint, TV>(image, arg1, ref outImage);
-        else if (image.DataFormat == CVDataFormat.CV_S32) Add<int, TV>(image, arg1, ref outImage);
-        else if (image.DataFormat == CVDataFormat.CV_U64) Add<ulong, TV>(image, arg1, ref outImage);
-        else if (image.DataFormat == CVDataFormat.CV_S64) Add<long, TV>(image, arg1, ref outImage);
-        else if (image.DataFormat == CVDataFormat.CV_F32) Add<float, TV>(image, arg1, ref outImage);
-        else if (image.DataFormat == CVDataFormat.CV_F64) Add<double, TV>(image, arg1, ref outImage);
+        if (image.DataFormat == CVDataFormat.CV_U8) Add<byte, T>(image, arg1, ref outImage);
+        else if (image.DataFormat == CVDataFormat.CV_S8) Add<sbyte, T>(image, arg1, ref outImage);
+        else if (image.DataFormat == CVDataFormat.CV_U16) Add<ushort, T>(image, arg1, ref outImage);
+        else if (image.DataFormat == CVDataFormat.CV_S16) Add<short, T>(image, arg1, ref outImage);
+        else if (image.DataFormat == CVDataFormat.CV_U32) Add<uint, T>(image, arg1, ref outImage);
+        else if (image.DataFormat == CVDataFormat.CV_S32) Add<int, T>(image, arg1, ref outImage);
+        else if (image.DataFormat == CVDataFormat.CV_U64) Add<ulong, T>(image, arg1, ref outImage);
+        else if (image.DataFormat == CVDataFormat.CV_S64) Add<long, T>(image, arg1, ref outImage);
+        else if (image.DataFormat == CVDataFormat.CV_F32) Add<float, T>(image, arg1, ref outImage);
+        else if (image.DataFormat == CVDataFormat.CV_F64) Add<double, T>(image, arg1, ref outImage);
 
         return outImage;
     }
@@ -236,20 +236,20 @@ public static class CVAdd
         }
     }
 
-    public static CVImage Add<TV>(CVImage image, TV arg1, int channel) where TV : struct, INumber<TV>
+    public static CVImage Add<T>(CVImage image, T arg1, int channel) where T : struct, INumber<T>
     {
         CVImage outImage = CVImage.Create(image.Width, image.Height, image.DataFormat, image.ChannelFormats);
 
-        if (image.DataFormat == CVDataFormat.CV_U8) Add<byte, TV>(image, arg1, channel, ref outImage);
-        else if (image.DataFormat == CVDataFormat.CV_S8) Add<sbyte, TV>(image, arg1, channel, ref outImage);
-        else if (image.DataFormat == CVDataFormat.CV_U16) Add<ushort, TV>(image, arg1, channel, ref outImage);
-        else if (image.DataFormat == CVDataFormat.CV_S16) Add<short, TV>(image, arg1, channel, ref outImage);
-        else if (image.DataFormat == CVDataFormat.CV_U32) Add<uint, TV>(image, arg1, channel, ref outImage);
-        else if (image.DataFormat == CVDataFormat.CV_S32) Add<int, TV>(image, arg1, channel, ref outImage);
-        else if (image.DataFormat == CVDataFormat.CV_U64) Add<ulong, TV>(image, arg1, channel, ref outImage);
-        else if (image.DataFormat == CVDataFormat.CV_S64) Add<long, TV>(image, arg1, channel, ref outImage);
-        else if (image.DataFormat == CVDataFormat.CV_F32) Add<float, TV>(image, arg1, channel, ref outImage);
-        else if (image.DataFormat == CVDataFormat.CV_F64) Add<double, TV>(image, arg1, channel, ref outImage);
+        if (image.DataFormat == CVDataFormat.CV_U8) Add<byte, T>(image, arg1, channel, ref outImage);
+        else if (image.DataFormat == CVDataFormat.CV_S8) Add<sbyte, T>(image, arg1, channel, ref outImage);
+        else if (image.DataFormat == CVDataFormat.CV_U16) Add<ushort, T>(image, arg1, channel, ref outImage);
+        else if (image.DataFormat == CVDataFormat.CV_S16) Add<short, T>(image, arg1, channel, ref outImage);
+        else if (image.DataFormat == CVDataFormat.CV_U32) Add<uint, T>(image, arg1, channel, ref outImage);
+        else if (image.DataFormat == CVDataFormat.CV_S32) Add<int, T>(image, arg1, channel, ref outImage);
+        else if (image.DataFormat == CVDataFormat.CV_U64) Add<ulong, T>(image, arg1, channel, ref outImage);
+        else if (image.DataFormat == CVDataFormat.CV_S64) Add<long, T>(image, arg1, channel, ref outImage);
+        else if (image.DataFormat == CVDataFormat.CV_F32) Add<float, T>(image, arg1, channel, ref outImage);
+        else if (image.DataFormat == CVDataFormat.CV_F64) Add<double, T>(image, arg1, channel, ref outImage);
 
         return outImage;
     }
@@ -272,7 +272,7 @@ public static class CVAdd
         return outImage;
     }
 
-    public static CVImagePyramid Add<TV>(CVImagePyramid image, TV arg1) where TV : struct, INumber<TV>
+    public static CVImagePyramid Add<T>(CVImagePyramid image, T arg1) where T : struct, INumber<T>
     {
         CVImagePyramid outImage = new CVImagePyramid(image.Levels);
 
@@ -282,7 +282,7 @@ public static class CVAdd
         return outImage;
     }
 
-    public static CVImagePyramid Add<TV>(CVImagePyramid image, TV[] arg1) where TV : struct, INumber<TV>
+    public static CVImagePyramid Add<T>(CVImagePyramid image, T[] arg1) where T : struct, INumber<T>
     {
         CVImagePyramid outImage = new CVImagePyramid(image.Levels);
 
@@ -302,7 +302,7 @@ public static class CVAdd
         return outImage;
     }
 
-    public static CVImagePyramid Add<TV>(CVImagePyramid image, TV arg1, int channel) where TV : struct, INumber<TV>
+    public static CVImagePyramid Add<T>(CVImagePyramid image, T arg1, int channel) where T : struct, INumber<T>
     {
         CVImagePyramid outImage = new CVImagePyramid(image.Levels);
 

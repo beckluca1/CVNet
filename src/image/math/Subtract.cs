@@ -115,38 +115,38 @@ public static class CVSubtract
         }
     }
 
-    public static CVImage Subtract<TV>(CVImage image, TV arg1) where TV : struct, INumber<TV>
+    public static CVImage Subtract<T>(CVImage image, T arg1) where T : struct, INumber<T>
     {
         CVImage outImage = CVImage.Create(image.Width, image.Height, image.DataFormat, image.ChannelFormats);
 
-        if (image.DataFormat == CVDataFormat.CV_U8) Subtract<byte, TV>(image, arg1, ref outImage);
-        else if (image.DataFormat == CVDataFormat.CV_S8) Subtract<sbyte, TV>(image, arg1, ref outImage);
-        else if (image.DataFormat == CVDataFormat.CV_U16) Subtract<ushort, TV>(image, arg1, ref outImage);
-        else if (image.DataFormat == CVDataFormat.CV_S16) Subtract<short, TV>(image, arg1, ref outImage);
-        else if (image.DataFormat == CVDataFormat.CV_U32) Subtract<uint, TV>(image, arg1, ref outImage);
-        else if (image.DataFormat == CVDataFormat.CV_S32) Subtract<int, TV>(image, arg1, ref outImage);
-        else if (image.DataFormat == CVDataFormat.CV_U64) Subtract<ulong, TV>(image, arg1, ref outImage);
-        else if (image.DataFormat == CVDataFormat.CV_S64) Subtract<long, TV>(image, arg1, ref outImage);
-        else if (image.DataFormat == CVDataFormat.CV_F32) Subtract<float, TV>(image, arg1, ref outImage);
-        else if (image.DataFormat == CVDataFormat.CV_F64) Subtract<double, TV>(image, arg1, ref outImage);
+        if (image.DataFormat == CVDataFormat.CV_U8) Subtract<byte, T>(image, arg1, ref outImage);
+        else if (image.DataFormat == CVDataFormat.CV_S8) Subtract<sbyte, T>(image, arg1, ref outImage);
+        else if (image.DataFormat == CVDataFormat.CV_U16) Subtract<ushort, T>(image, arg1, ref outImage);
+        else if (image.DataFormat == CVDataFormat.CV_S16) Subtract<short, T>(image, arg1, ref outImage);
+        else if (image.DataFormat == CVDataFormat.CV_U32) Subtract<uint, T>(image, arg1, ref outImage);
+        else if (image.DataFormat == CVDataFormat.CV_S32) Subtract<int, T>(image, arg1, ref outImage);
+        else if (image.DataFormat == CVDataFormat.CV_U64) Subtract<ulong, T>(image, arg1, ref outImage);
+        else if (image.DataFormat == CVDataFormat.CV_S64) Subtract<long, T>(image, arg1, ref outImage);
+        else if (image.DataFormat == CVDataFormat.CV_F32) Subtract<float, T>(image, arg1, ref outImage);
+        else if (image.DataFormat == CVDataFormat.CV_F64) Subtract<double, T>(image, arg1, ref outImage);
 
         return outImage;
     }
 
-    public static CVImage Subtract<TV>(CVImage image, TV[] arg1) where TV : struct, INumber<TV>
+    public static CVImage Subtract<T>(CVImage image, T[] arg1) where T : struct, INumber<T>
     {
         CVImage outImage = CVImage.Create(image.Width, image.Height, image.DataFormat, image.ChannelFormats);
 
-        if (image.DataFormat == CVDataFormat.CV_U8) Subtract<byte, TV>(image, arg1, ref outImage);
-        else if (image.DataFormat == CVDataFormat.CV_S8) Subtract<sbyte, TV>(image, arg1, ref outImage);
-        else if (image.DataFormat == CVDataFormat.CV_U16) Subtract<ushort, TV>(image, arg1, ref outImage);
-        else if (image.DataFormat == CVDataFormat.CV_S16) Subtract<short, TV>(image, arg1, ref outImage);
-        else if (image.DataFormat == CVDataFormat.CV_U32) Subtract<uint, TV>(image, arg1, ref outImage);
-        else if (image.DataFormat == CVDataFormat.CV_S32) Subtract<int, TV>(image, arg1, ref outImage);
-        else if (image.DataFormat == CVDataFormat.CV_U64) Subtract<ulong, TV>(image, arg1, ref outImage);
-        else if (image.DataFormat == CVDataFormat.CV_S64) Subtract<long, TV>(image, arg1, ref outImage);
-        else if (image.DataFormat == CVDataFormat.CV_F32) Subtract<float, TV>(image, arg1, ref outImage);
-        else if (image.DataFormat == CVDataFormat.CV_F64) Subtract<double, TV>(image, arg1, ref outImage);
+        if (image.DataFormat == CVDataFormat.CV_U8) Subtract<byte, T>(image, arg1, ref outImage);
+        else if (image.DataFormat == CVDataFormat.CV_S8) Subtract<sbyte, T>(image, arg1, ref outImage);
+        else if (image.DataFormat == CVDataFormat.CV_U16) Subtract<ushort, T>(image, arg1, ref outImage);
+        else if (image.DataFormat == CVDataFormat.CV_S16) Subtract<short, T>(image, arg1, ref outImage);
+        else if (image.DataFormat == CVDataFormat.CV_U32) Subtract<uint, T>(image, arg1, ref outImage);
+        else if (image.DataFormat == CVDataFormat.CV_S32) Subtract<int, T>(image, arg1, ref outImage);
+        else if (image.DataFormat == CVDataFormat.CV_U64) Subtract<ulong, T>(image, arg1, ref outImage);
+        else if (image.DataFormat == CVDataFormat.CV_S64) Subtract<long, T>(image, arg1, ref outImage);
+        else if (image.DataFormat == CVDataFormat.CV_F32) Subtract<float, T>(image, arg1, ref outImage);
+        else if (image.DataFormat == CVDataFormat.CV_F64) Subtract<double, T>(image, arg1, ref outImage);
 
         return outImage;
     }
@@ -169,7 +169,7 @@ public static class CVSubtract
         return outImage;
     }
 
-    public static CVImagePyramid Subtract<TV>(CVImagePyramid image, TV arg1) where TV : struct, INumber<TV>
+    public static CVImagePyramid Subtract<T>(CVImagePyramid image, T arg1) where T : struct, INumber<T>
     {
         CVImagePyramid outImage = new CVImagePyramid(image.Levels);
 
@@ -179,7 +179,7 @@ public static class CVSubtract
         return outImage;
     }
 
-    public static CVImagePyramid Subtract<TV>(CVImagePyramid image, TV[] arg1) where TV : struct, INumber<TV>
+    public static CVImagePyramid Subtract<T>(CVImagePyramid image, T[] arg1) where T : struct, INumber<T>
     {
         CVImagePyramid outImage = new CVImagePyramid(image.Levels);
 

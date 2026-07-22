@@ -6,28 +6,55 @@ namespace CVNet;
 
 public class CVBriefDescriptor
 {
-    public bool Valid;
     public (int x, int y) Position;
     public ulong[] Descriptor;
 
-    public CVBriefDescriptor()
-    {
-        Valid = false;
-        Position = (0, 0);
-        Descriptor = [0, 0, 0, 0];
-    }
-
     public CVBriefDescriptor((int x, int y) position)
     {
-        Valid = true;
         Position = position;
         Descriptor = [0, 0, 0, 0];
     }
 
     public CVBriefDescriptor((int x, int y) position, ulong[] descriptor)
     {
-        Valid = true;
         Position = position;
+        Descriptor = descriptor;
+    }
+
+    public bool this[int index]
+    {
+        get => (Descriptor[index / 64] & (1UL << (index % 64))) != 0;
+        set
+        {
+            int word = index / 64;
+            ulong mask = 1UL << (index % 64);
+
+            if (value)
+                Descriptor[word] |= mask;
+            else
+                Descriptor[word] &= ~mask;
+        }
+    }
+}
+
+public class CVCensusDescriptor
+{
+    public (int x, int y) Position;
+    public int Count;
+    public ulong[] Descriptor;
+
+    public CVCensusDescriptor((int x, int y) position, int radius)
+    {
+        Position = position;
+        int bitCount = (radius * 2 + 1) * (radius * 2 + 1) - 1;
+        Count = bitCount / 64;
+        Descriptor = new ulong[Count];
+    }
+
+    public CVCensusDescriptor((int x, int y) position, ulong[] descriptor)
+    {
+        Position = position;
+        Count = descriptor.Length;
         Descriptor = descriptor;
     }
 
@@ -122,8 +149,6 @@ class BinaryLSH
         return hash;
     }
 
-
-
     public void FindBest(
         CVBriefDescriptor query,
         out int bestIndex,
@@ -131,7 +156,6 @@ class BinaryLSH
         out int secondDistance)
     {
         HashSet<int> candidates = new();
-
 
         foreach (var table in tables)
         {
@@ -144,11 +168,9 @@ class BinaryLSH
             }
         }
 
-
         bestIndex = -1;
         bestDistance = int.MaxValue;
         secondDistance = int.MaxValue;
-
 
         foreach (int id in candidates)
         {
@@ -160,7 +182,6 @@ class BinaryLSH
                     query.Descriptor[k],
                     descriptors[id].Descriptor[k]);
             }
-
 
             if (distance < bestDistance)
             {
@@ -848,7 +869,6 @@ public class CVFeatureDetector
     public static List<CVBriefDescriptor> Orb(CVImage image)
     {
         CVImage gray = CVConvert.ConvertChannelFormat(image, CVChannelFormat.CV_Grayscale);
-        gray = CVConvert.ConvertDataFormat(gray, CVDataFormat.CV_F64);
 
         List<(CVImage image, double scale)> pyramid = BuildPyramid(gray);
 
@@ -860,7 +880,7 @@ public class CVFeatureDetector
             double scale = pyramid[level].scale;
 
             List<(int, int)> fastKeypoints = Fast(levelImage, 5.0, 8);
-            List<double> harrisScores = CVCornerDetector.HarrisStrengthPoints<double>(levelImage, fastKeypoints, 25, 3);
+            List<double> harrisScores = CVCornerDetector.HarrisStrengthPoints(levelImage, fastKeypoints, 25, 3);
 
             var selectedPoints = GridKeypointSelection(levelImage, fastKeypoints, harrisScores);
 
@@ -882,6 +902,52 @@ public class CVFeatureDetector
         }
 
         return descriptors;
+    }
+
+    private static void census<T>(CVImage image, int radius, ref CVImage outImage) where T : struct, INumber<T>
+    {
+        Span<T> buffer = image.BufferAs<T>();
+        Span<ulong> outBuffer = outImage.BufferAs<ulong>();
+
+        for (int y = radius; y < image.Height - radius; y++)
+            for (int x = radius; x < image.Width - radius; x++)
+            {
+                CVCensusDescriptor descriptor = new CVCensusDescriptor((x, y), radius);
+                int center = x + y * image.Width;
+                T centerVal = buffer[center];
+                int index = 0;
+                for (int dy = -radius; dy <= radius; dy++)
+                {
+                    for (int dx = -radius; dx <= radius; dx++)
+                    {
+                        if (dy == 0 && dx == 0) continue;
+                        T pixelVal = buffer[center + dx + dy * image.Width];
+                        descriptor[index] = pixelVal >= centerVal;
+                        index++;
+                    }
+                }
+
+                // Only works for images <= 8x8
+                outBuffer[center] = descriptor.Descriptor[0];
+            }
+    }
+
+    public static CVImage Census(CVImage image, int radius)
+    {
+        CVImage descriptorImage = CVImage.Create(image.Width, image.Height, CVDataFormat.CV_U64, image.ChannelFormats);
+
+        if (image.DataFormat == CVDataFormat.CV_U8) census<byte>(image, radius, ref descriptorImage);
+        else if (image.DataFormat == CVDataFormat.CV_S8) census<sbyte>(image, radius, ref descriptorImage);
+        else if (image.DataFormat == CVDataFormat.CV_U16) census<ushort>(image, radius, ref descriptorImage);
+        else if (image.DataFormat == CVDataFormat.CV_S16) census<short>(image, radius, ref descriptorImage);
+        else if (image.DataFormat == CVDataFormat.CV_U32) census<uint>(image, radius, ref descriptorImage);
+        else if (image.DataFormat == CVDataFormat.CV_S32) census<int>(image, radius, ref descriptorImage);
+        else if (image.DataFormat == CVDataFormat.CV_U64) census<ulong>(image, radius, ref descriptorImage);
+        else if (image.DataFormat == CVDataFormat.CV_S64) census<long>(image, radius, ref descriptorImage);
+        else if (image.DataFormat == CVDataFormat.CV_F32) census<float>(image, radius, ref descriptorImage);
+        else if (image.DataFormat == CVDataFormat.CV_F64) census<double>(image, radius, ref descriptorImage);
+
+        return descriptorImage;
     }
 
     private static void getBestMatches(
@@ -913,7 +979,7 @@ public class CVFeatureDetector
         }
     }
 
-    public static void MatchFeatures(
+    public static void MatchFeaturesOrb(
         CVImage image1,
         CVImage image2,
         int hammingDistance,
@@ -929,41 +995,23 @@ public class CVFeatureDetector
         if (features1.Count == 0 || features2.Count == 0)
             return;
 
-
         int[] best12 = new int[features1.Count];
         int[] best21 = new int[features2.Count];
 
         int[] dist12 = new int[features1.Count];
         int[] dist21 = new int[features2.Count];
 
-
         // Build LSH indexes
         BinaryLSH lsh2 = new BinaryLSH(features2);
         BinaryLSH lsh1 = new BinaryLSH(features1);
 
-
         // features1 -> features2
         for (int i = 0; i < features1.Count; i++)
-        {
-            lsh2.FindBest(
-                features1[i],
-                out best12[i],
-                out dist12[i],
-                out _);
-        }
-
+            lsh2.FindBest(features1[i], out best12[i], out dist12[i], out _);
 
         // features2 -> features1
         for (int i = 0; i < features2.Count; i++)
-        {
-            lsh1.FindBest(
-                features2[i],
-                out best21[i],
-                out dist21[i],
-                out _);
-        }
-
-
+            lsh1.FindBest(features2[i], out best21[i], out dist21[i], out _);
 
         // Cross-check + threshold
         for (int i = 0; i < features1.Count; i++)
@@ -973,18 +1021,13 @@ public class CVFeatureDetector
             if (j < 0)
                 continue;
 
-
             // Mutual nearest neighbor
             if (best21[j] != i)
                 continue;
 
-
             int distance = dist12[i];
-
-
             if (distance > hammingDistance)
                 continue;
-
 
             matchedFeatures1.Add(features1[i].Position);
             matchedFeatures2.Add(features2[j].Position);
@@ -995,17 +1038,14 @@ public class CVFeatureDetector
         CVImage image)
     {
         CVImage gray = CVConvert.ConvertChannelFormat(image, CVChannelFormat.CV_Grayscale);
-        gray = CVConvert.ConvertDataFormat(gray, CVDataFormat.CV_F64);
 
         List<(int, int)> fastKeypoints = Fast(gray, 5.0);
 
-        List<double> fastHarrisScores = CVCornerDetector.HarrisStrengthPoints<double>(gray, fastKeypoints, 25, 3);
-
+        List<double> fastHarrisScores = CVCornerDetector.HarrisStrengthPoints(gray, fastKeypoints, 25, 3);
 
         var indices = Enumerable.Range(0, fastHarrisScores.Count)
                             .OrderByDescending(i => fastHarrisScores[i])
                             .ToList();
-
 
         var fastPoints = indices
             .Select(i => (x: fastKeypoints[i].Item1, y: fastKeypoints[i].Item2, score: fastHarrisScores[i]))

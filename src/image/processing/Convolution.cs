@@ -19,47 +19,76 @@ public class CVConvolution
         int width = image1.Width;
         int height = image1.Height;
 
+        int planeSize = width * height;
+
         int simdWidth = Vector<T>.Count;
 
         // assume kernel is 1D horizontal
         int kWidth = image2.Width;
 
-        for (int y = 0; y < height; y++)
+        for (int c = 0; c < image1.Channels; c++)
         {
-            int row = y * width;
+            int colorOffset = c * planeSize;
 
-            int x = kW;
-
-            // SIMD main loop
-            for (; x <= width - kW - simdWidth; x += simdWidth)
+            for (int y = 0; y < height; y++)
             {
-                Vector<T> acc = Vector<T>.Zero;
+                int row = colorOffset + y * width;
 
-                for (int dx = -kW; dx <= kW; dx++)
+                int x = 0;
+
+                for (; x < kW; x++)
                 {
-                    T k = kernel[dx + kW];
+                    T sum = T.Zero;
 
-                    int srcIndex = row + x + dx;
+                    for (int dx = -kW; dx <= kW; dx++)
+                    {
+                        int xIndex = x + dx;
 
-                    Vector<T> vec = Vector.LoadUnsafe(ref src[srcIndex]);
+                        if (xIndex < 0) xIndex = 0;
+                        else if (xIndex >= width) xIndex = width - 1;
 
-                    acc += vec * k;
+                        sum += src[row + xIndex] * kernel[dx + kW];
+                    }
+
+                    dst[row + x] = sum;
                 }
 
-                acc.CopyTo(dst.Slice(row + x));
-            }
-
-            // scalar tail
-            for (; x < width - kW; x++)
-            {
-                T sum = T.AdditiveIdentity;
-
-                for (int dx = -kW; dx <= kW; dx++)
+                // SIMD main loop
+                for (; x <= width - simdWidth - kW; x += simdWidth)
                 {
-                    sum += src[row + x + dx] * kernel[dx + kW];
+                    Vector<T> acc = Vector<T>.Zero;
+
+                    for (int dx = -kW; dx <= kW; dx++)
+                    {
+                        T k = kernel[dx + kW];
+
+                        int srcIndex = row + x + dx;
+
+                        Vector<T> vec = Vector.LoadUnsafe(ref src[srcIndex]);
+
+                        acc += vec * k;
+                    }
+
+                    acc.CopyTo(dst.Slice(row + x));
                 }
 
-                dst[row + x] = sum;
+                // scalar tail
+                for (; x < width; x++)
+                {
+                    T sum = T.Zero;
+
+                    for (int dx = -kW; dx <= kW; dx++)
+                    {
+                        int xIndex = x + dx;
+
+                        if (xIndex < 0) xIndex = 0;
+                        else if (xIndex >= width) xIndex = width - 1;
+
+                        sum += src[row + xIndex] * kernel[dx + kW];
+                    }
+
+                    dst[row + x] = sum;
+                }
             }
         }
     }
@@ -74,48 +103,110 @@ public class CVConvolution
         int width = image1.Width;
         int height = image1.Height;
 
+        int planeSize = width * height;
+
         Span<T> src = image1.BufferAs<T>();
         Span<T> kernel = image2.BufferAs<T>();
         Span<T> dst = imageOut.BufferAs<T>();
 
         int simdWidth = Vector<T>.Count;
 
-        for (int y = kH; y < height - kH; y++)
+        for (int c = 0; c < image1.Channels; c++)
         {
-            int rowOut = y * width;
+            int colorOffset = c * planeSize;
 
-            int x = 0;
+            int y = 0;
 
-            // SIMD over X
-            for (; x <= width - simdWidth; x += simdWidth)
+            for (; y < kH; y++)
             {
-                Vector<T> acc = Vector<T>.Zero;
+                int rowOut = colorOffset + y * width;
 
-                for (int dy = -kH; dy <= kH; dy++)
+                // scalar tail
+                for (int x = 0; x < width; x++)
                 {
-                    int rowIn = (y + dy) * width;
-                    T k = kernel[dy + kH];
+                    T sum = T.Zero;
 
-                    var v = Vector.LoadUnsafe(ref src[rowIn + x]);
+                    for (int dy = -kH; dy <= kH; dy++)
+                    {
+                        int yIndex = y + dy;
 
-                    acc += v * k;
+                        if (yIndex < 0) yIndex = 0;
+                        else if (yIndex >= height) yIndex = height - 1;
+
+                        int rowIn = colorOffset + yIndex * width;
+                        sum += src[rowIn + x] * kernel[dy + kH];
+                    }
+
+                    dst[rowOut + x] = sum;
                 }
-
-                acc.CopyTo(dst.Slice(rowOut + x));
             }
 
-            // scalar tail
-            for (; x < width; x++)
+            for (; y < height - kH; y++)
             {
-                T sum = T.AdditiveIdentity;
+                int rowOut = colorOffset + y * width;
 
-                for (int dy = -kH; dy <= kH; dy++)
+                int x = 0;
+
+                // SIMD over X
+                for (; x <= width - simdWidth; x += simdWidth)
                 {
-                    int rowIn = (y + dy) * width;
-                    sum += src[rowIn + x] * kernel[dy + kH];
+                    Vector<T> acc = Vector<T>.Zero;
+
+                    for (int dy = -kH; dy <= kH; dy++)
+                    {
+                        int rowIn = colorOffset + (y + dy) * width;
+                        T k = kernel[dy + kH];
+
+                        var v = Vector.LoadUnsafe(ref src[rowIn + x]);
+
+                        acc += v * k;
+                    }
+
+                    acc.CopyTo(dst.Slice(rowOut + x));
                 }
 
-                dst[rowOut + x] = sum;
+                // scalar tail
+                for (; x < width; x++)
+                {
+                    T sum = T.Zero;
+
+                    for (int dy = -kH; dy <= kH; dy++)
+                    {
+                        int yIndex = y + dy;
+
+                        if (yIndex < 0) yIndex = 0;
+                        else if (yIndex >= height) yIndex = height - 1;
+
+                        int rowIn = colorOffset + yIndex * width;
+                        sum += src[rowIn + x] * kernel[dy + kH];
+                    }
+
+                    dst[rowOut + x] = sum;
+                }
+            }
+
+            for (; y < height; y++)
+            {
+                int rowOut = colorOffset + y * width;
+
+                // scalar tail
+                for (int x = 0; x < width; x++)
+                {
+                    T sum = T.Zero;
+
+                    for (int dy = -kH; dy <= kH; dy++)
+                    {
+                        int yIndex = y + dy;
+
+                        if (yIndex < 0) yIndex = 0;
+                        else if (yIndex >= height) yIndex = height - 1;
+
+                        int rowIn = colorOffset + yIndex * width;
+                        sum += src[rowIn + x] * kernel[dy + kH];
+                    }
+
+                    dst[rowOut + x] = sum;
+                }
             }
         }
     }
@@ -138,57 +229,64 @@ public class CVConvolution
         int width = image1.Width;
         int height = image1.Height;
 
+        int planeSize = width * height;
+
         int kWidth = image2.Width;
         int simdWidth = Vector<T>.Count;
 
-        for (int y = kH; y < height - kH; y++)
+        for (int c = 0; c < image1.Channels; c++)
         {
-            int rowOut = y * width;
+            int colorOffset = c * planeSize;
 
-            int x = kW;
-
-            // SIMD main loop
-            for (; x <= width - kW - simdWidth; x += simdWidth)
+            for (int y = kH; y < height - kH; y++)
             {
-                Vector<T> acc = Vector<T>.Zero;
+                int rowOut = colorOffset + y * width;
 
-                for (int dy = -kH; dy <= kH; dy++)
+                int x = kW;
+
+                // SIMD main loop
+                for (; x <= width - kW - simdWidth; x += simdWidth)
                 {
-                    int rowIn = (y + dy) * width;
-                    int kRow = (dy + kH) * kWidth;
+                    Vector<T> acc = Vector<T>.Zero;
 
-                    for (int dx = -kW; dx <= kW; dx++)
+                    for (int dy = -kH; dy <= kH; dy++)
                     {
-                        T k = kernel[kRow + dx + kW];
+                        int rowIn = colorOffset + (y + dy) * width;
+                        int kRow = (dy + kH) * kWidth;
 
-                        int srcIndex = rowIn + x + dx;
+                        for (int dx = -kW; dx <= kW; dx++)
+                        {
+                            T k = kernel[kRow + dx + kW];
 
-                        Vector<T> vec = Vector.LoadUnsafe(ref src[srcIndex]);
+                            int srcIndex = rowIn + x + dx;
 
-                        acc += vec * k;
+                            Vector<T> vec = Vector.LoadUnsafe(ref src[srcIndex]);
+
+                            acc += vec * k;
+                        }
                     }
+
+                    acc.CopyTo(dst.Slice(rowOut + x));
                 }
 
-                acc.CopyTo(dst.Slice(rowOut + x));
-            }
-
-            // scalar tail
-            for (; x < width - kW; x++)
-            {
-                T sum = T.AdditiveIdentity;
-
-                for (int dy = -kH; dy <= kH; dy++)
+                // scalar tail
+                for (; x < width - kW; x++)
                 {
-                    int rowIn = (y + dy) * width;
-                    int kRow = (dy + kH) * kWidth;
+                    T sum = T.AdditiveIdentity;
 
-                    for (int dx = -kW; dx <= kW; dx++)
+                    for (int dy = -kH; dy <= kH; dy++)
                     {
-                        sum += src[rowIn + x + dx] * kernel[kRow + dx + kW];
-                    }
-                }
+                        int rowIn = colorOffset + (y + dy) * width;
+                        int kRow = (dy + kH) * kWidth;
 
-                dst[rowOut + x] = sum;
+                        for (int dx = -kW; dx <= kW; dx++)
+                        {
+                            sum += src[rowIn + x + dx] * kernel[kRow + dx + kW];
+                        }
+                    }
+
+                    dst[rowOut + x] = sum;
+                }
             }
         }
     }

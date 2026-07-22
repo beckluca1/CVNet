@@ -9,7 +9,7 @@ public class CVCheckerboard
     {
         List<Vector<double>> saddlePoints = new List<Vector<double>>();
 
-        var corners = CVCornerDetector.DetectCornerHessian(image, 2, 5);
+        var corners = CVCornerDetector.DetectCornerShiTomasi(image, 1, 1);
         for (int i = 0; i < corners.Count; i++) saddlePoints.Add(DenseVector.OfArray([corners[i].Item1, corners[i].Item2, corners[i].Item3]));
 
         Console.WriteLine($"Saddle points: {saddlePoints.Count}");

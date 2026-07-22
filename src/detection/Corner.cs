@@ -14,55 +14,62 @@ public class CVCornerDetector
         CVImage image,
         ref CVImage outImage) where T : struct, INumber<T>
     {
-        T Two = T.One + T.One;
+        int width = image.Width;
+        int height = image.Height;
+        int planeSize = width * height;
 
-        T[,] k =
+        double[,] k =
         {
-            { -T.One, T.Zero, T.One },
-            { -Two, T.Zero, Two },
-            { -T.One, T.Zero, T.One }
+            { -1, 0, 1 },
+            { -2, 0, 2 },
+            { -1, 0, 1 }
         };
 
         Span<T> srcSpan = image.BufferAs<T>();
-        Span<T> dstSpan = outImage.BufferAs<T>();
+        Span<double> dstSpan = outImage.BufferAs<double>();
 
-        for (int y = 1; y < image.Height - 1; y++)
+        for (int c = 0; c < image.Channels; c++)
         {
-            for (int x = 1; x < image.Width - 1; x++)
-            {
-                T sum = T.Zero;
+            int channelOffset = c * planeSize;
 
-                for (int j = -1; j <= 1; j++)
+            for (int y = 1; y < height - 1; y++)
+            {
+                int dstRow = channelOffset + y * width;
+
+                for (int x = 1; x < width - 1; x++)
                 {
-                    for (int i = -1; i <= 1; i++)
+                    double sum = 0;
+
+                    for (int dy = -1; dy <= 1; dy++)
                     {
-                        sum +=
-                            srcSpan[(x + i) + (y + j) * image.Width] *
-                            k[j + 1, i + 1];
+                        int srcRow = channelOffset + (y + dy) * width;
+
+                        for (int dx = -1; dx <= 1; dx++)
+                        {
+                            sum += double.CreateChecked(srcSpan[(x + dx) + srcRow]) * k[dy + 1, dx + 1];
+                        }
                     }
+                    dstSpan[x + dstRow] = sum;
                 }
-                dstSpan[x + y * outImage.Width] = sum;
             }
         }
+
     }
 
     public static CVImage DerivativeX(CVImage image)
     {
-        // Derivative requires signed image and could be twice as large
-        CVImage imageC = CVConvert.ConvertDataFormatToSigned(image);
-        imageC = CVConvert.ConvertDataFormatFactor(imageC, 4);
-        CVImage outImage = CVImage.Create(imageC.Width, imageC.Height, imageC.DataFormat, imageC.ChannelFormats);
+        CVImage outImage = CVImage.Create(image.Width, image.Height, CVDataFormat.CV_F64, image.ChannelFormats);
 
-        if (imageC.DataFormat == CVDataFormat.CV_U8) DerivativeX<byte>(imageC, ref outImage);
-        else if (imageC.DataFormat == CVDataFormat.CV_S8) DerivativeX<sbyte>(imageC, ref outImage);
-        else if (imageC.DataFormat == CVDataFormat.CV_U16) DerivativeX<ushort>(imageC, ref outImage);
-        else if (imageC.DataFormat == CVDataFormat.CV_S16) DerivativeX<short>(imageC, ref outImage);
-        else if (imageC.DataFormat == CVDataFormat.CV_U32) DerivativeX<uint>(imageC, ref outImage);
-        else if (imageC.DataFormat == CVDataFormat.CV_S32) DerivativeX<int>(imageC, ref outImage);
-        else if (imageC.DataFormat == CVDataFormat.CV_U64) DerivativeX<ulong>(imageC, ref outImage);
-        else if (imageC.DataFormat == CVDataFormat.CV_S64) DerivativeX<long>(imageC, ref outImage);
-        else if (imageC.DataFormat == CVDataFormat.CV_F32) DerivativeX<float>(imageC, ref outImage);
-        else if (imageC.DataFormat == CVDataFormat.CV_F64) DerivativeX<double>(imageC, ref outImage);
+        if (image.DataFormat == CVDataFormat.CV_U8) DerivativeX<byte>(image, ref outImage);
+        else if (image.DataFormat == CVDataFormat.CV_S8) DerivativeX<sbyte>(image, ref outImage);
+        else if (image.DataFormat == CVDataFormat.CV_U16) DerivativeX<ushort>(image, ref outImage);
+        else if (image.DataFormat == CVDataFormat.CV_S16) DerivativeX<short>(image, ref outImage);
+        else if (image.DataFormat == CVDataFormat.CV_U32) DerivativeX<uint>(image, ref outImage);
+        else if (image.DataFormat == CVDataFormat.CV_S32) DerivativeX<int>(image, ref outImage);
+        else if (image.DataFormat == CVDataFormat.CV_U64) DerivativeX<ulong>(image, ref outImage);
+        else if (image.DataFormat == CVDataFormat.CV_S64) DerivativeX<long>(image, ref outImage);
+        else if (image.DataFormat == CVDataFormat.CV_F32) DerivativeX<float>(image, ref outImage);
+        else if (image.DataFormat == CVDataFormat.CV_F64) DerivativeX<double>(image, ref outImage);
 
         return outImage;
     }
@@ -71,34 +78,45 @@ public class CVCornerDetector
         CVImage image,
         ref CVImage outImage) where T : struct, INumber<T>
     {
-        T Two = T.One + T.One;
+        int width = image.Width;
+        int height = image.Height;
+        int planeSize = width * height;
 
-        T[,] k =
+        double[,] k =
         {
-        { -T.One, -Two, -T.One },
-        {  T.Zero,  T.Zero,  T.Zero },
-        {  T.One,  Two,  T.One }
+        { -1, -2, -1 },
+        {  0,  0,  0 },
+        {  1,  2,  1 }
     };
 
         Span<T> srcSpan = image.BufferAs<T>();
-        Span<T> dstSpan = outImage.BufferAs<T>();
+        Span<double> dstSpan = outImage.BufferAs<double>();
 
-        for (int y = 1; y < image.Height - 1; y++)
+        for (int c = 0; c < image.Channels; c++)
         {
-            for (int x = 1; x < image.Width - 1; x++)
-            {
-                T sum = T.Zero;
+            int channelOffset = c * planeSize;
 
-                for (int j = -1; j <= 1; j++)
+            for (int y = 1; y < height - 1; y++)
+            {
+                int dstRow = channelOffset + y * width;
+
+                for (int x = 1; x < width - 1; x++)
                 {
-                    for (int i = -1; i <= 1; i++)
+                    double sum = 0;
+
+                    for (int dy = -1; dy <= 1; dy++)
                     {
-                        sum +=
-                            srcSpan[(x + i) + (y + j) * image.Width] *
-                            k[j + 1, i + 1];
+                        int srcRow = channelOffset + (y + dy) * width;
+
+                        for (int dx = -1; dx <= 1; dx++)
+                        {
+                            sum +=
+                                double.CreateChecked(srcSpan[(x + dx) + srcRow]) *
+                                k[dy + 1, dx + 1];
+                        }
                     }
+                    dstSpan[x + dstRow] = sum;
                 }
-                dstSpan[x + y * outImage.Width] = sum;
             }
         }
     }
@@ -106,176 +124,111 @@ public class CVCornerDetector
     public static CVImage DerivativeY(CVImage image)
     {
         // Derivative requires signed image
-        CVImage imageC = CVConvert.ConvertDataFormatToSigned(image);
-        imageC = CVConvert.ConvertDataFormatFactor(imageC, 4);
-        CVImage outImage = CVImage.Create(imageC.Width, imageC.Height, imageC.DataFormat, imageC.ChannelFormats);
+        CVImage outImage = CVImage.Create(image.Width, image.Height, CVDataFormat.CV_F64, image.ChannelFormats);
 
-        if (image.DataFormat == CVDataFormat.CV_U8) DerivativeY<byte>(imageC, ref outImage);
-        else if (image.DataFormat == CVDataFormat.CV_S8) DerivativeY<sbyte>(imageC, ref outImage);
-        else if (image.DataFormat == CVDataFormat.CV_U16) DerivativeY<ushort>(imageC, ref outImage);
-        else if (image.DataFormat == CVDataFormat.CV_S16) DerivativeY<short>(imageC, ref outImage);
-        else if (image.DataFormat == CVDataFormat.CV_U32) DerivativeY<uint>(imageC, ref outImage);
-        else if (image.DataFormat == CVDataFormat.CV_S32) DerivativeY<int>(imageC, ref outImage);
-        else if (image.DataFormat == CVDataFormat.CV_U64) DerivativeY<ulong>(imageC, ref outImage);
-        else if (image.DataFormat == CVDataFormat.CV_S64) DerivativeY<long>(imageC, ref outImage);
-        else if (image.DataFormat == CVDataFormat.CV_F32) DerivativeY<float>(imageC, ref outImage);
-        else if (image.DataFormat == CVDataFormat.CV_F64) DerivativeY<double>(imageC, ref outImage);
+        if (image.DataFormat == CVDataFormat.CV_U8) DerivativeY<byte>(image, ref outImage);
+        else if (image.DataFormat == CVDataFormat.CV_S8) DerivativeY<sbyte>(image, ref outImage);
+        else if (image.DataFormat == CVDataFormat.CV_U16) DerivativeY<ushort>(image, ref outImage);
+        else if (image.DataFormat == CVDataFormat.CV_S16) DerivativeY<short>(image, ref outImage);
+        else if (image.DataFormat == CVDataFormat.CV_U32) DerivativeY<uint>(image, ref outImage);
+        else if (image.DataFormat == CVDataFormat.CV_S32) DerivativeY<int>(image, ref outImage);
+        else if (image.DataFormat == CVDataFormat.CV_U64) DerivativeY<ulong>(image, ref outImage);
+        else if (image.DataFormat == CVDataFormat.CV_S64) DerivativeY<long>(image, ref outImage);
+        else if (image.DataFormat == CVDataFormat.CV_F32) DerivativeY<float>(image, ref outImage);
+        else if (image.DataFormat == CVDataFormat.CV_F64) DerivativeY<double>(image, ref outImage);
 
         return outImage;
     }
 
-    static void Sobel<T>(
+    private static void sobel(
         CVImage image,
         ref CVImage gradientX,
-        ref CVImage gradientY) where T : struct, INumber<T>
+        ref CVImage gradientY)
     {
         int width = image.Width;
         int height = image.Height;
+        int planeSize = width * height;
 
-        Span<T> bufferSpan = image.BufferAs<T>();
-        Span<T> bgx = gradientX.BufferAs<T>();
-        Span<T> bgy = gradientY.BufferAs<T>();
+        Span<double> bufferSpan = image.BufferAs<double>();
+        Span<double> bgx = gradientX.BufferAs<double>();
+        Span<double> bgy = gradientY.BufferAs<double>();
 
-        int lanes = Vector<T>.Count;
-        T two = T.One + T.One;
-        var twoVec = new Vector<T>(two);
+        int lanes = Vector<double>.Count;
+        var twoVec = new Vector<double>(2.0);
 
-        for (int y = 1; y < height - 1; y++)
+        for (int c = 0; c < image.Channels; c++)
         {
-            int r0 = (y - 1) * width;
-            int r1 = y * width;
-            int r2 = (y + 1) * width;
+            int channelOffset = c * planeSize;
 
-            int x = 1;
-
-            if (Vector.IsHardwareAccelerated)
+            for (int y = 1; y < height - 1; y++)
             {
-                for (; x <= width - lanes - 1; x += lanes)
+                int r0 = channelOffset + (y - 1) * width;
+                int r1 = channelOffset + y * width;
+                int r2 = channelOffset + (y + 1) * width;
+
+                int x = 1;
+
+                if (Vector.IsHardwareAccelerated)
                 {
-                    Vector<T> tl = new Vector<T>(bufferSpan.Slice(r0 + x - 1));
-                    Vector<T> tc = new Vector<T>(bufferSpan.Slice(r0 + x));
-                    Vector<T> tr = new Vector<T>(bufferSpan.Slice(r0 + x + 1));
+                    for (; x <= width - lanes - 1; x += lanes)
+                    {
+                        Vector<double> tl = new Vector<double>(bufferSpan.Slice(r0 + x - 1));
+                        Vector<double> tc = new Vector<double>(bufferSpan.Slice(r0 + x));
+                        Vector<double> tr = new Vector<double>(bufferSpan.Slice(r0 + x + 1));
 
-                    Vector<T> ml = new Vector<T>(bufferSpan.Slice(r1 + x - 1));
-                    Vector<T> mr = new Vector<T>(bufferSpan.Slice(r1 + x + 1));
+                        Vector<double> ml = new Vector<double>(bufferSpan.Slice(r1 + x - 1));
+                        Vector<double> mr = new Vector<double>(bufferSpan.Slice(r1 + x + 1));
 
-                    Vector<T> bl = new Vector<T>(bufferSpan.Slice(r2 + x - 1));
-                    Vector<T> bc = new Vector<T>(bufferSpan.Slice(r2 + x));
-                    Vector<T> br = new Vector<T>(bufferSpan.Slice(r2 + x + 1));
+                        Vector<double> bl = new Vector<double>(bufferSpan.Slice(r2 + x - 1));
+                        Vector<double> bc = new Vector<double>(bufferSpan.Slice(r2 + x));
+                        Vector<double> br = new Vector<double>(bufferSpan.Slice(r2 + x + 1));
 
-                    Vector<T> vx = (tr - tl) + (mr - ml) * twoVec + (br - bl);
-                    Vector<T> vy = (bl - tl) + (bc - tc) * twoVec + (br - tr);
+                        Vector<double> vx = (tr - tl) + (mr - ml) * twoVec + (br - bl);
+                        Vector<double> vy = (bl - tl) + (bc - tc) * twoVec + (br - tr);
 
-                    vx.CopyTo(bgx.Slice(r1 + x));
-                    vy.CopyTo(bgy.Slice(r1 + x));
+                        vx.CopyTo(bgx.Slice(r1 + x));
+                        vy.CopyTo(bgy.Slice(r1 + x));
+                    }
                 }
-            }
 
-            // scalar tail
-            for (; x < width - 1; x++)
-            {
-                int idx = r1 + x;
+                // scalar tail
+                for (; x < width - 1; x++)
+                {
+                    int idx = r1 + x;
 
-                T tl = bufferSpan[r0 + x - 1];
-                T tc = bufferSpan[r0 + x];
-                T tr = bufferSpan[r0 + x + 1];
+                    double tl = bufferSpan[r0 + x - 1];
+                    double tc = bufferSpan[r0 + x];
+                    double tr = bufferSpan[r0 + x + 1];
 
-                T ml = bufferSpan[r1 + x - 1];
-                T mr = bufferSpan[r1 + x + 1];
+                    double ml = bufferSpan[r1 + x - 1];
+                    double mr = bufferSpan[r1 + x + 1];
 
-                T bl = bufferSpan[r2 + x - 1];
-                T bc = bufferSpan[r2 + x];
-                T br = bufferSpan[r2 + x + 1];
+                    double bl = bufferSpan[r2 + x - 1];
+                    double bc = bufferSpan[r2 + x];
+                    double br = bufferSpan[r2 + x + 1];
 
-                bgx[idx] =
-                    (tr - tl) +
-                    two * (mr - ml) +
-                    (br - bl);
+                    bgx[idx] =
+                        (tr - tl) +
+                        2.0 * (mr - ml) +
+                        (br - bl);
 
-                bgy[idx] =
-                    (bl - tl) +
-                    two * (bc - tc) +
-                    (br - tr);
+                    bgy[idx] =
+                        (bl - tl) +
+                        2.0 * (bc - tc) +
+                        (br - tr);
+                }
             }
         }
     }
 
     public static void Sobel(CVImage image, out CVImage gradientX, out CVImage gradientY)
     {
-        gradientX = CVImage.Create(image.Width, image.Height, image.DataFormat, image.ChannelFormats);
-        gradientY = CVImage.Create(image.Width, image.Height, image.DataFormat, image.ChannelFormats);
+        CVImage doubleImage = CVConvert.ConvertDataFormat(image, CVDataFormat.CV_F64);
 
-        if (image.DataFormat == CVDataFormat.CV_U8) Sobel<byte>(image, ref gradientX, ref gradientY);
-        else if (image.DataFormat == CVDataFormat.CV_S8) Sobel<sbyte>(image, ref gradientX, ref gradientY);
-        else if (image.DataFormat == CVDataFormat.CV_U16) Sobel<ushort>(image, ref gradientX, ref gradientY);
-        else if (image.DataFormat == CVDataFormat.CV_S16) Sobel<short>(image, ref gradientX, ref gradientY);
-        else if (image.DataFormat == CVDataFormat.CV_U32) Sobel<uint>(image, ref gradientX, ref gradientY);
-        else if (image.DataFormat == CVDataFormat.CV_S32) Sobel<int>(image, ref gradientX, ref gradientY);
-        else if (image.DataFormat == CVDataFormat.CV_U64) Sobel<ulong>(image, ref gradientX, ref gradientY);
-        else if (image.DataFormat == CVDataFormat.CV_S64) Sobel<long>(image, ref gradientX, ref gradientY);
-        else if (image.DataFormat == CVDataFormat.CV_F32) Sobel<float>(image, ref gradientX, ref gradientY);
-        else if (image.DataFormat == CVDataFormat.CV_F64) Sobel<double>(image, ref gradientX, ref gradientY);
-    }
+        gradientX = CVImage.Create(image.Width, image.Height, CVDataFormat.CV_F64, image.ChannelFormats);
+        gradientY = CVImage.Create(image.Width, image.Height, CVDataFormat.CV_F64, image.ChannelFormats);
 
-    public static void HessianEigenvalues<T>(
-        CVImage image,
-        CVImage gradientX,
-        CVImage gradientY,
-        int windowRadius,
-        ref CVImage determinant,
-        ref CVImage structureDeterminant,
-        ref CVImage lambda1,
-        ref CVImage lambda2) where T : struct, INumber<T>
-    {
-        CVImage ixx = DerivativeX(gradientX);
-        CVImage iyy = DerivativeY(gradientY);
-        CVImage ixy = DerivativeY(gradientX);
-
-        determinant = (ixx * iyy) - (ixy * ixy);
-
-        // Box filters
-        CVImage gxxImage = CVProcessing.SumWindow(gradientX, windowRadius);
-        CVImage gyyImage = CVProcessing.SumWindow(gradientY, windowRadius);
-
-        CVImage structureAImage = gxxImage * gxxImage;
-        CVImage structureBImage = gxxImage * gyyImage;
-        CVImage structureCImage = gyyImage * gyyImage;
-
-        structureDeterminant = ((structureAImage * structureCImage) - (structureBImage * structureBImage)) * 4;
-
-        CVImage structureTraceImage = structureAImage + structureCImage;
-        CVImage structureTraceImageSquared = structureTraceImage * structureTraceImage;
-
-        CVImage discriminantSquared = structureTraceImageSquared - structureDeterminant;
-        discriminantSquared = CVMax.Max(discriminantSquared, 0);
-        CVImage discriminant = CVSquareRoot.SquareRoot(discriminantSquared);
-
-        lambda1 = (structureTraceImage + discriminant) / 2;
-        lambda2 = (structureTraceImage - discriminant) / 2;
-    }
-
-    public static void HessianEigenvalues(CVImage image, out CVImage determinant, out CVImage structureDeterminant, out CVImage lambda1, out CVImage lambda2, int constant = 25, int windowRadius = 3)
-    {
-        // Hessian requires signed image
-        CVImage imageC = CVConvert.ConvertDataFormatToSigned(image);
-        imageC = CVConvert.ConvertDataFormatBytes(imageC, 4);
-        Sobel(imageC, out CVImage gradientX, out CVImage gradientY);
-
-        determinant = CVImage.Create(imageC.Width, imageC.Height, imageC.DataFormat, imageC.ChannelFormats);
-        structureDeterminant = CVImage.Create(imageC.Width, imageC.Height, imageC.DataFormat, imageC.ChannelFormats);
-        lambda1 = CVImage.Create(imageC.Width, imageC.Height, imageC.DataFormat, imageC.ChannelFormats);
-        lambda2 = CVImage.Create(imageC.Width, imageC.Height, imageC.DataFormat, imageC.ChannelFormats);
-
-        if (image.DataFormat == CVDataFormat.CV_U8) HessianEigenvalues<byte>(image, gradientX, gradientY, windowRadius, ref determinant, ref structureDeterminant, ref lambda1, ref lambda2);
-        else if (image.DataFormat == CVDataFormat.CV_S8) HessianEigenvalues<sbyte>(image, gradientX, gradientY, windowRadius, ref determinant, ref structureDeterminant, ref lambda1, ref lambda2);
-        else if (image.DataFormat == CVDataFormat.CV_U16) HessianEigenvalues<ushort>(image, gradientX, gradientY, windowRadius, ref determinant, ref structureDeterminant, ref lambda1, ref lambda2);
-        else if (image.DataFormat == CVDataFormat.CV_S16) HessianEigenvalues<short>(image, gradientX, gradientY, windowRadius, ref determinant, ref structureDeterminant, ref lambda1, ref lambda2);
-        else if (image.DataFormat == CVDataFormat.CV_U32) HessianEigenvalues<uint>(image, gradientX, gradientY, windowRadius, ref determinant, ref structureDeterminant, ref lambda1, ref lambda2);
-        else if (image.DataFormat == CVDataFormat.CV_S32) HessianEigenvalues<int>(image, gradientX, gradientY, windowRadius, ref determinant, ref structureDeterminant, ref lambda1, ref lambda2);
-        else if (image.DataFormat == CVDataFormat.CV_U64) HessianEigenvalues<ulong>(image, gradientX, gradientY, windowRadius, ref determinant, ref structureDeterminant, ref lambda1, ref lambda2);
-        else if (image.DataFormat == CVDataFormat.CV_S64) HessianEigenvalues<long>(image, gradientX, gradientY, windowRadius, ref determinant, ref structureDeterminant, ref lambda1, ref lambda2);
-        else if (image.DataFormat == CVDataFormat.CV_F32) HessianEigenvalues<float>(image, gradientX, gradientY, windowRadius, ref determinant, ref structureDeterminant, ref lambda1, ref lambda2);
-        else if (image.DataFormat == CVDataFormat.CV_F64) HessianEigenvalues<double>(image, gradientX, gradientY, windowRadius, ref determinant, ref structureDeterminant, ref lambda1, ref lambda2);
+        sobel(doubleImage, ref gradientX, ref gradientY);
     }
 
     public static List<(int x, int y, double score)> NonMaximumSuppression(
@@ -308,86 +261,88 @@ public class CVCornerDetector
         return result;
     }
 
-    public static List<(int, int, double)> DetectCornerHessian(CVImage image, int constant1 = 2, int constant2 = 5, int threshold = 1)
+    public static CVImage ShiTomasiStrength(CVImage image, int windowRadius = 1)
+    {
+        Sobel(image, out CVImage Ix, out CVImage Iy);
+
+        // Structure tensor components
+        CVImage Ixx = Ix * Ix;
+        CVImage Iyy = Iy * Iy;
+        CVImage Ixy = Ix * Iy;
+
+        // Smooth tensor components
+        CVImage A = CVWindowing.AverageWindow(Ixx, windowRadius);
+        CVImage B = CVWindowing.AverageWindow(Ixy, windowRadius);
+        CVImage C = CVWindowing.AverageWindow(Iyy, windowRadius);
+
+        // det(M)
+        CVImage structureDeterminant = (A * C) - (B * B);
+
+        // trace(M)
+        CVImage trace = A + C;
+
+        // Eigenvalues:
+        // λ = (trace ± sqrt(trace² - 4det))/2
+        CVImage discriminantSquared = (trace * trace) - (structureDeterminant * 4);
+        discriminantSquared = CVMax.Max(discriminantSquared, 0);
+
+        CVImage discriminant = CVSquareRoot.SquareRoot(discriminantSquared);
+
+        CVImage lambda1 = (trace + discriminant) / 2;
+        CVImage lambda2 = (trace - discriminant) / 2;
+
+        return CVMin.Min(lambda1, lambda2);
+    }
+
+    public static List<(int, int, double)> DetectCornerShiTomasi(CVImage image, int windowRadius = 1, int threshold = 1)
     {
         CVImage gray = CVConvert.ConvertChannelFormat(image, CVChannelFormat.CV_Grayscale);
+        CVImage strength = ShiTomasiStrength(image, windowRadius);
+        CVImage mask = CVBigger.Bigger(strength, threshold);
 
-        gray = CVConvert.ConvertDataFormat(image, CVDataFormat.CV_F32);
-        gray = CVDivide.Divide(gray, 255f);
-        gray = CVBlur.GaussianBlur(gray, 5);
-
-        HessianEigenvalues(gray, out CVImage determinant, out CVImage structureDeterminant, out CVImage lambda1, out CVImage lambda2);
-        CVImage determinantMask = CVBigger.Bigger(determinant, -threshold);
-        CVImage structureDeterminantMask = CVBigger.Bigger(structureDeterminant, 0);
-        CVImage lambdaMask = CVBigger.Bigger(lambda1 * constant1, lambda2 * constant2);
-        CVImage hessianMask = determinantMask * structureDeterminantMask * lambdaMask;
-        CVImage hessianStrength = determinant * (-1);
-        var pixelList = CVProcessing.GetPixels(hessianMask, hessianStrength, 1);
+        var pixelList = CVProcessing.GetPixels(mask, strength, 1);
         return NonMaximumSuppression(pixelList);
     }
 
-    private static void harrisStrength<T>(
-            CVImage image,
-            T constant,
-            int windowRadius,
-            ref CVImage outImage) where T : struct, INumber<T>
+    public static CVImage HarrisStrength(CVImage image, double constant = 0.04, int windowRadius = 1)
     {
-        Sobel(image, out CVImage gradientX, out CVImage gradientY);
+        Sobel(image, out CVImage Ix, out CVImage Iy);
 
-        // Build products Ix^2, Iy^2, IxIy
-        CVImage IxxImage = gradientX * gradientX;
-        CVImage IyyImage = gradientY * gradientY;
-        CVImage IxyImage = gradientX * gradientY;
+        CVImage A = CVWindowing.AverageWindow(Ix * Ix, windowRadius);
+        CVImage B = CVWindowing.AverageWindow(Ix * Iy, windowRadius);
+        CVImage C = CVWindowing.AverageWindow(Iy * Iy, windowRadius);
 
-        // Box Filters
-        CVImage SxxImage = CVProcessing.SumWindow(IxxImage, windowRadius);
-        CVImage SyyImage = CVProcessing.SumWindow(IyyImage, windowRadius);
-        CVImage SxyImage = CVProcessing.SumWindow(IxyImage, windowRadius);
+        CVImage det = (A * C) - (B * B);
+        CVImage trace = A + C;
 
-        // Harris Formula, changed k to 1/k and change its side. Result is scaled accordingly
-        CVImage detImageC = ((SxxImage * SyyImage) - (SxyImage * SxyImage)) * double.CreateChecked(constant);
-        CVImage traceImage = SxxImage + SyyImage;
-        CVImage traceImageSquared = traceImage * traceImage;
-
-        outImage = detImageC - traceImageSquared;
+        return det - (trace * trace * constant);
     }
 
-    public static CVImage HarrisStrength(CVImage image, int constant = 25, int windowRadius = 3)
+    public static List<(int, int, double)> DetectCornerHarris(CVImage image, double constant = 0.04, int windowRadius = 1, int threshold = 1)
     {
-        // Harris requires signed image
-        CVImage imageC = CVConvert.ConvertDataFormatToSigned(image);
-        imageC = CVConvert.ConvertDataFormatFactor(imageC, 4);
-        CVImage outImage = CVImage.Create(imageC.Width, imageC.Height, imageC.DataFormat, imageC.ChannelFormats);
+        CVImage gray = CVConvert.ConvertChannelFormat(image, CVChannelFormat.CV_Grayscale);
+        CVImage strength = HarrisStrength(image, constant, windowRadius);
+        CVImage mask = CVBigger.Bigger(strength, threshold);
 
-        if (image.DataFormat == CVDataFormat.CV_U8) harrisStrength<byte>(imageC, (byte)constant, windowRadius, ref outImage);
-        else if (image.DataFormat == CVDataFormat.CV_S8) harrisStrength<sbyte>(imageC, (sbyte)constant, windowRadius, ref outImage);
-        else if (image.DataFormat == CVDataFormat.CV_U16) harrisStrength<ushort>(imageC, (ushort)constant, windowRadius, ref outImage);
-        else if (image.DataFormat == CVDataFormat.CV_S16) harrisStrength<short>(imageC, (short)constant, windowRadius, ref outImage);
-        else if (image.DataFormat == CVDataFormat.CV_U32) harrisStrength<uint>(imageC, (uint)constant, windowRadius, ref outImage);
-        else if (image.DataFormat == CVDataFormat.CV_S32) harrisStrength<int>(imageC, (int)constant, windowRadius, ref outImage);
-        else if (image.DataFormat == CVDataFormat.CV_U64) harrisStrength<ulong>(imageC, (ulong)constant, windowRadius, ref outImage);
-        else if (image.DataFormat == CVDataFormat.CV_S64) harrisStrength<long>(imageC, (long)constant, windowRadius, ref outImage);
-        else if (image.DataFormat == CVDataFormat.CV_F32) harrisStrength<float>(imageC, (float)constant, windowRadius, ref outImage);
-        else if (image.DataFormat == CVDataFormat.CV_F64) harrisStrength<double>(imageC, (double)constant, windowRadius, ref outImage);
-
-        return outImage;
+        var pixelList = CVProcessing.GetPixels(mask, strength, 1);
+        return NonMaximumSuppression(pixelList);
     }
 
-    private static T harrisStrengthSingle<T>(
+    private static double harrisStrengthSingle(
             (int x, int y) point,
             CVImage IxxImage,
             CVImage IyyImage,
             CVImage IxyImage,
-            T constant,
-            int windowRadius) where T : struct, INumber<T>
+            double constant,
+            int windowRadius)
     {
-        T sxx = T.Zero;
-        T syy = T.Zero;
-        T sxy = T.Zero;
+        double sxx = 0;
+        double syy = 0;
+        double sxy = 0;
 
-        Span<T> ixxBuffer = IxxImage.BufferAs<T>();
-        Span<T> iyyBuffer = IyyImage.BufferAs<T>();
-        Span<T> ixyBuffer = IxyImage.BufferAs<T>();
+        Span<double> ixxBuffer = IxxImage.BufferAs<double>();
+        Span<double> iyyBuffer = IyyImage.BufferAs<double>();
+        Span<double> ixyBuffer = IxyImage.BufferAs<double>();
 
         int startX = Math.Max(point.x - windowRadius, 0);
         int startY = Math.Max(point.y - windowRadius, 0);
@@ -399,9 +354,9 @@ public class CVCornerDetector
         {
             for (int xx = startX; xx <= endX; xx++)
             {
-                T ixx = ixxBuffer[xx + IxxImage.Width * yy];
-                T iyy = iyyBuffer[xx + IyyImage.Width * yy];
-                T ixy = ixyBuffer[xx + IxyImage.Width * yy];
+                double ixx = ixxBuffer[xx + IxxImage.Width * yy];
+                double iyy = iyyBuffer[xx + IyyImage.Width * yy];
+                double ixy = ixyBuffer[xx + IxyImage.Width * yy];
 
                 sxx += ixx;
                 syy += iyy;
@@ -409,40 +364,29 @@ public class CVCornerDetector
             }
         }
 
-        T det = sxx * syy - sxy * sxy;
-        T trace = sxx + syy;
+        double det = sxx * syy - sxy * sxy;
+        double trace = sxx + syy;
 
         return det * constant - trace * trace;
     }
 
-
-    private static void harrisStrengthPoints<T, TV>(
-            List<(int, int)> points,
-            CVImage image,
-            T constant,
-            int windowRadius,
-            ref List<TV> scores) where T : struct, INumber<T> where TV : struct, INumber<TV>
+    public static List<double> HarrisStrengthPoints(CVImage image, List<(int, int)> points, double constant = 25, int windowRadius = 3)
     {
+        List<double> scores = new List<double>();
+
         Sobel(image, out CVImage gradientX, out CVImage gradientY);
         CVImage IxxImage = gradientX * gradientX;
         CVImage IyyImage = gradientY * gradientY;
         CVImage IxyImage = gradientX * gradientY;
 
-        T minIxx = CVProcessing.MinValue<T>(IxxImage);
-        T maxIxx = CVProcessing.MaxValue<T>(IxxImage);
-        T minIyy = CVProcessing.MinValue<T>(IyyImage);
-        T maxIyy = CVProcessing.MaxValue<T>(IyyImage);
-        T minIxy = CVProcessing.MinValue<T>(IxyImage);
-        T maxIxy = CVProcessing.MaxValue<T>(IxyImage);
-
-        TV harrisResponse = TV.CreateChecked(harrisStrengthSingle<T>(points[0], IxxImage, IyyImage, IxyImage, constant, windowRadius));
+        double harrisResponse = harrisStrengthSingle(points[0], IxxImage, IyyImage, IxyImage, constant, windowRadius);
         scores.Add(harrisResponse);
-        TV maxResponse = harrisResponse;
-        TV minResponse = harrisResponse;
+        double maxResponse = harrisResponse;
+        double minResponse = harrisResponse;
 
         for (int i = 1; i < points.Count; i++)
         {
-            harrisResponse = TV.CreateChecked(harrisStrengthSingle<T>(points[i], IxxImage, IyyImage, IxyImage, constant, windowRadius));
+            harrisResponse = harrisStrengthSingle(points[i], IxxImage, IyyImage, IxyImage, constant, windowRadius);
 
             if (harrisResponse > maxResponse) maxResponse = harrisResponse;
             if (harrisResponse < minResponse) minResponse = harrisResponse;
@@ -450,48 +394,124 @@ public class CVCornerDetector
             scores.Add(harrisResponse);
         }
 
-        TV range = maxResponse - minResponse;
+        double range = maxResponse - minResponse;
 
         for (int i = 0; i < scores.Count; i++)
         {
             scores[i] = (scores[i] - minResponse) / range;
         }
-    }
-
-    public static List<T> HarrisStrengthPoints<T>(CVImage image, List<(int, int)> points, int constant = 25, int windowRadius = 3) where T : struct, INumber<T>
-    {
-        List<T> scores = new List<T>();
-
-        if (image.DataFormat == CVDataFormat.CV_U8) harrisStrengthPoints<byte, T>(points, image, (byte)constant, windowRadius, ref scores);
-        else if (image.DataFormat == CVDataFormat.CV_S8) harrisStrengthPoints<sbyte, T>(points, image, (sbyte)constant, windowRadius, ref scores);
-        else if (image.DataFormat == CVDataFormat.CV_U16) harrisStrengthPoints<ushort, T>(points, image, (ushort)constant, windowRadius, ref scores);
-        else if (image.DataFormat == CVDataFormat.CV_S16) harrisStrengthPoints<short, T>(points, image, (short)constant, windowRadius, ref scores);
-        else if (image.DataFormat == CVDataFormat.CV_U32) harrisStrengthPoints<uint, T>(points, image, (uint)constant, windowRadius, ref scores);
-        else if (image.DataFormat == CVDataFormat.CV_S32) harrisStrengthPoints<int, T>(points, image, (int)constant, windowRadius, ref scores);
-        else if (image.DataFormat == CVDataFormat.CV_U64) harrisStrengthPoints<ulong, T>(points, image, (ulong)constant, windowRadius, ref scores);
-        else if (image.DataFormat == CVDataFormat.CV_S64) harrisStrengthPoints<long, T>(points, image, (long)constant, windowRadius, ref scores);
-        else if (image.DataFormat == CVDataFormat.CV_F32) harrisStrengthPoints<float, T>(points, image, (float)constant, windowRadius, ref scores);
-        else if (image.DataFormat == CVDataFormat.CV_F64) harrisStrengthPoints<double, T>(points, image, (double)constant, windowRadius, ref scores);
 
         return scores;
     }
 
-    public static List<(int, int, double)> DetectCornersHarris(
-        CVImage image,
-        int constant = 25,
-        int windowRadius = 3,
-        float threshold = 0.95f)
+    private static uint fastCompare<T>(T centerVal, T otherVal, T threshold) where T : INumber<T>
     {
-        CVImage gray = CVConvert.ConvertChannelFormat(image, CVChannelFormat.CV_Grayscale);
-        CVImage grayC = CVConvert.ConvertDataFormatToFloat(gray);
+        if (otherVal >= centerVal)
+            return otherVal - centerVal > threshold ? 2u : 1u;
+        else
+            return centerVal - otherVal > threshold ? 0u : 1u;
+    }
 
-        //gray = CVBlur.GaussianBlur(gray, 5);
+    private static bool fastCheckConsecutive(uint bitMask)
+    {
+        for (int i = 0; i < 16; i++)
+        {
+            uint test = (bitMask >> i) & 0x1FF; // 9 bits
+            if (test == 0x1FF)
+                return true;
+        }
 
-        CVImage harrisStrength = HarrisStrength(grayC, constant, windowRadius);
-        harrisStrength = CVProcessing.Normalize(harrisStrength, 0.0, 1.0);
-        CVImage harrisMask = CVBigger.Bigger(harrisStrength, threshold);
-        var pixelList = CVProcessing.GetPixels(harrisMask, harrisStrength, 1);
-        if (pixelList.Count > 100) return new();
-        return NonMaximumSuppression(pixelList, 3);
+        return false;
+    }
+    private static int[] xOffsets = [0, 1, 2, 3, 3, 3, 2, 1, 0, -1, -2, -3, -3, -3, -2, -1];
+    private static int[] yOffsets = [-3, -3, -2, -1, 0, 1, 2, 3, 3, 3, 2, 1, 0, -1, -2, -3,];
+
+    private static int[] earlyChecks = [1, 5, 9, 13];
+    private static int[] lateChecks = [0, 2, 3, 4, 6, 7, 8, 10, 11, 12, 14, 15];
+
+    private static void fastStrength<T>(CVImage image, double threshold, int edgeDistance, ref CVImage strength) where T : struct, INumber<T>
+    {
+        T thresholdT = T.CreateChecked(threshold);
+
+        Span<T> buffer = image.BufferAs<T>();
+        Span<T> sBuffer = strength.BufferAs<T>();
+
+        for (int x = edgeDistance; x < image.Width - edgeDistance; x++)
+            for (int y = edgeDistance; y < image.Height - edgeDistance; y++)
+            {
+                T centerValue = buffer[x + image.Width * y];
+
+                // Bit masks
+                uint darkMask = 0;
+                uint brightMask = 0;
+
+                // Counter
+                int darkCount = 0;
+                int brightCount = 0;
+
+                for (int r = 0; r < earlyChecks.Length; r++)
+                {
+                    uint state = fastCompare<T>(centerValue, buffer[(x + xOffsets[earlyChecks[r]]) + image.Width * (y + yOffsets[earlyChecks[r]])], thresholdT);
+
+                    if (state == 0)
+                    {
+                        darkCount++;
+                        darkMask |= (1u << earlyChecks[r]);
+                    }
+                    else if (state == 2)
+                    {
+                        brightCount++;
+                        brightMask |= (1u << earlyChecks[r]);
+                    }
+                }
+
+                // Early rejection
+                if (darkCount < 3 && brightCount < 3) continue;
+
+                for (int r = 0; r < lateChecks.Length; r++)
+                {
+                    uint state = fastCompare<T>(centerValue, buffer[(x + xOffsets[lateChecks[r]]) + image.Width * (y + yOffsets[lateChecks[r]])], thresholdT);
+
+                    if (state == 0)
+                    {
+                        darkCount++;
+                        darkMask |= (1u << lateChecks[r]);
+                    }
+                    else if (state == 2)
+                    {
+                        brightCount++;
+                        brightMask |= (1u << lateChecks[r]);
+                    }
+                }
+
+                // Late-Early rejection
+                if (darkCount < 9 && brightCount < 9) continue;
+
+                darkMask = darkMask | (darkMask << 16);
+                brightMask = brightMask | (brightMask << 16);
+
+                if (fastCheckConsecutive(darkMask) || fastCheckConsecutive(brightMask))
+                {
+                    sBuffer[x + y * strength.Width] = T.One;
+                }
+            }
+    }
+
+    public static CVImage FastStrength(CVImage image, double threshold = 5.0, int edgeDistance = 16)
+    {
+        CVImage stength = CVImage.Create(image.Width, image.Height, image.DataFormat, image.ChannelFormats);
+
+        if (image.DataFormat == CVDataFormat.CV_U8) fastStrength<byte>(image, threshold, edgeDistance, ref stength);
+        else if (image.DataFormat == CVDataFormat.CV_S8) fastStrength<sbyte>(image, threshold, edgeDistance, ref stength);
+        else if (image.DataFormat == CVDataFormat.CV_U16) fastStrength<ushort>(image, threshold, edgeDistance, ref stength);
+        else if (image.DataFormat == CVDataFormat.CV_S16) fastStrength<short>(image, threshold, edgeDistance, ref stength);
+        else if (image.DataFormat == CVDataFormat.CV_U32) fastStrength<uint>(image, threshold, edgeDistance, ref stength);
+        else if (image.DataFormat == CVDataFormat.CV_S32) fastStrength<int>(image, threshold, edgeDistance, ref stength);
+        else if (image.DataFormat == CVDataFormat.CV_U64) fastStrength<ulong>(image, threshold, edgeDistance, ref stength);
+        else if (image.DataFormat == CVDataFormat.CV_S64) fastStrength<long>(image, threshold, edgeDistance, ref stength);
+        else if (image.DataFormat == CVDataFormat.CV_F32) fastStrength<float>(image, threshold, edgeDistance, ref stength);
+        else if (image.DataFormat == CVDataFormat.CV_F64) fastStrength<double>(image, threshold, edgeDistance, ref stength);
+
+        return stength;
     }
 }

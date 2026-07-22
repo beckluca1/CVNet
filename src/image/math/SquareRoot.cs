@@ -53,7 +53,7 @@ public static class CVSquareRoot
         return outImage;
     }
 
-    public static CVImagePyramid SquareRoot<TV>(CVImagePyramid image) where TV : struct, INumber<TV>
+    public static CVImagePyramid SquareRoot<T>(CVImagePyramid image) where T : struct, INumber<T>
     {
         CVImagePyramid outImage = new CVImagePyramid(image.Levels);
 

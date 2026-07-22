@@ -15,76 +15,9 @@ public class CVConvert
         for (int i = 0; i < imageDataCount; i++) bufferOut[i] = OutT.CreateChecked(bufferIn[i]);
     }
 
-    private static void ConvertByteToFloat(CVImage imageIn, ref CVImage imageOut)
-    {
-        int imageDataCount = imageIn.Width * imageIn.Height * imageIn.Channels;
-
-        Span<byte> bufferIn = imageIn.BufferAs<byte>();
-        Span<float> bufferOut = imageOut.BufferAs<float>();
-
-        for (int i = 0; i < imageDataCount; i++) bufferOut[i] = bufferIn[i];
-    }
-
-    private static void ConvertFloatToByte(CVImage imageIn, ref CVImage imageOut)
-    {
-        int imageDataCount = imageIn.Width * imageIn.Height * imageIn.Channels;
-
-        Span<float> bufferIn = imageIn.BufferAs<float>();
-        Span<byte> bufferOut = imageOut.BufferAs<byte>();
-
-        for (int i = 0; i < imageDataCount; i++) bufferOut[i] = (byte)bufferIn[i];
-    }
-
-    private static void ConvertByteToInt(CVImage imageIn, ref CVImage imageOut)
-    {
-        int imageDataCount = imageIn.Width * imageIn.Height * imageIn.Channels;
-
-        Span<byte> bufferIn = imageIn.BufferAs<byte>();
-        Span<int> bufferOut = imageOut.BufferAs<int>();
-
-        for (int i = 0; i < imageDataCount; i++) bufferOut[i] = bufferIn[i];
-    }
-
-    private static void ConvertIntToByte(CVImage imageIn, ref CVImage imageOut)
-    {
-        int imageDataCount = imageIn.Width * imageIn.Height * imageIn.Channels;
-
-        Span<int> bufferIn = imageIn.BufferAs<int>();
-        Span<byte> bufferOut = imageOut.BufferAs<byte>();
-
-        for (int i = 0; i < imageDataCount; i++) bufferOut[i] = (byte)bufferIn[i];
-    }
-
-    private static void ConvertByteToUInt(CVImage imageIn, ref CVImage imageOut)
-    {
-        int imageDataCount = imageIn.Width * imageIn.Height * imageIn.Channels;
-
-        Span<byte> bufferIn = imageIn.BufferAs<byte>();
-        Span<uint> bufferOut = imageOut.BufferAs<uint>();
-
-        for (int i = 0; i < imageDataCount; i++) bufferOut[i] = bufferIn[i];
-    }
-
-    private static void ConvertUIntToByte(CVImage imageIn, ref CVImage imageOut)
-    {
-        int imageDataCount = imageIn.Width * imageIn.Height * imageIn.Channels;
-
-        Span<uint> bufferIn = imageIn.BufferAs<uint>();
-        Span<byte> bufferOut = imageOut.BufferAs<byte>();
-
-        for (int i = 0; i < imageDataCount; i++) bufferOut[i] = (byte)bufferIn[i];
-    }
-
     private static void convertDataFormat<InT>(CVImage imageIn, CVImage imageOut) where InT : struct, INumber<InT>
     {
-        if (imageIn.DataFormat == CVDataFormat.CV_U8 && imageOut.DataFormat == CVDataFormat.CV_F32) ConvertByteToFloat(imageIn, ref imageOut);
-        else if (imageIn.DataFormat == CVDataFormat.CV_F32 && imageOut.DataFormat == CVDataFormat.CV_U8) ConvertFloatToByte(imageIn, ref imageOut);
-        else if (imageIn.DataFormat == CVDataFormat.CV_U8 && imageOut.DataFormat == CVDataFormat.CV_S32) ConvertByteToInt(imageIn, ref imageOut);
-        else if (imageIn.DataFormat == CVDataFormat.CV_S32 && imageOut.DataFormat == CVDataFormat.CV_U8) ConvertIntToByte(imageIn, ref imageOut);
-        else if (imageIn.DataFormat == CVDataFormat.CV_U8 && imageOut.DataFormat == CVDataFormat.CV_U32) ConvertByteToUInt(imageIn, ref imageOut);
-        else if (imageIn.DataFormat == CVDataFormat.CV_U32 && imageOut.DataFormat == CVDataFormat.CV_U8) ConvertUIntToByte(imageIn, ref imageOut);
-
-        else if (imageOut.DataFormat == CVDataFormat.CV_U8) convertDataFormat<InT, byte>(imageIn, imageOut);
+        if (imageOut.DataFormat == CVDataFormat.CV_U8) convertDataFormat<InT, byte>(imageIn, imageOut);
         else if (imageOut.DataFormat == CVDataFormat.CV_S8) convertDataFormat<InT, sbyte>(imageIn, imageOut);
         else if (imageOut.DataFormat == CVDataFormat.CV_U16) convertDataFormat<InT, ushort>(imageIn, imageOut);
         else if (imageOut.DataFormat == CVDataFormat.CV_S16) convertDataFormat<InT, short>(imageIn, imageOut);
@@ -160,8 +93,8 @@ public class CVConvert
 
     private static int getBytesRequiredUnsigned<T>(CVImage image) where T : struct, INumber<T>
     {
-        double min = double.CreateChecked(CVProcessing.MinValue<T>(image));
-        double max = double.CreateChecked(CVProcessing.MaxValue<T>(image));
+        double min = CVProcessing.MinValue(image);
+        double max = CVProcessing.MaxValue(image);
 
         double bytes = Math.Log2(max) / 8;
 
@@ -171,8 +104,8 @@ public class CVConvert
 
     private static int getBytesRequiredSigned<T>(CVImage image) where T : struct, INumber<T>
     {
-        double min = double.CreateChecked(CVProcessing.MinValue<T>(image));
-        double max = double.CreateChecked(CVProcessing.MaxValue<T>(image));
+        double min = CVProcessing.MinValue(image);
+        double max = CVProcessing.MaxValue(image);
 
         double bytes = Math.Log2(Math.Max(max, -min)) / 4;
 
@@ -252,7 +185,6 @@ public class CVConvert
 
         return ConvertDataFormat(image, dataFormat);
     }
-
 
     public static void CopyChannel(CVImage imageIn, CVImage imageOut, int channelIn, int channelOut)
     {
