@@ -4,19 +4,25 @@ using MathNet.Numerics.Integration;
 
 namespace CVNet;
 
-public class CVBriefDescriptor
+public class CVDescriptor
 {
     public (int x, int y) Position;
     public ulong[] Descriptor;
+    public int Bits;
+    public int Words;
 
-    public CVBriefDescriptor((int x, int y) position)
+    public CVDescriptor((int x, int y) position, int bits = 256)
     {
+        Bits = bits;
+        Words = (int)Math.Ceiling(Bits / 64.0);
         Position = position;
-        Descriptor = [0, 0, 0, 0];
+        Descriptor = new ulong[Words];
     }
 
-    public CVBriefDescriptor((int x, int y) position, ulong[] descriptor)
+    public CVDescriptor((int x, int y) position, ulong[] descriptor)
     {
+        Words = descriptor.Length;
+        Bits = Words * 64;
         Position = position;
         Descriptor = descriptor;
     }
@@ -37,39 +43,119 @@ public class CVBriefDescriptor
     }
 }
 
-public class CVCensusDescriptor
+class KDNode
 {
-    public (int x, int y) Position;
-    public int Count;
-    public ulong[] Descriptor;
+    public readonly CVDescriptor? Descriptor = null;
+    public readonly int Axis;
+    public readonly KDNode? Left = null;
+    public readonly KDNode? Right = null;
 
-    public CVCensusDescriptor((int x, int y) position, int radius)
+    int Partition(List<int> indices, int left, int right, List<CVDescriptor> descriptors, int axis)
     {
-        Position = position;
-        int bitCount = (radius * 2 + 1) * (radius * 2 + 1) - 1;
-        Count = bitCount / 64;
-        Descriptor = new ulong[Count];
-    }
+        int pivotIndex = right;
+        int pivotValue = axis == 0
+            ? descriptors[indices[pivotIndex]].Position.x
+            : descriptors[indices[pivotIndex]].Position.y;
 
-    public CVCensusDescriptor((int x, int y) position, ulong[] descriptor)
-    {
-        Position = position;
-        Count = descriptor.Length;
-        Descriptor = descriptor;
-    }
+        int store = left;
 
-    public bool this[int index]
-    {
-        get => (Descriptor[index / 64] & (1UL << (index % 64))) != 0;
-        set
+        for (int i = left; i < right; i++)
         {
-            int word = index / 64;
-            ulong mask = 1UL << (index % 64);
+            int value = axis == 0
+                ? descriptors[indices[i]].Position.x
+                : descriptors[indices[i]].Position.y;
 
-            if (value)
-                Descriptor[word] |= mask;
+            if (value < pivotValue)
+            {
+                (indices[store], indices[i]) = (indices[i], indices[store]);
+                store++;
+            }
+        }
+
+        (indices[store], indices[right]) = (indices[right], indices[store]);
+
+        return store;
+    }
+
+    void QuickSelect(List<int> indices,
+                     int left,
+                     int right,
+                     int k,
+                     List<CVDescriptor> descriptors,
+                     int axis)
+    {
+        while (left < right)
+        {
+            int pivot = Partition(indices, left, right, descriptors, axis);
+
+            if (pivot == k)
+                return;
+
+            if (k < pivot)
+                right = pivot - 1;
             else
-                Descriptor[word] &= ~mask;
+                left = pivot + 1;
+        }
+    }
+
+    public KDNode(List<CVDescriptor> descriptors) : this(descriptors, Enumerable.Range(0, descriptors.Count).ToList(), 0, descriptors.Count - 1, 0) { }
+
+    private KDNode(List<CVDescriptor> descriptors, List<int> indices, int start, int end, int depth)
+    {
+        if (start > end)
+            return;
+
+        int axis = depth % 2;
+        int mid = (start + end) / 2;
+        QuickSelect(indices, start, end, mid, descriptors, axis);
+
+        Descriptor = descriptors[indices[mid]];
+        Axis = axis;
+        if (mid > start)
+            Left = new KDNode(descriptors, indices, start, mid - 1, depth + 1);
+        if (mid < end)
+            Right = new KDNode(descriptors, indices, mid + 1, end, depth + 1);
+    }
+
+    public void RadiusSearch(int qx, int qy, int radiusSquared, ref List<CVDescriptor> results)
+    {
+        if (Descriptor == null)
+            return;
+
+        int dx = Descriptor.Position.x - qx;
+        int dy = Descriptor.Position.y - qy;
+
+        int distSquared = dx * dx + dy * dy;
+
+        if (distSquared <= radiusSquared)
+            results.Add(Descriptor);
+
+        int diff;
+        if (Axis == 0)
+            diff = qx - Descriptor.Position.x;
+        else
+            diff = qy - Descriptor.Position.y;
+
+        KDNode? near;
+        KDNode? far;
+
+        if (diff <= 0)
+        {
+            near = Left;
+            far = Right;
+        }
+        else
+        {
+            near = Right;
+            far = Left;
+        }
+
+        if (near != null)
+            near.RadiusSearch(qx, qy, radiusSquared, ref results);
+
+        if (far != null && diff * diff <= radiusSquared)
+        {
+            far.RadiusSearch(qx, qy, radiusSquared, ref results);
         }
     }
 }
@@ -80,36 +166,43 @@ class BinaryLSH
     {
         public Dictionary<int, List<int>> Buckets = new();
         public int[] Bits;
+
+        public HashTable(int bits)
+        {
+            Bits = new int[bits];
+        }
     }
 
-    private readonly List<CVBriefDescriptor> descriptors;
+    private readonly List<CVDescriptor> descriptors;
     private readonly List<HashTable> tables = new();
 
     private readonly Random random = new();
 
-    private const int TABLES = 8;       // number of hash tables
-    private const int HASH_BITS = 16;   // bits used per table
+    private const int TABLES = 8;
+    private const int HASH_BITS = 16;
 
-
-    public BinaryLSH(List<CVBriefDescriptor> descriptors)
+    public BinaryLSH(List<CVDescriptor> descriptors)
     {
+        if (descriptors == null || descriptors.Count == 0)
+            throw new ArgumentException("Descriptor list is empty");
+
         this.descriptors = descriptors;
 
         for (int t = 0; t < TABLES; t++)
         {
-            var table = new HashTable();
-
-            table.Bits = new int[HASH_BITS];
+            var table = new HashTable(HASH_BITS);
 
             for (int i = 0; i < HASH_BITS; i++)
-                table.Bits[i] = random.Next(128);
+            {
+                // Select random bit positions only inside valid descriptor bits
+                table.Bits[i] = random.Next(descriptors[0].Bits);
+            }
 
             tables.Add(table);
         }
 
         Build();
     }
-
 
     private void Build()
     {
@@ -130,30 +223,49 @@ class BinaryLSH
         }
     }
 
-
-    private int Hash(CVBriefDescriptor d, int[] bits)
+    private int Hash(CVDescriptor d, int[] bits)
     {
         int hash = 0;
 
         for (int i = 0; i < bits.Length; i++)
         {
-            int bit = bits[i];
-
-            int word = bit >> 5;       // /32
-            int offset = bit & 31;     // %32
-
-            if (((d.Descriptor[word] >> offset) & 1) != 0)
-                hash |= (1 << i);
+            hash |= (d[bits[i]] ? 1 : 0) << i;
         }
 
         return hash;
     }
 
-    public void FindBest(
-        CVBriefDescriptor query,
-        out int bestIndex,
-        out int bestDistance,
-        out int secondDistance)
+
+    private int DescriptorDistance(CVDescriptor a, CVDescriptor b)
+    {
+        int distance = 0;
+
+        // Count valid words
+        for (int i = 0; i < a.Words; i++)
+        {
+            distance += BitOperations.PopCount(a.Descriptor[i] ^ b.Descriptor[i]);
+        }
+
+        // Remove padding bits from the last word
+        int unusedBits = (a.Words * 64) - a.Bits;
+
+        if (unusedBits > 0)
+        {
+            ulong mask = ulong.MaxValue >> unusedBits;
+            ulong paddedDifference = a.Descriptor[a.Words - 1] ^ b.Descriptor[b.Words - 1];
+            int oldContribution = BitOperations.PopCount(paddedDifference);
+            int newContribution = BitOperations.PopCount(paddedDifference & mask);
+
+            distance -= oldContribution;
+            distance += newContribution;
+        }
+
+
+        return distance;
+    }
+
+
+    private HashSet<int> CollectCandidates(CVDescriptor query)
     {
         HashSet<int> candidates = new();
 
@@ -168,31 +280,72 @@ class BinaryLSH
             }
         }
 
+        return candidates;
+    }
+
+    public void FindBestBound(
+        CVDescriptor query,
+        int maxSquaredDistance,
+        out int bestIndex,
+        out int bestDistance,
+        out int secondDistance)
+    {
+        HashSet<int> candidates = CollectCandidates(query);
+
         bestIndex = -1;
         bestDistance = int.MaxValue;
         secondDistance = int.MaxValue;
 
-        foreach (int id in candidates)
+        for (int i = 0; i < descriptors.Count; i++)
         {
-            int distance = 0;
+            int dx = descriptors[i].Position.x - query.Position.x;
+            int dy = descriptors[i].Position.y - query.Position.y;
 
-            for (int k = 0; k < 4; k++)
-            {
-                distance += CVProcessing.HammingDistance(
-                    query.Descriptor[k],
-                    descriptors[id].Descriptor[k]);
-            }
+            if (dx * dx + dy * dy > maxSquaredDistance)
+                continue;
 
-            if (distance < bestDistance)
-            {
-                secondDistance = bestDistance;
-                bestDistance = distance;
-                bestIndex = id;
-            }
-            else if (distance < secondDistance)
-            {
-                secondDistance = distance;
-            }
+            int distance = DescriptorDistance(query, descriptors[i]);
+            UpdateBest(i, distance, ref bestIndex, ref bestDistance, ref secondDistance);
+        }
+    }
+
+
+    public void FindBestUnbound(
+        CVDescriptor query,
+        out int bestIndex,
+        out int bestDistance,
+        out int secondDistance)
+    {
+        HashSet<int> candidates = CollectCandidates(query);
+
+        bestIndex = -1;
+        bestDistance = int.MaxValue;
+        secondDistance = int.MaxValue;
+
+        for (int i = 0; i < descriptors.Count; i++)
+        {
+            int distance = DescriptorDistance(query, descriptors[i]);
+            UpdateBest(i, distance, ref bestIndex, ref bestDistance, ref secondDistance);
+        }
+    }
+
+
+    private void UpdateBest(
+        int id,
+        int distance,
+        ref int bestIndex,
+        ref int bestDistance,
+        ref int secondDistance)
+    {
+        if (distance < bestDistance)
+        {
+            secondDistance = bestDistance;
+            bestDistance = distance;
+            bestIndex = id;
+        }
+        else if (distance < secondDistance)
+        {
+            secondDistance = distance;
         }
     }
 }
@@ -332,69 +485,6 @@ public class CVFeatureDetector
         else if (image.DataFormat == CVDataFormat.CV_F64) fast<double, T>(image, threshold, edgeDistance, ref keypoints);
 
         return keypoints;
-    }
-
-    private static (double, double) intensityCentroidSingle<T>(CVImage image, (int x, int y) point, int radius) where T : struct, INumber<T>
-    {
-        double intensitySum = 0.0;
-        double xWeightedSum = 0.0;
-        double yWeightedSum = 0.0;
-
-        Span<T> buffer = image.BufferAs<T>();
-
-        int startX = Math.Max(point.x - radius, 0);
-        int startY = Math.Max(point.y - radius, 0);
-
-        int endX = Math.Min(point.x + radius, image.Width - 1);
-        int endY = Math.Min(point.y + radius, image.Height - 1);
-
-        for (int yy = startY; yy <= endY; yy++)
-        {
-            int oY = yy - point.y;
-
-            for (int xx = startX; xx <= endX; xx++)
-            {
-                int oX = xx - point.x;
-
-                if (oX * oX + oY * oY > radius * radius) continue;
-
-                double imageIntensity = double.CreateChecked(buffer[xx + image.Width * yy]);
-                intensitySum += imageIntensity;
-                xWeightedSum += xx * imageIntensity;
-                yWeightedSum += yy * imageIntensity;
-            }
-        }
-
-        double centroidX = xWeightedSum / intensitySum;
-        double centroidY = yWeightedSum / intensitySum;
-
-        return (centroidX, centroidY);
-    }
-
-    private static void intensityCentroids<T>(CVImage image, List<(int, int)> points, int radius, ref List<(double, double)> centroids) where T : struct, INumber<T>
-    {
-        for (int i = 0; i < points.Count; i++)
-        {
-            centroids.Add(intensityCentroidSingle<T>(image, points[i], radius));
-        }
-    }
-
-    public static List<(double, double)> IntensityCentroids(CVImage image, List<(int, int)> points, int radius)
-    {
-        List<(double, double)> centroids = new List<(double, double)>();
-
-        if (image.DataFormat == CVDataFormat.CV_U8) intensityCentroids<byte>(image, points, radius, ref centroids);
-        else if (image.DataFormat == CVDataFormat.CV_S8) intensityCentroids<sbyte>(image, points, radius, ref centroids);
-        else if (image.DataFormat == CVDataFormat.CV_U16) intensityCentroids<ushort>(image, points, radius, ref centroids);
-        else if (image.DataFormat == CVDataFormat.CV_S16) intensityCentroids<short>(image, points, radius, ref centroids);
-        else if (image.DataFormat == CVDataFormat.CV_U32) intensityCentroids<uint>(image, points, radius, ref centroids);
-        else if (image.DataFormat == CVDataFormat.CV_S32) intensityCentroids<int>(image, points, radius, ref centroids);
-        else if (image.DataFormat == CVDataFormat.CV_U64) intensityCentroids<ulong>(image, points, radius, ref centroids);
-        else if (image.DataFormat == CVDataFormat.CV_S64) intensityCentroids<long>(image, points, radius, ref centroids);
-        else if (image.DataFormat == CVDataFormat.CV_F32) intensityCentroids<float>(image, points, radius, ref centroids);
-        else if (image.DataFormat == CVDataFormat.CV_F64) intensityCentroids<double>(image, points, radius, ref centroids);
-
-        return centroids;
     }
 
     public static List<double> Angles(List<(int x, int y)> points, List<(double x, double y)> centroids)
@@ -748,14 +838,12 @@ public class CVFeatureDetector
         return i00 * (1 - dx) * (1 - dy) + i10 * dx * (1 - dy) + i01 * (1 - dx) * dy + i11 * dx * dy;
     }
 
-    private static CVBriefDescriptor briefSingle<T>(CVImage image, (int x, int y) point, double angle, double scale) where T : struct, INumber<T>
+    private static CVDescriptor briefSingle<T>(CVImage image, (int x, int y) point, double angle) where T : struct, INumber<T>
     {
-        double patchScale = 1.0 / scale;
-
         double cosA = Math.Cos(angle);
         double sinA = Math.Sin(angle);
 
-        CVBriefDescriptor briefDescriptor = new CVBriefDescriptor(point);
+        CVDescriptor briefDescriptor = new CVDescriptor(point);
         for (int i = 0; i < 256; i++)
         {
             int offset = i * 4;
@@ -778,36 +866,35 @@ public class CVFeatureDetector
         return briefDescriptor;
     }
 
-    private static void brief<T>(CVImage image, List<(int x, int y)> points, List<double> angles, double scale, ref List<CVBriefDescriptor> descriptors) where T : struct, INumber<T>
+    private static void brief<T>(CVImage image, List<(int x, int y)> points, List<double> angles, ref List<CVDescriptor> descriptors) where T : struct, INumber<T>
     {
         for (int i = 0; i < points.Count; i++)
         {
-            descriptors.Add(briefSingle<T>(image, points[i], angles[i], scale));
+            descriptors.Add(briefSingle<T>(image, points[i], angles[i]));
         }
     }
 
-    public static List<CVBriefDescriptor> Brief(CVImage image, List<(int, int)> points, List<double> angles, double scale)
+    public static List<CVDescriptor> Brief(CVImage image, List<(int, int)> points, List<double> angles)
     {
-        List<CVBriefDescriptor> descriptors = new List<CVBriefDescriptor>();
+        List<CVDescriptor> descriptors = new List<CVDescriptor>();
 
-        if (image.DataFormat == CVDataFormat.CV_U8) brief<byte>(image, points, angles, scale, ref descriptors);
-        else if (image.DataFormat == CVDataFormat.CV_S8) brief<sbyte>(image, points, angles, scale, ref descriptors);
-        else if (image.DataFormat == CVDataFormat.CV_U16) brief<ushort>(image, points, angles, scale, ref descriptors);
-        else if (image.DataFormat == CVDataFormat.CV_S16) brief<short>(image, points, angles, scale, ref descriptors);
-        else if (image.DataFormat == CVDataFormat.CV_U32) brief<uint>(image, points, angles, scale, ref descriptors);
-        else if (image.DataFormat == CVDataFormat.CV_S32) brief<int>(image, points, angles, scale, ref descriptors);
-        else if (image.DataFormat == CVDataFormat.CV_U64) brief<ulong>(image, points, angles, scale, ref descriptors);
-        else if (image.DataFormat == CVDataFormat.CV_S64) brief<long>(image, points, angles, scale, ref descriptors);
-        else if (image.DataFormat == CVDataFormat.CV_F32) brief<float>(image, points, angles, scale, ref descriptors);
-        else if (image.DataFormat == CVDataFormat.CV_F64) brief<double>(image, points, angles, scale, ref descriptors);
+        if (image.DataFormat == CVDataFormat.CV_U8) brief<byte>(image, points, angles, ref descriptors);
+        else if (image.DataFormat == CVDataFormat.CV_S8) brief<sbyte>(image, points, angles, ref descriptors);
+        else if (image.DataFormat == CVDataFormat.CV_U16) brief<ushort>(image, points, angles, ref descriptors);
+        else if (image.DataFormat == CVDataFormat.CV_S16) brief<short>(image, points, angles, ref descriptors);
+        else if (image.DataFormat == CVDataFormat.CV_U32) brief<uint>(image, points, angles, ref descriptors);
+        else if (image.DataFormat == CVDataFormat.CV_S32) brief<int>(image, points, angles, ref descriptors);
+        else if (image.DataFormat == CVDataFormat.CV_U64) brief<ulong>(image, points, angles, ref descriptors);
+        else if (image.DataFormat == CVDataFormat.CV_S64) brief<long>(image, points, angles, ref descriptors);
+        else if (image.DataFormat == CVDataFormat.CV_F32) brief<float>(image, points, angles, ref descriptors);
+        else if (image.DataFormat == CVDataFormat.CV_F64) brief<double>(image, points, angles, ref descriptors);
 
         return descriptors;
     }
 
     public static List<(int x, int y)> GridKeypointSelection(
         CVImage image,
-        List<(int x, int y)> keypoints,
-        List<double> harrisScores,
+        List<(int x, int y, double score)> harrisScores,
         int gridCols = 8,
         int gridRows = 8,
         int maxPerCell = 10)
@@ -826,19 +913,19 @@ public class CVFeatureDetector
         }
 
         // Assign keypoints to cells
-        for (int i = 0; i < keypoints.Count; i++)
+        for (int i = 0; i < harrisScores.Count; i++)
         {
             int cellX = Math.Clamp(
-                keypoints[i].x * gridCols / image.Width,
+                harrisScores[i].x * gridCols / image.Width,
                 0,
                 gridCols - 1);
 
             int cellY = Math.Clamp(
-                keypoints[i].y * gridRows / image.Height,
+                harrisScores[i].y * gridRows / image.Height,
                 0,
                 gridRows - 1);
 
-            grid[cellX, cellY].Add((keypoints[i].x, keypoints[i].y, harrisScores[i]));
+            grid[cellX, cellY].Add((harrisScores[i].x, harrisScores[i].y, harrisScores[i].score));
         }
 
         // Keep strongest points in each cell
@@ -851,8 +938,7 @@ public class CVFeatureDetector
                 if (cell.Count == 0)
                     continue;
 
-                cell.Sort((a, b) =>
-                    b.score.CompareTo(a.score));
+                cell.Sort((a, b) => b.score.CompareTo(a.score));
 
                 int count = Math.Min(maxPerCell, cell.Count);
 
@@ -866,13 +952,13 @@ public class CVFeatureDetector
         return selected;
     }
 
-    public static List<CVBriefDescriptor> Orb(CVImage image)
+    public static List<CVDescriptor> Orb(CVImage image)
     {
         CVImage gray = CVConvert.ConvertChannelFormat(image, CVChannelFormat.CV_Grayscale);
 
         List<(CVImage image, double scale)> pyramid = BuildPyramid(gray);
 
-        List<CVBriefDescriptor> descriptors = new();
+        List<CVDescriptor> descriptors = new();
 
         for (int level = 0; level < pyramid.Count; level++)
         {
@@ -880,12 +966,12 @@ public class CVFeatureDetector
             double scale = pyramid[level].scale;
 
             List<(int, int)> fastKeypoints = Fast(levelImage, 5.0, 8);
-            List<double> harrisScores = CVCornerDetector.HarrisStrengthPoints(levelImage, fastKeypoints, 25, 3);
-
-            var selectedPoints = GridKeypointSelection(levelImage, fastKeypoints, harrisScores);
+            List<(int, int, double)> harrisScores = CVCornerDetector.HarrisStrengthPoints(levelImage, fastKeypoints, 0.04, 3);
+            List<(int, int, double)> suppressedScores = CVCornerDetector.NonMaximumSuppressionPoints(harrisScores, 2);
+            List<(int, int)> selectedPoints = GridKeypointSelection(levelImage, suppressedScores, 8, 8, 100);
 
             List<double> angles = IntensityCentroidAngles(levelImage, selectedPoints, 15);
-            List<CVBriefDescriptor> levelDescriptors = Brief(levelImage, selectedPoints, angles, scale);
+            List<CVDescriptor> levelDescriptors = Brief(levelImage, selectedPoints, angles);
 
             for (int i = 0; i < levelDescriptors.Count; i++)
             {
@@ -904,32 +990,100 @@ public class CVFeatureDetector
         return descriptors;
     }
 
+    public static void MatchFeaturesOrb(
+            CVImage image1,
+            CVImage image2,
+            int hammingDistance,
+            out List<(int x, int y)> matchedFeatures1,
+            out List<(int x, int y)> matchedFeatures2)
+    {
+        List<CVDescriptor> features1 = Orb(image1);
+        Console.WriteLine($"Features 1: {features1.Count}");
+        List<CVDescriptor> features2 = Orb(image2);
+        Console.WriteLine($"Features 2: {features2.Count}");
+
+        matchedFeatures1 = new List<(int x, int y)>();
+        matchedFeatures2 = new List<(int x, int y)>();
+
+        if (features1.Count == 0 || features2.Count == 0)
+            return;
+
+        int[] best12 = new int[features1.Count];
+        int[] best21 = new int[features2.Count];
+
+        int[] dist12 = new int[features1.Count];
+        int[] dist21 = new int[features2.Count];
+
+        // Build LSH indexes
+        BinaryLSH lsh2 = new BinaryLSH(features2);
+        BinaryLSH lsh1 = new BinaryLSH(features1);
+
+        // features1 -> features2
+        for (int i = 0; i < features1.Count; i++)
+            lsh2.FindBestUnbound(features1[i], out best12[i], out dist12[i], out _);
+
+        // features2 -> features1
+        for (int i = 0; i < features2.Count; i++)
+            lsh1.FindBestUnbound(features2[i], out best21[i], out dist21[i], out _);
+
+        // Cross-check + threshold
+        for (int i = 0; i < features1.Count; i++)
+        {
+            int j = best12[i];
+
+            if (j < 0)
+                continue;
+
+            // Mutual nearest neighbor
+            if (i != best21[j])
+                continue;
+
+            int distance = dist12[i];
+            if (distance > hammingDistance)
+                continue;
+
+            matchedFeatures1.Add(features1[i].Position);
+            matchedFeatures2.Add(features2[j].Position);
+        }
+    }
+
     private static void census<T>(CVImage image, int radius, ref CVImage outImage) where T : struct, INumber<T>
     {
         Span<T> buffer = image.BufferAs<T>();
         Span<ulong> outBuffer = outImage.BufferAs<ulong>();
 
-        for (int y = radius; y < image.Height - radius; y++)
-            for (int x = radius; x < image.Width - radius; x++)
-            {
-                CVCensusDescriptor descriptor = new CVCensusDescriptor((x, y), radius);
-                int center = x + y * image.Width;
-                T centerVal = buffer[center];
-                int index = 0;
-                for (int dy = -radius; dy <= radius; dy++)
-                {
-                    for (int dx = -radius; dx <= radius; dx++)
-                    {
-                        if (dy == 0 && dx == 0) continue;
-                        T pixelVal = buffer[center + dx + dy * image.Width];
-                        descriptor[index] = pixelVal >= centerVal;
-                        index++;
-                    }
-                }
+        int planeSize = image.Width * image.Height;
 
-                // Only works for images <= 8x8
-                outBuffer[center] = descriptor.Descriptor[0];
+        for (int c = 0; c < image.Channels; c++)
+        {
+            int channelOffset = c * planeSize;
+            for (int y = radius; y < image.Height - radius; y++)
+            {
+                int row = channelOffset + y * image.Width;
+                for (int x = radius; x < image.Width - radius; x++)
+                {
+                    int size = 2 * radius + 1;
+                    CVDescriptor descriptor = new CVDescriptor((x, y), size * size - 1);
+                    int center = row + x;
+                    T centerVal = buffer[center];
+                    int index = 0;
+                    for (int dy = -radius; dy <= radius; dy++)
+                    {
+                        int srcRow = channelOffset + (y + dy) * image.Width;
+                        for (int dx = -radius; dx <= radius; dx++)
+                        {
+                            if (dy == 0 && dx == 0) continue;
+                            T pixelVal = buffer[srcRow + x + dx];
+                            descriptor[index] = pixelVal >= centerVal;
+                            index++;
+                        }
+                    }
+
+                    // Only works for images <= 8x8 so radius <= 3
+                    outBuffer[center] = descriptor.Descriptor[0];
+                }
             }
+        }
     }
 
     public static CVImage Census(CVImage image, int radius)
@@ -950,44 +1104,69 @@ public class CVFeatureDetector
         return descriptorImage;
     }
 
-    private static void getBestMatches(
-    List<CVBriefDescriptor> features1,
-    BinaryLSH lsh,
-    ref int[] best,
-    ref int[] dist)
+    private static void censusFeatures<T>(CVImage image, int radius, int offsetX, int offsetY, ref List<CVDescriptor> descriptors) where T : struct, INumber<T>
     {
-        for (int i = 0; i < features1.Count; i++)
+        Span<T> buffer = image.BufferAs<T>();
+        for (int y = radius; y < image.Height - radius; y += offsetY)
         {
-            lsh.FindBest(
-                features1[i],
-                out int bestIndex,
-                out int bestDistance,
-                out int secondDistance);
-
-
-            best[i] = bestIndex;
-            dist[i] = bestDistance;
-
-
-            // Lowe ratio
-            if (secondDistance != int.MaxValue &&
-                secondDistance > 5 &&
-                bestDistance >= secondDistance * 0.95)
+            int row = y * image.Width;
+            for (int x = radius; x < image.Width - radius; x += offsetX)
             {
-                best[i] = -1;
+                int size = 2 * radius + 1;
+                CVDescriptor descriptor = new CVDescriptor((x, y), size * size - 1);
+                int center = row + x;
+                T centerVal = buffer[center];
+                int index = 0;
+                for (int dy = -radius; dy <= radius; dy++)
+                {
+                    int srcRow = (y + dy) * image.Width;
+                    for (int dx = -radius; dx <= radius; dx++)
+                    {
+                        if (dy == 0 && dx == 0) continue;
+                        T pixelVal = buffer[srcRow + x + dx];
+                        descriptor[index] = pixelVal >= centerVal;
+                        index++;
+                    }
+                }
+
+                descriptors.Add(descriptor);
             }
         }
     }
 
-    public static void MatchFeaturesOrb(
+    public static List<CVDescriptor> CensusFeatures(CVImage image, int radius, int offsetX = 1, int offsetY = 1)
+    {
+        List<CVDescriptor> descriptors = new List<CVDescriptor>();
+
+        if (image.DataFormat == CVDataFormat.CV_U8) censusFeatures<byte>(image, radius, offsetX, offsetY, ref descriptors);
+        else if (image.DataFormat == CVDataFormat.CV_S8) censusFeatures<sbyte>(image, radius, offsetX, offsetY, ref descriptors);
+        else if (image.DataFormat == CVDataFormat.CV_U16) censusFeatures<ushort>(image, radius, offsetX, offsetY, ref descriptors);
+        else if (image.DataFormat == CVDataFormat.CV_S16) censusFeatures<short>(image, radius, offsetX, offsetY, ref descriptors);
+        else if (image.DataFormat == CVDataFormat.CV_U32) censusFeatures<uint>(image, radius, offsetX, offsetY, ref descriptors);
+        else if (image.DataFormat == CVDataFormat.CV_S32) censusFeatures<int>(image, radius, offsetX, offsetY, ref descriptors);
+        else if (image.DataFormat == CVDataFormat.CV_U64) censusFeatures<ulong>(image, radius, offsetX, offsetY, ref descriptors);
+        else if (image.DataFormat == CVDataFormat.CV_S64) censusFeatures<long>(image, radius, offsetX, offsetY, ref descriptors);
+        else if (image.DataFormat == CVDataFormat.CV_F32) censusFeatures<float>(image, radius, offsetX, offsetY, ref descriptors);
+        else if (image.DataFormat == CVDataFormat.CV_F64) censusFeatures<double>(image, radius, offsetX, offsetY, ref descriptors);
+
+        return descriptors;
+    }
+
+    public static void MatchFeaturesCensus(
         CVImage image1,
         CVImage image2,
         int hammingDistance,
-        out List<(int x, int y)> matchedFeatures1,
+        int radiusCensus,
+        int radiusMatching,
+        int offset1,
+        int offset2,
+       out List<(int x, int y)> matchedFeatures1,
         out List<(int x, int y)> matchedFeatures2)
     {
-        List<CVBriefDescriptor> features1 = Orb(image1);
-        List<CVBriefDescriptor> features2 = Orb(image2);
+        List<CVDescriptor> features1 = CensusFeatures(image1, radiusCensus, offset1, (int)(offset1 * (double)image1.Height / image1.Width));
+        Console.WriteLine($"Features 1: {features1.Count}");
+        List<CVDescriptor> features2 = CensusFeatures(image2, radiusCensus, offset2, (int)(offset2 * (double)image2.Height / image2.Width));
+        Console.WriteLine($"Features 2: {features2.Count}");
 
         matchedFeatures1 = new List<(int x, int y)>();
         matchedFeatures2 = new List<(int x, int y)>();
@@ -1005,15 +1184,15 @@ public class CVFeatureDetector
         BinaryLSH lsh2 = new BinaryLSH(features2);
         BinaryLSH lsh1 = new BinaryLSH(features1);
 
+        int squaredRadius = radiusMatching * radiusMatching;
+
         // features1 -> features2
         for (int i = 0; i < features1.Count; i++)
-            lsh2.FindBest(features1[i], out best12[i], out dist12[i], out _);
+            lsh2.FindBestBound(features1[i], squaredRadius, out best12[i], out dist12[i], out _);
 
-        // features2 -> features1
         for (int i = 0; i < features2.Count; i++)
-            lsh1.FindBest(features2[i], out best21[i], out dist21[i], out _);
+            lsh1.FindBestBound(features2[i], squaredRadius, out best21[i], out dist21[i], out _);
 
-        // Cross-check + threshold
         for (int i = 0; i < features1.Count; i++)
         {
             int j = best12[i];
@@ -1022,7 +1201,7 @@ public class CVFeatureDetector
                 continue;
 
             // Mutual nearest neighbor
-            if (best21[j] != i)
+            if (i != best21[j])
                 continue;
 
             int distance = dist12[i];
@@ -1040,19 +1219,9 @@ public class CVFeatureDetector
         CVImage gray = CVConvert.ConvertChannelFormat(image, CVChannelFormat.CV_Grayscale);
 
         List<(int, int)> fastKeypoints = Fast(gray, 5.0);
-
-        List<double> fastHarrisScores = CVCornerDetector.HarrisStrengthPoints(gray, fastKeypoints, 25, 3);
-
-        var indices = Enumerable.Range(0, fastHarrisScores.Count)
-                            .OrderByDescending(i => fastHarrisScores[i])
-                            .ToList();
-
-        var fastPoints = indices
-            .Select(i => (x: fastKeypoints[i].Item1, y: fastKeypoints[i].Item2, score: fastHarrisScores[i]))
-            .ToList();
-
-        var supressedPoints = CVCornerDetector.NonMaximumSuppression(fastPoints, 3);
-        var bestPoints = supressedPoints.Take(500).ToList();
+        List<(int, int, double)> fastHarrisScores = CVCornerDetector.HarrisStrengthPoints(gray, fastKeypoints, 0.04, 3);
+        List<(int, int, double)> supressedPoints = CVCornerDetector.NonMaximumSuppressionPoints(fastHarrisScores, 3);
+        List<(int, int, double)> bestPoints = supressedPoints.Take(500).ToList();
 
         return bestPoints;
     }

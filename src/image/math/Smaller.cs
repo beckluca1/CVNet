@@ -28,7 +28,7 @@ public static class CVSmaller
             {
                 Vector<T> vSrc = new(src.Slice(i, simdWidth));
 
-                var mask = Vector.GreaterThan(vSrc, vValue);
+                var mask = Vector.GreaterThanOrEqual(vSrc, vValue);
 
                 var ones = Vector<T>.One;
                 var zeros = Vector<T>.Zero;
@@ -41,7 +41,7 @@ public static class CVSmaller
 
         for (; i < count; i++)
         {
-            dst[i] = src[i] > valueC ? T.Zero : T.One;
+            dst[i] = src[i] >= valueC ? T.Zero : T.One;
         }
     }
 
@@ -78,7 +78,7 @@ public static class CVSmaller
                     Vector<T> vSrc =
                         new(src.Slice(idx, simdWidth));
 
-                    var mask = Vector.GreaterThan(vSrc, vValue);
+                    var mask = Vector.GreaterThanOrEqual(vSrc, vValue);
 
                     var ones = Vector<T>.One;
                     var zeros = Vector<T>.Zero;
@@ -92,7 +92,7 @@ public static class CVSmaller
             for (; i < planeSize; i++)
             {
                 int idx = baseIdx + i;
-                dst[idx] = src[idx] > valuesC[idx] ? T.Zero : T.One;
+                dst[idx] = src[idx] >= valuesC[idx] ? T.Zero : T.One;
             }
         }
     }
@@ -119,7 +119,7 @@ public static class CVSmaller
                 Vector<T> v1 = new(src1.Slice(i, simdWidth));
                 Vector<T> v2 = new(src2.Slice(i, simdWidth));
 
-                var mask = Vector.GreaterThan(v1, v2);
+                var mask = Vector.GreaterThanOrEqual(v1, v2);
 
                 var ones = Vector<T>.One;
                 var zeros = Vector<T>.Zero;
@@ -132,7 +132,7 @@ public static class CVSmaller
 
         for (; i < count; i++)
         {
-            dst[i] = src1[i] > src2[i] ? T.Zero : T.One;
+            dst[i] = src1[i] >= src2[i] ? T.Zero : T.One;
         }
     }
 

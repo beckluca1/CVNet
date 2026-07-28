@@ -154,7 +154,8 @@ public class CVCornerDetector
         Span<double> bgy = gradientY.BufferAs<double>();
 
         int lanes = Vector<double>.Count;
-        var twoVec = new Vector<double>(2.0);
+        var oneVec = new Vector<double>(0.125);
+        var twoVec = new Vector<double>(0.250);
 
         for (int c = 0; c < image.Channels; c++)
         {
@@ -183,8 +184,8 @@ public class CVCornerDetector
                         Vector<double> bc = new Vector<double>(bufferSpan.Slice(r2 + x));
                         Vector<double> br = new Vector<double>(bufferSpan.Slice(r2 + x + 1));
 
-                        Vector<double> vx = (tr - tl) + (mr - ml) * twoVec + (br - bl);
-                        Vector<double> vy = (bl - tl) + (bc - tc) * twoVec + (br - tr);
+                        Vector<double> vx = (tr - tl) * oneVec + (mr - ml) * twoVec + (br - bl) * oneVec;
+                        Vector<double> vy = (bl - tl) * oneVec + (bc - tc) * twoVec + (br - tr) * oneVec;
 
                         vx.CopyTo(bgx.Slice(r1 + x));
                         vy.CopyTo(bgy.Slice(r1 + x));
@@ -208,14 +209,14 @@ public class CVCornerDetector
                     double br = bufferSpan[r2 + x + 1];
 
                     bgx[idx] =
-                        (tr - tl) +
-                        2.0 * (mr - ml) +
-                        (br - bl);
+                        0.125 * (tr - tl) +
+                        0.250 * (mr - ml) +
+                        0.125 * (br - bl);
 
                     bgy[idx] =
-                        (bl - tl) +
-                        2.0 * (bc - tc) +
-                        (br - tr);
+                        0.125 * (bl - tl) +
+                        0.250 * (bc - tc) +
+                        0.125 * (br - tr);
                 }
             }
         }
@@ -231,9 +232,9 @@ public class CVCornerDetector
         sobel(doubleImage, ref gradientX, ref gradientY);
     }
 
-    public static List<(int x, int y, double score)> NonMaximumSuppression(
+    public static List<(int x, int y, double score)> NonMaximumSuppressionPoints(
         List<(int x, int y, double score)> points,
-        float radius = 8)
+        float radius = 1)
     {
         List<(int x, int y, double score)> result = new List<(int x, int y, double score)>();
 
@@ -246,8 +247,7 @@ public class CVCornerDetector
                 double dx = p.x - q.x;
                 double dy = p.y - q.y;
 
-                if (dx * dx + dy * dy <
-                    radius * radius)
+                if (Math.Abs(dx) < radius || Math.Abs(dy) < radius)
                 {
                     keep = false;
                     break;
@@ -298,10 +298,10 @@ public class CVCornerDetector
     {
         CVImage gray = CVConvert.ConvertChannelFormat(image, CVChannelFormat.CV_Grayscale);
         CVImage strength = ShiTomasiStrength(image, windowRadius);
-        CVImage mask = CVBigger.Bigger(strength, threshold);
+        CVImage mask = strength > threshold;
 
         var pixelList = CVProcessing.GetPixels(mask, strength, 1);
-        return NonMaximumSuppression(pixelList);
+        return NonMaximumSuppressionPoints(pixelList);
     }
 
     public static CVImage HarrisStrength(CVImage image, double constant = 0.04, int windowRadius = 1)
@@ -318,14 +318,23 @@ public class CVCornerDetector
         return det - (trace * trace * constant);
     }
 
+    public static CVImage HarrisCornerStrength(CVImage image, double constant = 0.04, int windowRadius = 1, int suppressionRadius = 1, double threshold = 0)
+    {
+        CVImage harrisStrength = HarrisStrength(image, constant, windowRadius);
+        CVImage suppressed = CVProcessing.NonMaximumSuppression(harrisStrength, suppressionRadius);
+        CVImage mask = suppressed > threshold;
+
+        return mask;
+    }
+
     public static List<(int, int, double)> DetectCornerHarris(CVImage image, double constant = 0.04, int windowRadius = 1, int threshold = 1)
     {
         CVImage gray = CVConvert.ConvertChannelFormat(image, CVChannelFormat.CV_Grayscale);
         CVImage strength = HarrisStrength(image, constant, windowRadius);
-        CVImage mask = CVBigger.Bigger(strength, threshold);
+        CVImage mask = strength > threshold;
 
         var pixelList = CVProcessing.GetPixels(mask, strength, 1);
-        return NonMaximumSuppression(pixelList);
+        return NonMaximumSuppressionPoints(pixelList);
     }
 
     private static double harrisStrengthSingle(
@@ -367,12 +376,14 @@ public class CVCornerDetector
         double det = sxx * syy - sxy * sxy;
         double trace = sxx + syy;
 
-        return det * constant - trace * trace;
+        return det - trace * trace * constant;
     }
 
-    public static List<double> HarrisStrengthPoints(CVImage image, List<(int, int)> points, double constant = 25, int windowRadius = 3)
+    public static List<(int, int, double)> HarrisStrengthPoints(CVImage image, List<(int x, int y)> points, double constant = 0.04, int windowRadius = 1)
     {
-        List<double> scores = new List<double>();
+        List<(int x, int y, double score)> scores = new List<(int x, int y, double score)>();
+
+        if (points.Count == 0) return scores;
 
         Sobel(image, out CVImage gradientX, out CVImage gradientY);
         CVImage IxxImage = gradientX * gradientX;
@@ -380,25 +391,23 @@ public class CVCornerDetector
         CVImage IxyImage = gradientX * gradientY;
 
         double harrisResponse = harrisStrengthSingle(points[0], IxxImage, IyyImage, IxyImage, constant, windowRadius);
-        scores.Add(harrisResponse);
+        scores.Add((points[0].x, points[0].y, harrisResponse));
         double maxResponse = harrisResponse;
-        double minResponse = harrisResponse;
 
         for (int i = 1; i < points.Count; i++)
         {
             harrisResponse = harrisStrengthSingle(points[i], IxxImage, IyyImage, IxyImage, constant, windowRadius);
 
+            if (harrisResponse <= 0) continue;
             if (harrisResponse > maxResponse) maxResponse = harrisResponse;
-            if (harrisResponse < minResponse) minResponse = harrisResponse;
 
-            scores.Add(harrisResponse);
+            scores.Add((points[i].x, points[i].y, harrisResponse));
         }
-
-        double range = maxResponse - minResponse;
 
         for (int i = 0; i < scores.Count; i++)
         {
-            scores[i] = (scores[i] - minResponse) / range;
+            double bound = scores[i].score / maxResponse;
+            scores[i] = (scores[i].x, scores[i].y, bound);
         }
 
         return scores;
@@ -429,72 +438,88 @@ public class CVCornerDetector
     private static int[] earlyChecks = [1, 5, 9, 13];
     private static int[] lateChecks = [0, 2, 3, 4, 6, 7, 8, 10, 11, 12, 14, 15];
 
-    private static void fastStrength<T>(CVImage image, double threshold, int edgeDistance, ref CVImage strength) where T : struct, INumber<T>
+    private static void fastStrength<T>(CVImage image, double threshold, int edgeDistance, ref CVImage outImage) where T : struct, INumber<T>
     {
         T thresholdT = T.CreateChecked(threshold);
 
         Span<T> buffer = image.BufferAs<T>();
-        Span<T> sBuffer = strength.BufferAs<T>();
+        Span<T> dstBuffer = outImage.BufferAs<T>();
 
-        for (int x = edgeDistance; x < image.Width - edgeDistance; x++)
+        int srcPlaneSize = image.Width * image.Height;
+
+        for (int c = 0; c < image.Channels; c++)
+        {
+            int channelOffset = c * srcPlaneSize;
             for (int y = edgeDistance; y < image.Height - edgeDistance; y++)
             {
-                T centerValue = buffer[x + image.Width * y];
-
-                // Bit masks
-                uint darkMask = 0;
-                uint brightMask = 0;
-
-                // Counter
-                int darkCount = 0;
-                int brightCount = 0;
-
-                for (int r = 0; r < earlyChecks.Length; r++)
+                int row = channelOffset + y * image.Width;
+                for (int x = edgeDistance; x < image.Width - edgeDistance; x++)
                 {
-                    uint state = fastCompare<T>(centerValue, buffer[(x + xOffsets[earlyChecks[r]]) + image.Width * (y + yOffsets[earlyChecks[r]])], thresholdT);
+                    int center = row + x;
+                    T centerValue = buffer[center];
 
-                    if (state == 0)
+                    // Bit masks
+                    uint darkMask = 0;
+                    uint brightMask = 0;
+
+                    // Counter
+                    int darkCount = 0;
+                    int brightCount = 0;
+
+                    for (int r = 0; r < earlyChecks.Length; r++)
                     {
-                        darkCount++;
-                        darkMask |= (1u << earlyChecks[r]);
+                        int cX = x + xOffsets[earlyChecks[r]];
+                        int cY = y + yOffsets[earlyChecks[r]];
+                        int cRow = channelOffset + cY * image.Width;
+                        uint state = fastCompare<T>(centerValue, buffer[cRow + cX], thresholdT);
+
+                        if (state == 0)
+                        {
+                            darkCount++;
+                            darkMask |= (1u << earlyChecks[r]);
+                        }
+                        else if (state == 2)
+                        {
+                            brightCount++;
+                            brightMask |= (1u << earlyChecks[r]);
+                        }
                     }
-                    else if (state == 2)
+
+                    // Early rejection
+                    if (darkCount < 3 && brightCount < 3) continue;
+
+                    for (int r = 0; r < lateChecks.Length; r++)
                     {
-                        brightCount++;
-                        brightMask |= (1u << earlyChecks[r]);
+                        int cX = x + xOffsets[lateChecks[r]];
+                        int cY = y + yOffsets[lateChecks[r]];
+                        int cRow = channelOffset + cY * image.Width;
+                        uint state = fastCompare<T>(centerValue, buffer[cRow + cX], thresholdT);
+
+                        if (state == 0)
+                        {
+                            darkCount++;
+                            darkMask |= (1u << lateChecks[r]);
+                        }
+                        else if (state == 2)
+                        {
+                            brightCount++;
+                            brightMask |= (1u << lateChecks[r]);
+                        }
                     }
-                }
 
-                // Early rejection
-                if (darkCount < 3 && brightCount < 3) continue;
+                    // Late-Early rejection
+                    if (darkCount < 9 && brightCount < 9) continue;
 
-                for (int r = 0; r < lateChecks.Length; r++)
-                {
-                    uint state = fastCompare<T>(centerValue, buffer[(x + xOffsets[lateChecks[r]]) + image.Width * (y + yOffsets[lateChecks[r]])], thresholdT);
+                    darkMask = darkMask | (darkMask << 16);
+                    brightMask = brightMask | (brightMask << 16);
 
-                    if (state == 0)
+                    if (fastCheckConsecutive(darkMask) || fastCheckConsecutive(brightMask))
                     {
-                        darkCount++;
-                        darkMask |= (1u << lateChecks[r]);
+                        dstBuffer[center] = T.One;
                     }
-                    else if (state == 2)
-                    {
-                        brightCount++;
-                        brightMask |= (1u << lateChecks[r]);
-                    }
-                }
-
-                // Late-Early rejection
-                if (darkCount < 9 && brightCount < 9) continue;
-
-                darkMask = darkMask | (darkMask << 16);
-                brightMask = brightMask | (brightMask << 16);
-
-                if (fastCheckConsecutive(darkMask) || fastCheckConsecutive(brightMask))
-                {
-                    sBuffer[x + y * strength.Width] = T.One;
                 }
             }
+        }
     }
 
     public static CVImage FastStrength(CVImage image, double threshold = 5.0, int edgeDistance = 16)

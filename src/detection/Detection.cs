@@ -451,6 +451,7 @@ public class CVDetection
         CVImage warped = CVWarp.WarpPerspectiveQuad(image, srcPoints, out MatrixD _);
         warped = CVWindowing.AverageWindowResample(warped, markerSize + 2, markerSize + 2);
         warped = CVThreshold.OtsuThreshold(warped, 256);
+        warped = 1 - warped;
 
         return warped;
     }

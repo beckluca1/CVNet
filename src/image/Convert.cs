@@ -284,7 +284,7 @@ public class CVConvert
         CVImage sum = uniqueChannels.Values.ElementAt(0);
         for (int i = 1; i < uniqueChannels.Count; i++)
             sum = sum + uniqueChannels.Values.ElementAt(i);
-        sum = CVDivide.Divide(sum, uniqueChannels.Count);
+        sum = sum / uniqueChannels.Count;
 
         //Recast to original type
         sum = ConvertDataFormat(sum, image.DataFormat);

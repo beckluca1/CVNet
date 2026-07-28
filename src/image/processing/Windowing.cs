@@ -234,6 +234,126 @@ public class CVWindowing
         return outImage;
     }
 
+    private static void maxWindow<T>(
+            CVImage image,
+            int radiusX,
+            int radiusY,
+            ref CVImage imageOut) where T : struct, INumber<T>
+    {
+        Span<T> buffer = image.BufferAs<T>();
+        Span<T> dstBuffer = imageOut.BufferAs<T>();
+
+        int planeSize = image.Width * image.Height;
+
+        for (int c = 0; c < image.Channels; c++)
+        {
+            int channelOffset = c * planeSize;
+            for (int y = radiusY; y < image.Height - radiusY; y++)
+            {
+                int row = channelOffset + y * image.Width;
+                for (int x = radiusX; x < image.Width - radiusX; x++)
+                {
+                    int center = row + x;
+                    T centerVal = buffer[center];
+                    T maxVal = centerVal;
+                    for (int dy = -radiusY; dy <= radiusY; dy++)
+                    {
+                        int srcRow = channelOffset + (y + dy) * image.Width;
+                        for (int dx = -radiusX; dx <= radiusX; dx++)
+                        {
+                            T pixelVal = buffer[srcRow + x + dx];
+
+                            if (pixelVal > maxVal)
+                            {
+                                maxVal = pixelVal;
+                            }
+                        }
+                    }
+
+                    dstBuffer[center] = maxVal;
+                }
+            }
+        }
+    }
+
+    public static CVImage MaxWindow(CVImage image, int radiusX, int radiusY)
+    {
+        CVImage outImage = CVImage.Create(image.Width, image.Height, image.DataFormat, image.ChannelFormats);
+
+        if (image.DataFormat == CVDataFormat.CV_U8) maxWindow<byte>(image, radiusX, radiusY, ref outImage);
+        else if (image.DataFormat == CVDataFormat.CV_S8) maxWindow<sbyte>(image, radiusX, radiusY, ref outImage);
+        else if (image.DataFormat == CVDataFormat.CV_U16) maxWindow<ushort>(image, radiusX, radiusY, ref outImage);
+        else if (image.DataFormat == CVDataFormat.CV_S16) maxWindow<short>(image, radiusX, radiusY, ref outImage);
+        else if (image.DataFormat == CVDataFormat.CV_U32) maxWindow<uint>(image, radiusX, radiusY, ref outImage);
+        else if (image.DataFormat == CVDataFormat.CV_S32) maxWindow<int>(image, radiusX, radiusY, ref outImage);
+        else if (image.DataFormat == CVDataFormat.CV_U64) maxWindow<ulong>(image, radiusX, radiusY, ref outImage);
+        else if (image.DataFormat == CVDataFormat.CV_S64) maxWindow<long>(image, radiusX, radiusY, ref outImage);
+        else if (image.DataFormat == CVDataFormat.CV_F32) maxWindow<float>(image, radiusX, radiusY, ref outImage);
+        else if (image.DataFormat == CVDataFormat.CV_F64) maxWindow<double>(image, radiusX, radiusY, ref outImage);
+
+        return outImage;
+    }
+
+    private static void minWindow<T>(
+                CVImage image,
+                int radiusX,
+                int radiusY,
+                ref CVImage imageOut) where T : struct, INumber<T>
+    {
+        Span<T> buffer = image.BufferAs<T>();
+        Span<T> dstBuffer = imageOut.BufferAs<T>();
+
+        int planeSize = image.Width * image.Height;
+
+        for (int c = 0; c < image.Channels; c++)
+        {
+            int channelOffset = c * planeSize;
+            for (int y = radiusY; y < image.Height - radiusY; y++)
+            {
+                int row = channelOffset + y * image.Width;
+                for (int x = radiusX; x < image.Width - radiusX; x++)
+                {
+                    int center = row + x;
+                    T centerVal = buffer[center];
+                    T minVal = centerVal;
+                    for (int dy = -radiusY; dy <= radiusY; dy++)
+                    {
+                        int srcRow = channelOffset + (y + dy) * image.Width;
+                        for (int dx = -radiusX; dx <= radiusX; dx++)
+                        {
+                            T pixelVal = buffer[srcRow + x + dx];
+
+                            if (pixelVal < minVal)
+                            {
+                                minVal = pixelVal;
+                            }
+                        }
+                    }
+
+                    dstBuffer[center] = minVal;
+                }
+            }
+        }
+    }
+
+    public static CVImage MinWindow(CVImage image, int radiusX, int radiusY)
+    {
+        CVImage outImage = CVImage.Create(image.Width, image.Height, image.DataFormat, image.ChannelFormats);
+
+        if (image.DataFormat == CVDataFormat.CV_U8) minWindow<byte>(image, radiusX, radiusY, ref outImage);
+        else if (image.DataFormat == CVDataFormat.CV_S8) minWindow<sbyte>(image, radiusX, radiusY, ref outImage);
+        else if (image.DataFormat == CVDataFormat.CV_U16) minWindow<ushort>(image, radiusX, radiusY, ref outImage);
+        else if (image.DataFormat == CVDataFormat.CV_S16) minWindow<short>(image, radiusX, radiusY, ref outImage);
+        else if (image.DataFormat == CVDataFormat.CV_U32) minWindow<uint>(image, radiusX, radiusY, ref outImage);
+        else if (image.DataFormat == CVDataFormat.CV_S32) minWindow<int>(image, radiusX, radiusY, ref outImage);
+        else if (image.DataFormat == CVDataFormat.CV_U64) minWindow<ulong>(image, radiusX, radiusY, ref outImage);
+        else if (image.DataFormat == CVDataFormat.CV_S64) minWindow<long>(image, radiusX, radiusY, ref outImage);
+        else if (image.DataFormat == CVDataFormat.CV_F32) minWindow<float>(image, radiusX, radiusY, ref outImage);
+        else if (image.DataFormat == CVDataFormat.CV_F64) minWindow<double>(image, radiusX, radiusY, ref outImage);
+
+        return outImage;
+    }
+
     private static void sumWindowResample<T>(
             CVImage integralImage,
             ref CVImage imageOut) where T : struct, INumber<T>

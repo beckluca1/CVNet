@@ -1,5 +1,6 @@
 using System.Numerics;
 using System.Runtime.InteropServices;
+using MathNet.Numerics.Distributions;
 
 namespace CVNet;
 
@@ -145,6 +146,14 @@ public class CVProcessing
         return value;
     }
 
+    public static CVImage NonMaximumSuppression(CVImage image, int radius = 1)
+    {
+        CVImage maxY = CVWindowing.MaxWindow(image, 0, radius);
+        CVImage max = CVWindowing.MaxWindow(maxY, radius, 0);
+        CVImage mask = image == max;
+        return mask * image;
+    }
+
     private static void normalize(CVImage image, double newMin, double newMax, ref CVImage outImage)
     {
         double min = MinValue(image);
@@ -153,13 +162,10 @@ public class CVProcessing
 
         double newRange = newMax - newMin;
 
-        outImage = CVSubtract.Subtract(image, min);
+        outImage = image - min;
         if (range > 10e-12)
-        {
-            outImage = CVDivide.Divide(outImage, range);
-            outImage = CVMultiply.Multiply(outImage, newRange);
-        }
-        outImage = CVAdd.Add(outImage, newMin);
+            outImage = outImage * (newRange / range);
+        outImage = outImage + newMin;
     }
 
     public static CVImage Normalize(CVImage image, double min, double max)

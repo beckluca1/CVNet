@@ -6,7 +6,7 @@ public class CVThreshold
 {
     public static CVImage Threshold<T>(CVImage imageIn, T threshold) where T : struct, INumber<T>
     {
-        return CVBigger.Bigger(imageIn, threshold);
+        return CVGreater.Greater(imageIn, threshold);
     }
 
     public static CVImage AdaptiveThresholdMean<T>(CVImage image, T offset, int radius) where T : struct, INumber<T>
@@ -15,7 +15,7 @@ public class CVThreshold
         // Prevent from underflow / wrap around
         blur = CVMax.Max(blur, offset);
         blur = CVSubtract.Subtract(blur, offset);
-        return CVSmaller.Smaller(image, blur);
+        return image < blur;
     }
 
     public static CVImage AdaptiveThresholdGauss<T>(CVImage image, T offset, int radius) where T : struct, INumber<T>
@@ -24,7 +24,7 @@ public class CVThreshold
         // Prevent from underflow / wrap around
         blur = CVMax.Max(blur, offset);
         blur = CVSubtract.Subtract(blur, offset);
-        return CVSmaller.Smaller(image, blur);
+        return image < blur;
     }
 
     private static int[] otsuBucket(CVImage imageIn, CVImage histogram)
@@ -85,9 +85,9 @@ public class CVThreshold
         double[] otsuThresholds = new double[buckets.Length];
 
         for (int i = 0; i < buckets.Length; i++)
-            otsuThresholds[i] = min + bucketSize * buckets[i] - 1.0;
+            otsuThresholds[i] = min + bucketSize * buckets[i];
 
-        outImage = CVBigger.Bigger(image, otsuThresholds);
+        outImage = CVGreaterOrEqual.GreaterOrEqual(image, otsuThresholds);
     }
 
     public static CVImage OtsuThreshold(CVImage image1, int bucketCount)

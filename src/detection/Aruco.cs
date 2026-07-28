@@ -81,7 +81,8 @@ public class CVAruco
     public static List<CVContour> GetMarker(CVImage image, int markerSize)
     {
         CVImage gray = CVConvert.ConvertChannelFormat(image, CVChannelFormat.CV_Grayscale);
-        CVImage thresh = CVThreshold.AdaptiveThresholdMean(gray, 7, 13);
+        CVImage thresh = CVThreshold.AdaptiveThresholdMean(gray, 7, 6);
+        thresh = 1 - thresh;
 
         List<CVContour> contours = CVContourTrace.TraceContours(thresh, 1);
         List<CVContour> checkedContours = CVDetection.ContourChecks(contours, image.Width, image.Height);

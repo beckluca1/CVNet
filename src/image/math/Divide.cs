@@ -169,6 +169,121 @@ public static class CVDivide
         return outImage;
     }
 
+    public static void Divide<T, TV>(
+            TV value,
+            CVImage imageIn,
+            ref CVImage imageOut)
+            where T : unmanaged, INumber<T> where TV : struct, INumber<TV>
+    {
+        T valueC = T.CreateChecked(value);
+
+        Span<T> src = imageIn.BufferAs<T>();
+        Span<T> dst = imageOut.BufferAs<T>();
+
+        int count = src.Length;
+
+        int simdWidth = Vector<T>.Count;
+        int i = 0;
+
+        if (Vector.IsHardwareAccelerated)
+        {
+            Vector<T> vValue = new(valueC);
+
+            for (; i <= count - simdWidth; i += simdWidth)
+            {
+                Vector<T> vSrc = new(src.Slice(i, simdWidth));
+                (vValue / vSrc).CopyTo(dst.Slice(i, simdWidth));
+            }
+        }
+
+        for (; i < count; i++)
+        {
+            dst[i] = valueC / src[i];
+        }
+    }
+
+    public static void Divide<T, TV>(
+        TV[] values,
+        CVImage imageIn,
+        ref CVImage imageOut)
+        where T : unmanaged, INumber<T> where TV : struct, INumber<TV>
+    {
+        T[] valuesC = new T[values.Length];
+        for (int i = 0; i < valuesC.Length; i++) valuesC[i] = T.CreateChecked(values[i]);
+
+        int planeSize = imageIn.Width * imageIn.Height;
+
+        Span<T> src = imageIn.BufferAs<T>();
+        Span<T> dst = imageOut.BufferAs<T>();
+
+        int simdWidth = Vector<T>.Count;
+
+        for (int c = 0; c < imageIn.Channels; c++)
+        {
+            int baseIdx = c * planeSize;
+
+            Vector<T> vValue = new(valuesC[c]);
+
+            int i = 0;
+
+            if (Vector.IsHardwareAccelerated)
+            {
+                for (; i <= planeSize - simdWidth; i += simdWidth)
+                {
+                    int idx = baseIdx + i;
+
+                    Vector<T> vSrc =
+                        new(src.Slice(idx, simdWidth));
+
+                    (vValue / vSrc)
+                        .CopyTo(dst.Slice(idx, simdWidth));
+                }
+            }
+
+            for (; i < planeSize; i++)
+            {
+                int idx = baseIdx + i;
+                dst[idx] = valuesC[c] / src[idx];
+            }
+        }
+    }
+
+    public static CVImage Divide<T>(T arg1, CVImage image) where T : struct, INumber<T>
+    {
+        CVImage outImage = CVImage.Create(image.Width, image.Height, image.DataFormat, image.ChannelFormats);
+
+        if (image.DataFormat == CVDataFormat.CV_U8) Divide<byte, T>(arg1, image, ref outImage);
+        else if (image.DataFormat == CVDataFormat.CV_S8) Divide<sbyte, T>(arg1, image, ref outImage);
+        else if (image.DataFormat == CVDataFormat.CV_U16) Divide<ushort, T>(arg1, image, ref outImage);
+        else if (image.DataFormat == CVDataFormat.CV_S16) Divide<short, T>(arg1, image, ref outImage);
+        else if (image.DataFormat == CVDataFormat.CV_U32) Divide<uint, T>(arg1, image, ref outImage);
+        else if (image.DataFormat == CVDataFormat.CV_S32) Divide<int, T>(arg1, image, ref outImage);
+        else if (image.DataFormat == CVDataFormat.CV_U64) Divide<ulong, T>(arg1, image, ref outImage);
+        else if (image.DataFormat == CVDataFormat.CV_S64) Divide<long, T>(arg1, image, ref outImage);
+        else if (image.DataFormat == CVDataFormat.CV_F32) Divide<float, T>(arg1, image, ref outImage);
+        else if (image.DataFormat == CVDataFormat.CV_F64) Divide<double, T>(arg1, image, ref outImage);
+
+        return outImage;
+    }
+
+    public static CVImage Divide<T>(T[] arg1, CVImage image) where T : struct, INumber<T>
+    {
+        CVImage outImage = CVImage.Create(image.Width, image.Height, image.DataFormat, image.ChannelFormats);
+
+        if (image.DataFormat == CVDataFormat.CV_U8) Divide<byte, T>(arg1, image, ref outImage);
+        else if (image.DataFormat == CVDataFormat.CV_S8) Divide<sbyte, T>(arg1, image, ref outImage);
+        else if (image.DataFormat == CVDataFormat.CV_U16) Divide<ushort, T>(arg1, image, ref outImage);
+        else if (image.DataFormat == CVDataFormat.CV_S16) Divide<short, T>(arg1, image, ref outImage);
+        else if (image.DataFormat == CVDataFormat.CV_U32) Divide<uint, T>(arg1, image, ref outImage);
+        else if (image.DataFormat == CVDataFormat.CV_S32) Divide<int, T>(arg1, image, ref outImage);
+        else if (image.DataFormat == CVDataFormat.CV_U64) Divide<ulong, T>(arg1, image, ref outImage);
+        else if (image.DataFormat == CVDataFormat.CV_S64) Divide<long, T>(arg1, image, ref outImage);
+        else if (image.DataFormat == CVDataFormat.CV_F32) Divide<float, T>(arg1, image, ref outImage);
+        else if (image.DataFormat == CVDataFormat.CV_F64) Divide<double, T>(arg1, image, ref outImage);
+
+        return outImage;
+    }
+
     public static CVImagePyramid Divide<T>(CVImagePyramid image, T arg1) where T : struct, INumber<T>
     {
         CVImagePyramid outImage = new CVImagePyramid(image.Levels);

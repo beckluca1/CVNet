@@ -2,9 +2,9 @@ using System.Numerics;
 
 namespace CVNet;
 
-public static class CVBigger
+public static class CVGreater
 {
-    public static void Bigger<T, TV>(
+    public static void Greater<T, TV>(
         CVImage imageIn,
         TV value,
         ref CVImage imageOut)
@@ -45,7 +45,7 @@ public static class CVBigger
         }
     }
 
-    public static void Bigger<T, TV>(
+    public static void Greater<T, TV>(
         CVImage imageIn,
         TV[] values,
         ref CVImage imageOut)
@@ -97,7 +97,7 @@ public static class CVBigger
         }
     }
 
-    public static void Bigger<T>(
+    public static void Greater<T>(
         CVImage imageIn1,
         CVImage imageIn2,
         ref CVImage imageOut)
@@ -136,86 +136,86 @@ public static class CVBigger
         }
     }
 
-    public static CVImage Bigger<T>(CVImage image, T arg1) where T : struct, INumber<T>
+    public static CVImage Greater<T>(CVImage image, T arg1) where T : struct, INumber<T>
     {
         CVImage outImage = CVImage.Create(image.Width, image.Height, image.DataFormat, image.ChannelFormats);
 
-        if (image.DataFormat == CVDataFormat.CV_U8) Bigger<byte, T>(image, arg1, ref outImage);
-        else if (image.DataFormat == CVDataFormat.CV_S8) Bigger<sbyte, T>(image, arg1, ref outImage);
-        else if (image.DataFormat == CVDataFormat.CV_U16) Bigger<ushort, T>(image, arg1, ref outImage);
-        else if (image.DataFormat == CVDataFormat.CV_S16) Bigger<short, T>(image, arg1, ref outImage);
-        else if (image.DataFormat == CVDataFormat.CV_U32) Bigger<uint, T>(image, arg1, ref outImage);
-        else if (image.DataFormat == CVDataFormat.CV_S32) Bigger<int, T>(image, arg1, ref outImage);
-        else if (image.DataFormat == CVDataFormat.CV_U64) Bigger<ulong, T>(image, arg1, ref outImage);
-        else if (image.DataFormat == CVDataFormat.CV_S64) Bigger<long, T>(image, arg1, ref outImage);
-        else if (image.DataFormat == CVDataFormat.CV_F32) Bigger<float, T>(image, arg1, ref outImage);
-        else if (image.DataFormat == CVDataFormat.CV_F64) Bigger<double, T>(image, arg1, ref outImage);
+        if (image.DataFormat == CVDataFormat.CV_U8) Greater<byte, T>(image, arg1, ref outImage);
+        else if (image.DataFormat == CVDataFormat.CV_S8) Greater<sbyte, T>(image, arg1, ref outImage);
+        else if (image.DataFormat == CVDataFormat.CV_U16) Greater<ushort, T>(image, arg1, ref outImage);
+        else if (image.DataFormat == CVDataFormat.CV_S16) Greater<short, T>(image, arg1, ref outImage);
+        else if (image.DataFormat == CVDataFormat.CV_U32) Greater<uint, T>(image, arg1, ref outImage);
+        else if (image.DataFormat == CVDataFormat.CV_S32) Greater<int, T>(image, arg1, ref outImage);
+        else if (image.DataFormat == CVDataFormat.CV_U64) Greater<ulong, T>(image, arg1, ref outImage);
+        else if (image.DataFormat == CVDataFormat.CV_S64) Greater<long, T>(image, arg1, ref outImage);
+        else if (image.DataFormat == CVDataFormat.CV_F32) Greater<float, T>(image, arg1, ref outImage);
+        else if (image.DataFormat == CVDataFormat.CV_F64) Greater<double, T>(image, arg1, ref outImage);
 
         return outImage;
     }
 
-    public static CVImage Bigger<T>(CVImage image, T[] arg1) where T : struct, INumber<T>
+    public static CVImage Greater<T>(CVImage image, T[] arg1) where T : struct, INumber<T>
     {
         CVImage outImage = CVImage.Create(image.Width, image.Height, image.DataFormat, image.ChannelFormats);
 
-        if (image.DataFormat == CVDataFormat.CV_U8) Bigger<byte, T>(image, arg1, ref outImage);
-        else if (image.DataFormat == CVDataFormat.CV_S8) Bigger<sbyte, T>(image, arg1, ref outImage);
-        else if (image.DataFormat == CVDataFormat.CV_U16) Bigger<ushort, T>(image, arg1, ref outImage);
-        else if (image.DataFormat == CVDataFormat.CV_S16) Bigger<short, T>(image, arg1, ref outImage);
-        else if (image.DataFormat == CVDataFormat.CV_U32) Bigger<uint, T>(image, arg1, ref outImage);
-        else if (image.DataFormat == CVDataFormat.CV_S32) Bigger<int, T>(image, arg1, ref outImage);
-        else if (image.DataFormat == CVDataFormat.CV_U64) Bigger<ulong, T>(image, arg1, ref outImage);
-        else if (image.DataFormat == CVDataFormat.CV_S64) Bigger<long, T>(image, arg1, ref outImage);
-        else if (image.DataFormat == CVDataFormat.CV_F32) Bigger<float, T>(image, arg1, ref outImage);
-        else if (image.DataFormat == CVDataFormat.CV_F64) Bigger<double, T>(image, arg1, ref outImage);
+        if (image.DataFormat == CVDataFormat.CV_U8) Greater<byte, T>(image, arg1, ref outImage);
+        else if (image.DataFormat == CVDataFormat.CV_S8) Greater<sbyte, T>(image, arg1, ref outImage);
+        else if (image.DataFormat == CVDataFormat.CV_U16) Greater<ushort, T>(image, arg1, ref outImage);
+        else if (image.DataFormat == CVDataFormat.CV_S16) Greater<short, T>(image, arg1, ref outImage);
+        else if (image.DataFormat == CVDataFormat.CV_U32) Greater<uint, T>(image, arg1, ref outImage);
+        else if (image.DataFormat == CVDataFormat.CV_S32) Greater<int, T>(image, arg1, ref outImage);
+        else if (image.DataFormat == CVDataFormat.CV_U64) Greater<ulong, T>(image, arg1, ref outImage);
+        else if (image.DataFormat == CVDataFormat.CV_S64) Greater<long, T>(image, arg1, ref outImage);
+        else if (image.DataFormat == CVDataFormat.CV_F32) Greater<float, T>(image, arg1, ref outImage);
+        else if (image.DataFormat == CVDataFormat.CV_F64) Greater<double, T>(image, arg1, ref outImage);
 
         return outImage;
     }
 
-    public static CVImage Bigger(CVImage image1, CVImage image2)
+    public static CVImage Greater(CVImage image1, CVImage image2)
     {
         CVImage outImage = CVImage.Create(image1.Width, image1.Height, image1.DataFormat, image1.ChannelFormats);
 
-        if (image1.DataFormat == CVDataFormat.CV_U8) Bigger<byte>(image1, image2, ref outImage);
-        else if (image1.DataFormat == CVDataFormat.CV_S8) Bigger<sbyte>(image1, image2, ref outImage);
-        else if (image1.DataFormat == CVDataFormat.CV_U16) Bigger<ushort>(image1, image2, ref outImage);
-        else if (image1.DataFormat == CVDataFormat.CV_S16) Bigger<short>(image1, image2, ref outImage);
-        else if (image1.DataFormat == CVDataFormat.CV_U32) Bigger<uint>(image1, image2, ref outImage);
-        else if (image1.DataFormat == CVDataFormat.CV_S32) Bigger<int>(image1, image2, ref outImage);
-        else if (image1.DataFormat == CVDataFormat.CV_U64) Bigger<ulong>(image1, image2, ref outImage);
-        else if (image1.DataFormat == CVDataFormat.CV_S64) Bigger<long>(image1, image2, ref outImage);
-        else if (image1.DataFormat == CVDataFormat.CV_F32) Bigger<float>(image1, image2, ref outImage);
-        else if (image1.DataFormat == CVDataFormat.CV_F64) Bigger<double>(image1, image2, ref outImage);
+        if (image1.DataFormat == CVDataFormat.CV_U8) Greater<byte>(image1, image2, ref outImage);
+        else if (image1.DataFormat == CVDataFormat.CV_S8) Greater<sbyte>(image1, image2, ref outImage);
+        else if (image1.DataFormat == CVDataFormat.CV_U16) Greater<ushort>(image1, image2, ref outImage);
+        else if (image1.DataFormat == CVDataFormat.CV_S16) Greater<short>(image1, image2, ref outImage);
+        else if (image1.DataFormat == CVDataFormat.CV_U32) Greater<uint>(image1, image2, ref outImage);
+        else if (image1.DataFormat == CVDataFormat.CV_S32) Greater<int>(image1, image2, ref outImage);
+        else if (image1.DataFormat == CVDataFormat.CV_U64) Greater<ulong>(image1, image2, ref outImage);
+        else if (image1.DataFormat == CVDataFormat.CV_S64) Greater<long>(image1, image2, ref outImage);
+        else if (image1.DataFormat == CVDataFormat.CV_F32) Greater<float>(image1, image2, ref outImage);
+        else if (image1.DataFormat == CVDataFormat.CV_F64) Greater<double>(image1, image2, ref outImage);
 
         return outImage;
     }
 
-    public static CVImagePyramid Bigger<T>(CVImagePyramid image, T arg1) where T : struct, INumber<T>
+    public static CVImagePyramid Greater<T>(CVImagePyramid image, T arg1) where T : struct, INumber<T>
     {
         CVImagePyramid outImage = new CVImagePyramid(image.Levels);
 
         for (int i = 0; i < image.Levels; i++)
-            outImage[i] = Bigger(image[i], arg1);
+            outImage[i] = Greater(image[i], arg1);
 
         return outImage;
     }
 
-    public static CVImagePyramid Bigger<T>(CVImagePyramid image, T[] arg1) where T : struct, INumber<T>
+    public static CVImagePyramid Greater<T>(CVImagePyramid image, T[] arg1) where T : struct, INumber<T>
     {
         CVImagePyramid outImage = new CVImagePyramid(image.Levels);
 
         for (int i = 0; i < image.Levels; i++)
-            outImage[i] = Bigger(image[i], arg1);
+            outImage[i] = Greater(image[i], arg1);
 
         return outImage;
     }
 
-    public static CVImagePyramid Bigger(CVImagePyramid image1, CVImagePyramid image2)
+    public static CVImagePyramid Greater(CVImagePyramid image1, CVImagePyramid image2)
     {
         CVImagePyramid outImage = new CVImagePyramid(image1.Levels);
 
         for (int i = 0; i < image1.Levels; i++)
-            outImage[i] = Bigger(image1[i], image2[i]);
+            outImage[i] = Greater(image1[i], image2[i]);
 
         return outImage;
     }
