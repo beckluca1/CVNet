@@ -60,7 +60,7 @@ public class CVProjection
 
     public static void CalculatePlaneProjection(List<Vector<double>> imagePoints, List<Vector<double>> worldPoints, Matrix<double> K, Vector<double> d, out Matrix<double> R, out Vector<double> t)
     {
-        Matrix<double> homography = CVCamera.ComputeHomographyStable(imagePoints, worldPoints);
+        Matrix<double> homography = CVCamera.ComputeHomography(imagePoints, worldPoints);
 
         Matrix<double> Kinv = K.Inverse();
 

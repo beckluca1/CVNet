@@ -11,7 +11,7 @@ public class CVCalibration
 
         for (int i = 0; i < imagePointGroups.Count; i++)
         {
-            homographies.Add(CVCamera.ComputeHomographyStable(imagePointGroups[i], worldPointGroup[i]));
+            homographies.Add(CVCamera.ComputeHomography(imagePointGroups[i], worldPointGroup[i]));
         }
 
         K = CVCamera.ComputeIntrinsics(homographies);
