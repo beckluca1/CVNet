@@ -107,11 +107,10 @@ public struct CVChannelFormats
 public enum CV_ResizeMode
 {
     CV_HALF,
-    CV_DOUBLE,
+    CV_TWICE,
     CV_STRETCH_NEAREST,
     CV_STRETCH_LINEAR,
-    CV_CROP_NEAREST,
-    CV_CROP_LINEAR,
+    CV_CROP,
 }
 
 public class CVImage

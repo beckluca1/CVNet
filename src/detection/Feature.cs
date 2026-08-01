@@ -370,8 +370,9 @@ public class CVFeatureDetector
             if (newWidth < 32 || newHeight < 32)
                 break;
 
-            CVImage scaled = CVResize.Resize(image, newWidth, newHeight, CV_ResizeMode.CV_STRETCH_NEAREST);
-            pyramid.Add((scaled, scale));
+            CVImage nextImage = CVBlur.GaussianBlur(image, 2);
+            nextImage = CVResize.StretchLinear(nextImage, newWidth, newHeight);
+            pyramid.Add((nextImage, scale));
         }
 
         return pyramid;
@@ -998,9 +999,7 @@ public class CVFeatureDetector
             out List<(int x, int y)> matchedFeatures2)
     {
         List<CVDescriptor> features1 = Orb(image1);
-        Console.WriteLine($"Features 1: {features1.Count}");
         List<CVDescriptor> features2 = Orb(image2);
-        Console.WriteLine($"Features 2: {features2.Count}");
 
         matchedFeatures1 = new List<(int x, int y)>();
         matchedFeatures2 = new List<(int x, int y)>();
@@ -1164,9 +1163,7 @@ public class CVFeatureDetector
         out List<(int x, int y)> matchedFeatures2)
     {
         List<CVDescriptor> features1 = CensusFeatures(image1, radiusCensus, offset1, (int)(offset1 * (double)image1.Height / image1.Width));
-        Console.WriteLine($"Features 1: {features1.Count}");
         List<CVDescriptor> features2 = CensusFeatures(image2, radiusCensus, offset2, (int)(offset2 * (double)image2.Height / image2.Width));
-        Console.WriteLine($"Features 2: {features2.Count}");
 
         matchedFeatures1 = new List<(int x, int y)>();
         matchedFeatures2 = new List<(int x, int y)>();

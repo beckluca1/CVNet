@@ -294,14 +294,16 @@ public class CVCornerDetector
         return CVMin.Min(lambda1, lambda2);
     }
 
-    public static List<(int, int, double)> DetectCornerShiTomasi(CVImage image, int windowRadius = 1, int threshold = 1)
+    public static List<(int, int, double)> DetectCornerShiTomasi(CVImage image, int windowRadius = 1, double threshold = 0.9, int nonMaxSuppressionRadius = 1)
     {
-        CVImage gray = CVConvert.ConvertChannelFormat(image, CVChannelFormat.CV_Grayscale);
-        CVImage strength = ShiTomasiStrength(image, windowRadius);
-        CVImage mask = strength > threshold;
+        CVImage imageC = CVConvert.ConvertChannelFormat(image, CVChannelFormat.CV_Grayscale);
+        imageC = ShiTomasiStrength(imageC, windowRadius);
+        imageC = CVProcessing.NonMaximumSuppression(imageC, nonMaxSuppressionRadius);
+        imageC = CVProcessing.Normalize(imageC, 0, 1);
+        CVImage mask = imageC > threshold;
 
-        var pixelList = CVProcessing.GetPixels(mask, strength, 1);
-        return NonMaximumSuppressionPoints(pixelList);
+        var pixelList = CVProcessing.GetPixels(mask, imageC, 1);
+        return pixelList;
     }
 
     public static CVImage HarrisStrength(CVImage image, double constant = 0.04, int windowRadius = 1)

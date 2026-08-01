@@ -230,7 +230,13 @@ public class CVCamera
         var svd = V.Svd(true);
 
         if (svd.S.Min() < 1e-12)
+        {
+            foreach (var H in homographies)
+                Console.WriteLine(H);
+
             throw new Exception("V is rank-deficient (bad homographies)");
+        }
+
 
         Vector<double> b = svd.VT.Row(5);
 
@@ -657,6 +663,12 @@ public class CVCamera
         var svd = A.Svd(true);
         Vector<double> e = svd.VT.Row(8);
 
+        if (svd.S.Count == 9)
+        {
+            Console.WriteLine("svd.S");
+            Console.WriteLine(svd.S);
+        }
+
         var E = DenseMatrix.OfArray(new double[,] {
             {e[0],e[1],e[2]},
             {e[3],e[4],e[5]},
@@ -678,10 +690,12 @@ public class CVCamera
 
         // Fix SVD signs
         if (U.Determinant() < 0)
-            U = U * DenseMatrix.OfDiagonalArray(new double[] { 1, 1, -1 });
+            U = U * DenseMatrix.OfDiagonalArray(
+                [1, 1, -1]);
 
         if (Vt.Determinant() < 0)
-            Vt = DenseMatrix.OfDiagonalArray(new double[] { 1, 1, -1 }) * Vt;
+            Vt = Vt * DenseMatrix.OfDiagonalArray(
+                [1, 1, -1]);
 
         var W = DenseMatrix.OfArray(new double[,] {
             {0,-1,0},
@@ -699,6 +713,29 @@ public class CVCamera
             R2 = -R2;
 
         Vector<double> t = U.Column(2);
+
+        Console.WriteLine("R1");
+        Console.WriteLine(R1);
+        Console.WriteLine("R2");
+        Console.WriteLine(R2);
+
+        Console.WriteLine("t1");
+        Console.WriteLine(t);
+        Console.WriteLine("t2");
+        Console.WriteLine(-t);
+
+        Vector<double> cameraOffset1 = R1.Transpose() * t;
+        Vector<double> cameraOffset2 = R1.Transpose() * -t;
+        Vector<double> cameraOffset3 = R2.Transpose() * t;
+        Vector<double> cameraOffset4 = R2.Transpose() * -t;
+        Console.WriteLine("c1");
+        Console.WriteLine(cameraOffset1);
+        Console.WriteLine("c2");
+        Console.WriteLine(cameraOffset2);
+        Console.WriteLine("c3");
+        Console.WriteLine(cameraOffset3);
+        Console.WriteLine("c4");
+        Console.WriteLine(cameraOffset4);
 
         rotations = new List<Matrix<double>> { R1, R1, R2, R2 };
         translations = new List<Vector<double>> { t, -t, t, -t };
@@ -855,9 +892,19 @@ public class CVCamera
     {
         Matrix<double> En = EstimateEssential(srcHNorm, dstHNorm);
 
+        Console.WriteLine("En");
+        Console.WriteLine(En);
+
         // Undo Hartley normalization
         Matrix<double> E = T2.Transpose() * En * T1;
+
+        Console.WriteLine("E");
+        Console.WriteLine(E);
+
         E = EnforceEssential(E);
+
+        Console.WriteLine("E Enforced");
+        Console.WriteLine(E);
 
         // Four possible poses
         DecomposeEssential(E, out Rs, out ts);
@@ -888,6 +935,43 @@ public class CVCamera
         t = ts[index];
     }
 
+    public static double SampsonError(
+        List<Vector<double>> srcNorm,
+        List<Vector<double>> dstNorm,
+        Matrix<double> E,
+        double threshold,
+        out List<int> inliers)
+    {
+        inliers = new();
+        double error = 0.0;
+
+        Matrix<double> Et = E.Transpose();
+
+        for (int i = 0; i < srcNorm.Count; i++)
+        {
+            Vector<double> Ex1 = E * srcNorm[i];
+            Vector<double> Etx2 = Et * dstNorm[i];
+
+            double numer = Math.Pow(dstNorm[i].DotProduct(Ex1), 2);
+
+            double denom =
+                Ex1[0] * Ex1[0] +
+                Ex1[1] * Ex1[1] +
+                Etx2[0] * Etx2[0] +
+                Etx2[1] * Etx2[1];
+
+            double sampsonError = numer / denom;
+
+            if (sampsonError < threshold)
+            {
+                error += sampsonError;
+                inliers.Add(i);
+            }
+        }
+
+        return error;
+    }
+
     public static void EstimateCameraPoseRansac(
             List<Vector<double>> src,
             List<Vector<double>> dst,
@@ -906,6 +990,20 @@ public class CVCamera
 
         if (src.Count != dst.Count || src.Count < 8)
             return;
+
+        double dx = 0.0;
+        double dy = 0.0;
+        for (int i = 0; i < src.Count; i++)
+        {
+            dx += src[i][0] - dst[i][0];
+            dy += src[i][1] - dst[i][1];
+        }
+        dx /= src.Count;
+        dy /= src.Count;
+
+        Console.WriteLine("Mean DX, DY");
+        Console.WriteLine(dx);
+        Console.WriteLine(dy);
 
         List<Vector<double>> srcNorm = NormalizeCameraPoints(src, K1);
         List<Vector<double>> dstNorm = NormalizeCameraPoints(dst, K2);
@@ -939,47 +1037,21 @@ public class CVCamera
             Matrix<double> E = h2.T.Transpose() * En * h1.T;
             E = EnforceEssential(E);
 
-            // 2. Count inliers
-            List<int> inliers = new();
-            double error = 0.0;
-            for (int i = 0; i < n; i++)
-            {
-                Vector<double> Ex1 = E * srcNorm[i];
-                Vector<double> Etx2 = E.Transpose() * dstNorm[i];
-
-                double numer = Math.Pow(dstNorm[i].DotProduct(Ex1), 2);
-
-                double denom =
-                    Ex1[0] * Ex1[0] +
-                    Ex1[1] * Ex1[1] +
-                    Etx2[0] * Etx2[0] +
-                    Etx2[1] * Etx2[1];
-
-                double sampsonError = numer / denom;
-
-                if (sampsonError < threshold)
-                {
-                    error += sampsonError;
-                    inliers.Add(i);
-                }
-
-            }
+            double error = SampsonError(srcNorm, dstNorm, E, threshold, out List<int> inliers);
 
             // 3. Keep best model
             if (inliers.Count > bestInliers.Count || (inliers.Count == bestInliers.Count && error < bestError))
             {
-                Console.WriteLine($"Sampson Error {error}");
-                Console.WriteLine($"Inliers {bestInliers.Count} / {n}");
-
                 bestInliers = inliers;
                 bestError = error;
             }
-
-
         }
 
+        Console.WriteLine($"Sampson Error {bestError}");
+        Console.WriteLine($"Inliers {bestInliers.Count} / {n}");
+
         if (bestInliers.Count < 8)
-            throw new Exception("No valid Essential Matrix found found");
+            throw new Exception("No valid Essential Matrix found");
 
         // 4. Recalculate using all inliers
         List<Vector<double>> finalSrc = new();
@@ -990,6 +1062,8 @@ public class CVCamera
 
         foreach (int i in bestInliers)
         {
+            Console.WriteLine($"{src[i][0]}, {src[i][1]} <-> {dst[i][0]}, {dst[i][1]}");
+
             finalSrc.Add(h1.points[i]);
             finalDst.Add(h2.points[i]);
 
@@ -998,6 +1072,13 @@ public class CVCamera
         }
 
         estimateCameraPose(finalSrc, finalDst, h1.T, h2.T, out var Rs, out var ts);
+
+        Matrix<double> nEn = EstimateEssential(inlierSrcNorm, inlierDstNorm);
+        Matrix<double> nE = h2.T.Transpose() * nEn * h1.T;
+        nE = EnforceEssential(nE);
+
+        double nerror = SampsonError(inlierSrcNorm, inlierDstNorm, nE, threshold, out List<int> _);
+        Console.WriteLine($"Final Sampson Error: {nerror}");
 
         // Pick the pose where points are in front
         // of both cameras
@@ -1056,14 +1137,14 @@ public class CVCamera
         out Matrix<double> H2)
     {
         // Camera centers
-        Vector<double> C1 = DenseVector.OfArray(new double[] { 0, 0, 0 });
+        Vector<double> C1 = DenseVector.OfArray([0, 0, 0]);
         Vector<double> C2 = -R.Transpose() * t;
 
         // Baseline direction
         Vector<double> ex = (C2 - C1).Normalize(2);
 
         // Average optical axis
-        Vector<double> z1 = DenseVector.OfArray(new double[] { 0, 0, 1 });
+        Vector<double> z1 = DenseVector.OfArray([0, 0, 1]);
         Vector<double> z2 = R.Transpose() * z1;
 
         Vector<double> ez = (z1 + z2).Normalize(2);
@@ -1074,13 +1155,7 @@ public class CVCamera
         // Recompute z to make orthogonal
         ez = Cross(ex, ey).Normalize(2);
 
-
-        Matrix<double> Rrect =
-            DenseMatrix.OfColumnVectors(
-                ex,
-                ey,
-                ez);
-
+        Matrix<double> Rrect = DenseMatrix.OfColumnVectors(ex, ey, ez);
 
         // Camera rotations into rectified frame
         R1 = Rrect;
@@ -1088,19 +1163,23 @@ public class CVCamera
         R2 = Rrect * R.Transpose();
 
         if (R1.Determinant() < 0)
-            R1 = -R1;
+        {
+            R1.SetColumn(2, -R1.Column(2));
+        }
 
         if (R2.Determinant() < 0)
-            R2 = -R2;
-
+        {
+            R2.SetColumn(2, -R2.Column(2));
+        }
 
         // Image homographies
         H1 = K1 * R1 * K1.Inverse();
         H2 = K2 * R2 * K2.Inverse();
 
-
-        H1 /= H1[2, 2];
-        H2 /= H2[2, 2];
+        if (H1[2, 2] != 0.0)
+            H1 /= H1[2, 2];
+        if (H2[2, 2] != 0.0)
+            H2 /= H2[2, 2];
     }
 
     public static void StereoRectifyRansac(
@@ -1119,6 +1198,22 @@ public class CVCamera
     {
         EstimateCameraPoseRansac(src, dst, K1, K2, iterations, threshold, out R, out t, out _);
         StereoRectify(K1, K2, R, t, out R1, out R2, out H1, out H2);
+
+        double adx = 0.0;
+        double ady = 0.0;
+        for (int i = 0; i < src.Count; i++)
+        {
+            var srcA = H1 * src[i];
+            var dstA = H2 * dst[i];
+            adx += srcA[0] - dstA[0];
+            ady += srcA[1] - dstA[1];
+        }
+        adx /= src.Count;
+        ady /= src.Count;
+
+        Console.WriteLine("Mean DX, DY after rectify");
+        Console.WriteLine(adx);
+        Console.WriteLine(ady);
     }
 
 };
