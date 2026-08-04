@@ -1,17 +1,17 @@
 using MathNet.Numerics.LinearAlgebra;
 using MathNet.Numerics.LinearAlgebra.Double;
+using MathNet.Numerics.LinearAlgebra.Factorization;
 
 namespace CVNet;
 
 public class CVCamera
 {
-    public static List<Vector<double>>
-    Normalize(List<Vector<double>> pts, out Matrix<double> T)
+    public static List<Vector<double>> Normalize(List<Vector<double>> points, out Matrix<double> T)
     {
-        double cx = pts.Average(p => p[0]);
-        double cy = pts.Average(p => p[1]);
+        double cx = points.Average(p => p[0]);
+        double cy = points.Average(p => p[1]);
 
-        double meanDist = pts
+        double meanDist = points
             .Average(p =>
             {
                 double dx = p[0] - cx;
@@ -29,39 +29,37 @@ public class CVCamera
         });
 
         var norm = new List<Vector<double>>();
-        foreach (var p in pts)
-            norm.Add(DenseVector.OfArray([s * (p[0] - cx), s * (p[1] - cy)]));
+        foreach (var p in points)
+            norm.Add(DenseVector.OfArray([s * (p[0] - cx), s * (p[1] - cy), 1.0]));
 
         return norm;
     }
 
     public static Matrix<double> Denormalize(
-        Matrix<double> Hn,
-        Matrix<double> Timg,
-        Matrix<double> Twrld)
+        Matrix<double> H,
+        Matrix<double> TImagePoints,
+        Matrix<double> TWorldPoints)
     {
-        var TimgInv = Timg.Inverse();
-
-        return TimgInv * Hn * Twrld;
+        return TImagePoints.Inverse() * H * TWorldPoints;
     }
 
-    private static Matrix<double> computeHomography(List<Vector<double>> img, List<Vector<double>> wrld)
+    private static Matrix<double> computeHomography(List<Vector<double>> imagePoints, List<Vector<double>> WorldPoints)
     {
-        DenseMatrix A = DenseMatrix.Create(2 * wrld.Count, 9, 0);
+        DenseMatrix A = DenseMatrix.Create(2 * WorldPoints.Count, 9, 0);
 
-        for (int i = 0; i < wrld.Count; i++)
+        for (int i = 0; i < WorldPoints.Count; i++)
         {
-            double X = wrld[i][0];
-            double Y = wrld[i][1];
-            double x = img[i][0];
-            double y = img[i][1];
+            double X = WorldPoints[i][0];
+            double Y = WorldPoints[i][1];
+            double x = imagePoints[i][0];
+            double y = imagePoints[i][1];
 
-            A[2 * i, 0] = -X;
-            A[2 * i, 1] = -Y;
-            A[2 * i, 2] = -1;
-            A[2 * i, 6] = x * X;
-            A[2 * i, 7] = x * Y;
-            A[2 * i, 8] = x;
+            A[2 * i + 0, 0] = -X;
+            A[2 * i + 0, 1] = -Y;
+            A[2 * i + 0, 2] = -1;
+            A[2 * i + 0, 6] = x * X;
+            A[2 * i + 0, 7] = x * Y;
+            A[2 * i + 0, 8] = x;
 
             A[2 * i + 1, 3] = -X;
             A[2 * i + 1, 4] = -Y;
@@ -74,19 +72,17 @@ public class CVCamera
         var svd = A.Svd(true);
         Vector<double> h = svd.VT.Row(svd.VT.RowCount - 1);
 
-        DenseMatrix H = DenseMatrix.OfArray(new double[,]
+        return DenseMatrix.OfArray(new double[,]
         {
-        { h[0], h[1], h[2] },
-        { h[3], h[4], h[5] },
-        { h[6], h[7], h[8] }
+            { h[0], h[1], h[2] },
+            { h[3], h[4], h[5] },
+            { h[6], h[7], h[8] }
         });
-
-        return H / H[2, 2];
     }
 
-    public static Matrix<double> ComputeHomography(List<Vector<double>> src, List<Vector<double>> dst)
+    public static Matrix<double> ComputeHomography(List<Vector<double>> imagePoints, List<Vector<double>> worldPoints)
     {
-        if (src.Count < 4)
+        if (imagePoints.Count < 4)
             return DenseMatrix.OfArray(new double[,]
             {
                 { 1, 0, 0 },
@@ -94,12 +90,14 @@ public class CVCamera
                 { 0, 0, 1 }
             });
 
-        List<Vector<double>> normalizedSrcPoints = Normalize(src, out var TSrc);
-        List<Vector<double>> normalizedDstPoints = Normalize(dst, out var TDst);
+        List<Vector<double>> normalizedImagePoints = Normalize(imagePoints, out var TImagePoints);
+        List<Vector<double>> normalizedWorldPoints = Normalize(worldPoints, out var TWorldPoints);
 
-        Matrix<double> homography = computeHomography(normalizedSrcPoints, normalizedDstPoints);
+        Matrix<double> homography = computeHomography(normalizedImagePoints, normalizedWorldPoints);
 
-        return Denormalize(homography, TSrc, TDst);
+        Matrix<double> H = Denormalize(homography, TImagePoints, TWorldPoints);
+
+        return H / H[2, 2];
     }
 
     public static Matrix<double> ComputeHomographyRansac(
@@ -228,15 +226,15 @@ public class CVCamera
             throw new Exception("V contains NaN/Inf before SVD");
 
         var svd = V.Svd(true);
+        var S = svd.S;
 
-        if (svd.S.Min() < 1e-12)
+        if (S[4] < 1e-14)
         {
             foreach (var H in homographies)
                 Console.WriteLine(H);
 
-            throw new Exception("V is rank-deficient (bad homographies)");
+            throw new Exception($"V is rank-deficient: last singular values are {S[4]} and {S[5]}");
         }
-
 
         Vector<double> b = svd.VT.Row(5);
 
@@ -250,47 +248,24 @@ public class CVCamera
         double B23 = b[4];
         double B33 = b[5];
 
-        double v0 =
-            (B12 * B13 - B11 * B23) /
-            (B11 * B22 - B12 * B12);
+        double v0Numer = B12 * B13 - B11 * B23;
+        double v0Denom = B11 * B22 - B12 * B12;
 
-        double lambda =
-            B33 -
-            (B13 * B13 +
-             v0 * (B12 * B13 - B11 * B23))
-            / B11;
-
-        double alpha =
-            Math.Sqrt(lambda / B11);
-
-        double beta =
-            Math.Sqrt(
-                lambda * B11 /
-                (B11 * B22 - B12 * B12));
-
-        double gamma =
-            -B12 * alpha * alpha * beta / lambda;
-
-        double u0 =
-            gamma * v0 / beta -
-            B13 * alpha * alpha / lambda;
-
-        double denom = (B11 * B22 - B12 * B12);
-        if (Math.Abs(denom) < 1e-14)
+        if (Math.Abs(v0Denom) < 1e-14 || Math.Abs(B11) < 1e-14)
             throw new Exception("Degenerate intrinsic system");
 
-        double cy = (B12 * B13 - B11 * B23) / denom;
-        double lam = B33 - (B13 * B13 + cy * (B12 * B13 - B11 * B23)) / B11;
+        double v0 = v0Numer / v0Denom;
+        double lambda = B33 - (B13 * B13 + v0 * v0Numer) / B11;
 
-        double v = lam / B11;
+        if (Math.Abs(lambda) < 1e-14)
+            throw new Exception("Degenerate intrinsic system");
 
-        if (v <= 0 || double.IsNaN(v))
-            throw new Exception("Invalid fx sqrt input");
+        double alpha = Math.Sqrt(lambda / B11);
+        double beta = Math.Sqrt(lambda * B11 / v0Denom);
 
-        double fx = Math.Sqrt(v);
-        double fy = Math.Sqrt(v / denom);
-        double cx = -B13 * fx * fx / lam;
-        double cy2 = cy;
+        double gamma = -B12 * alpha * alpha * beta / lambda;
+
+        double u0 = gamma * v0 / beta - B13 * alpha * alpha / lambda;
 
         return DenseMatrix.OfArray(new double[,]
         {
@@ -301,15 +276,15 @@ public class CVCamera
     }
 
     static Vector<double> Cross(
-        Vector<double> a,
-        Vector<double> b)
+            Vector<double> a,
+            Vector<double> b)
     {
         return DenseVector.OfArray(new[]
         {
-        a[1]*b[2] - a[2]*b[1],
-        a[2]*b[0] - a[0]*b[2],
-        a[0]*b[1] - a[1]*b[0]
-    });
+            a[1]*b[2] - a[2]*b[1],
+            a[2]*b[0] - a[0]*b[2],
+            a[0]*b[1] - a[1]*b[0]
+        });
     }
 
     public static void ComputeExtrinsics(Matrix<double> H, Matrix<double> Kinv, out Matrix<double> R, out Vector<double> t)
@@ -320,9 +295,7 @@ public class CVCamera
         var b2 = B.Column(1);
         var b3 = B.Column(2);
 
-        double lambda =
-            2.0 /
-            (b1.L2Norm() + b2.L2Norm());
+        double lambda = 2.0 / (b1.L2Norm() + b2.L2Norm());
 
         var r1 = lambda * b1;
         var r2 = lambda * b2;
@@ -330,10 +303,7 @@ public class CVCamera
 
         var r3 = Cross(r1, r2);
 
-        R = DenseMatrix.OfColumnVectors(
-            r1,
-            r2,
-            r3);
+        R = DenseMatrix.OfColumnVectors(r1, r2, r3);
 
         var svd = R.Svd(true);
         var U = svd.U;
@@ -385,7 +355,7 @@ public class CVCamera
     private static Vector<double> Project(
     Vector<double> P,
     Matrix<double> K,
-    Vector<double> dist)
+    Vector<double> distortion)
     {
         double fx = K[0, 0], fy = K[1, 1];
         double cx = K[0, 2], cy = K[1, 2];
@@ -395,8 +365,8 @@ public class CVCamera
 
         double r2 = x * x + y * y;
 
-        double k1 = dist[0], k2 = dist[1];
-        double p1 = dist[2], p2 = dist[3];
+        double k1 = distortion[0], k2 = distortion[1];
+        double p1 = distortion[2], p2 = distortion[3];
 
         double radial = 1 + k1 * r2 + k2 * r2 * r2;
 
@@ -411,28 +381,27 @@ public class CVCamera
     }
 
     public static double ComputeError(
-    List<Vector<double>> world,
-    List<Vector<double>> image,
+    List<Vector<double>> worldPoints,
+    List<Vector<double>> imagePoints,
     Matrix<double> K,
-    Vector<double> dist)
+    Vector<double> distortion)
     {
         double error = 0;
 
-        for (int i = 0; i < world.Count; i++)
+        for (int i = 0; i < worldPoints.Count; i++)
         {
-            Vector<double> proj = Project(world[i], K, dist);
+            Vector<double> proj = Project(worldPoints[i], K, distortion);
 
-            double dx = proj[0] - image[i][0];
-            double dy = proj[1] - image[i][1];
+            double dx = proj[0] - imagePoints[i][0];
+            double dy = proj[1] - imagePoints[i][1];
 
             error += dx * dx + dy * dy;
         }
 
-        return error / world.Count;
+        return error / worldPoints.Count;
     }
 
-    private static void
-    ProjectWithJacobian(Vector<double> P, Matrix<double> K, Vector<double> d, out Vector<double> proj, out Matrix<double> J)
+    private static void ProjectWithJacobian(Vector<double> P, Matrix<double> K, Vector<double> d, out Vector<double> proj, out Matrix<double> J)
     {
         double fx = K[0, 0];
         double fy = K[1, 1];
@@ -453,15 +422,8 @@ public class CVCamera
 
         double radial = 1 + k1 * r2 + k2 * r4 + k3 * r4 * r2;
 
-        double xDist =
-            x * radial +
-            2 * p1 * x * y +
-            p2 * (r2 + 2 * x * x);
-
-        double yDist =
-            y * radial +
-            p1 * (r2 + 2 * y * y) +
-            2 * p2 * x * y;
+        double xDist = x * radial + 2 * p1 * x * y + p2 * (r2 + 2 * x * x);
+        double yDist = y * radial + p1 * (r2 + 2 * y * y) + 2 * p2 * x * y;
 
         double u = fx * xDist + cx;
         double v = fy * yDist + cy;
@@ -496,8 +458,7 @@ public class CVCamera
         J[1, 4] = fy * y * r4 * r2;
     }
 
-    private static void
-    ComputeResidualAndJacobian(
+    private static void ComputeResidualAndJacobian(
         List<Vector<double>> world,
         List<Vector<double>> image,
         Matrix<double> K,

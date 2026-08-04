@@ -234,7 +234,7 @@ public class CVCheckerboard
 
             double angle = Math.Abs(dot1N / (l1 * lN));
 
-            if (angle < minAngle && angle > 0.1 && angle < 0.9)
+            if (angle < minAngle && angle < 0.9)
             {
                 minAngle = angle;
                 dir2 = dirN;
@@ -265,7 +265,7 @@ public class CVCheckerboard
     {
         List<Vector<double>> saddlePoints = new List<Vector<double>>();
 
-        List<(int x, int y, double score)> corners = CVCornerDetector.DetectCornerShiTomasi(image, radius, threshold, nonMaxSuppressionRadius);
+        List<(int x, int y, double score)> corners = CVCornerDetector.DetectCornerCheckerboard(image, radius, threshold, nonMaxSuppressionRadius);
 
         List<(int i, int j, int index)> maxInliers = new List<(int i, int j, int index)>();
         (int, int, int, int) bestInlierBounds = (0, 0, 0, 0);
@@ -296,7 +296,7 @@ public class CVCheckerboard
         int offsetX = 0;
         int offsetY = 0;
 
-        if (bestInlierBounds.Item1 == -4 && bestInlierBounds.Item3 == 3)
+        /*if (bestInlierBounds.Item1 == -4 && bestInlierBounds.Item3 == 3)
             offsetX -= 1;
         if (bestInlierBounds.Item1 == -3 && bestInlierBounds.Item3 == 4)
             offsetX += 1;
@@ -312,7 +312,7 @@ public class CVCheckerboard
         if (bestInlierBounds.Item2 == -4 && bestInlierBounds.Item4 == 2)
             offsetY -= 2;
         if (bestInlierBounds.Item2 == -2 && bestInlierBounds.Item4 == 4)
-            offsetY += 2;
+            offsetY += 2;*/
 
         List<(double x, double y, double score)> board = boardEstimate(corners, bestFit, offsetX, offsetY, patternRadius, maxPixelOffsetSquared);
 

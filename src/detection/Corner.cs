@@ -541,4 +541,51 @@ public class CVCornerDetector
 
         return stength;
     }
+
+    public static CVImage CheckerboardStrength(CVImage image, int windowRadius = 1)
+    {
+        // First derivatives
+        Sobel(image, out CVImage Ix, out CVImage Iy);
+
+        // Structure tensor
+        CVImage Ixx = Ix * Ix;
+        CVImage Iyy = Iy * Iy;
+        CVImage Ixy = Ix * Iy;
+
+        CVImage A = CVWindowing.AverageWindow(Ixx, windowRadius);
+        CVImage B = CVWindowing.AverageWindow(Ixy, windowRadius);
+        CVImage C = CVWindowing.AverageWindow(Iyy, windowRadius);
+
+        // Shi-Tomasi eigenvalues
+        CVImage det = A * C - B * B;
+        CVImage trace = A + C;
+
+        CVImage disc = CVSquareRoot.SquareRoot(CVMax.Max(trace * trace - 4 * det, 0));
+
+        CVImage lambda1 = (trace + disc) / 2;
+        CVImage lambda2 = (trace - disc) / 2;
+
+        // Mixed derivative
+        Sobel(Ix, out CVImage Ixx2, out CVImage Ixy1);
+        Sobel(Iy, out CVImage Ixy2, out CVImage Iyy2);
+
+        CVImage IxySecond = (Ixy1 + Ixy2) / 2;
+
+        // Checkerboard response
+        CVImage isotropy = lambda2 / (lambda1 + 1e-6);
+
+        return CVAbs.Abs(IxySecond) * isotropy;
+    }
+
+    public static List<(int, int, double)> DetectCornerCheckerboard(CVImage image, int windowRadius = 1, double threshold = 0.9, int nonMaxSuppressionRadius = 1)
+    {
+        CVImage imageC = CVConvert.ConvertChannelFormat(image, CVChannelFormat.CV_Grayscale);
+        imageC = CheckerboardStrength(imageC, windowRadius);
+        imageC = CVProcessing.NonMaximumSuppression(imageC, nonMaxSuppressionRadius);
+        imageC = CVProcessing.Normalize(imageC, 0, 1);
+        CVImage mask = imageC > threshold;
+
+        var pixelList = CVProcessing.GetPixels(mask, imageC, 1);
+        return pixelList;
+    }
 }
