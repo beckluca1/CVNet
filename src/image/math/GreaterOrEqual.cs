@@ -2,7 +2,7 @@ using System.Numerics;
 
 namespace CVNet;
 
-public static class CVGreaterOrEqual
+public static partial class CVMath
 {
     public static void GreaterOrEqual<T, TV>(
         CVImage imageIn,

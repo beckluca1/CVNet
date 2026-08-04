@@ -2,7 +2,7 @@ using System.Numerics;
 
 namespace CVNet;
 
-public static class CVSubtract
+public static partial class CVMath
 {
     public static void Subtract<T, TV>(
         CVImage imageIn,

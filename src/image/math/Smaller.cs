@@ -2,7 +2,7 @@ using System.Numerics;
 
 namespace CVNet;
 
-public static class CVSmaller
+public static partial class CVMath
 {
     public static void Smaller<T, TV>(
         CVImage imageIn,

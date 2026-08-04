@@ -1,12 +1,6 @@
-namespace CVNet;
-
-using VectorD = MathNet.Numerics.LinearAlgebra.Vector<double>;
-using MatrixD = MathNet.Numerics.LinearAlgebra.Matrix<double>;
-using DenseVectorD = MathNet.Numerics.LinearAlgebra.Double.DenseVector;
 using System.Numerics;
-using System.Diagnostics;
-using MathNet.Numerics.RootFinding;
-using System.Reflection;
+
+namespace CVNet;
 
 public class CVCornerDetector
 {
@@ -284,14 +278,14 @@ public class CVCornerDetector
         // Eigenvalues:
         // λ = (trace ± sqrt(trace² - 4det))/2
         CVImage discriminantSquared = (trace * trace) - (structureDeterminant * 4);
-        discriminantSquared = CVMax.Max(discriminantSquared, 0);
+        discriminantSquared = CVMath.Max(discriminantSquared, 0);
 
-        CVImage discriminant = CVSquareRoot.SquareRoot(discriminantSquared);
+        CVImage discriminant = CVMath.SquareRoot(discriminantSquared);
 
         CVImage lambda1 = (trace + discriminant) / 2;
         CVImage lambda2 = (trace - discriminant) / 2;
 
-        return CVMin.Min(lambda1, lambda2);
+        return CVMath.Min(lambda1, lambda2);
     }
 
     public static List<(int, int, double)> DetectCornerShiTomasi(CVImage image, int windowRadius = 1, double threshold = 0.9, int nonMaxSuppressionRadius = 1)
@@ -560,7 +554,7 @@ public class CVCornerDetector
         CVImage det = A * C - B * B;
         CVImage trace = A + C;
 
-        CVImage disc = CVSquareRoot.SquareRoot(CVMax.Max(trace * trace - 4 * det, 0));
+        CVImage disc = CVMath.SquareRoot(CVMath.Max(trace * trace - 4 * det, 0));
 
         CVImage lambda1 = (trace + disc) / 2;
         CVImage lambda2 = (trace - disc) / 2;
@@ -574,7 +568,7 @@ public class CVCornerDetector
         // Checkerboard response
         CVImage isotropy = lambda2 / (lambda1 + 1e-6);
 
-        return CVAbs.Abs(IxySecond) * isotropy;
+        return CVMath.Abs(IxySecond) * isotropy;
     }
 
     public static List<(int, int, double)> DetectCornerCheckerboard(CVImage image, int windowRadius = 1, double threshold = 0.9, int nonMaxSuppressionRadius = 1)

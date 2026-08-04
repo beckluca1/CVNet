@@ -1,15 +1,46 @@
 using System.Numerics;
-using System.Runtime.InteropServices;
-using MathNet.Numerics.Distributions;
 
 namespace CVNet;
 
-using VectorD = MathNet.Numerics.LinearAlgebra.Vector<double>;
-using MatrixD = MathNet.Numerics.LinearAlgebra.Matrix<double>;
-using DenseVectorD = MathNet.Numerics.LinearAlgebra.Double.DenseVector;
-
 public class CVProcessing
 {
+    private static T sum<T>(CVImage imageIn) where T : struct, INumber<T>
+    {
+        Span<T> buffer = imageIn.BufferAs<T>();
+
+        int length = buffer.Length;
+
+        if (length == 0)
+            throw new ArgumentException("Buffer is empty");
+
+        T sum = T.Zero;
+
+        for (int i = 0; i < length; i++)
+        {
+            sum += buffer[i];
+        }
+
+        return sum;
+    }
+
+    public static double Sum(CVImage image)
+    {
+        double value = 0.0;
+
+        if (image.DataFormat == CVDataFormat.CV_U8) value = sum<byte>(image);
+        else if (image.DataFormat == CVDataFormat.CV_S8) value = sum<sbyte>(image);
+        else if (image.DataFormat == CVDataFormat.CV_U16) value = sum<ushort>(image);
+        else if (image.DataFormat == CVDataFormat.CV_S16) value = sum<short>(image);
+        else if (image.DataFormat == CVDataFormat.CV_U32) value = sum<uint>(image);
+        else if (image.DataFormat == CVDataFormat.CV_S32) value = sum<int>(image);
+        else if (image.DataFormat == CVDataFormat.CV_U64) value = sum<ulong>(image);
+        else if (image.DataFormat == CVDataFormat.CV_S64) value = sum<long>(image);
+        else if (image.DataFormat == CVDataFormat.CV_F32) value = sum<float>(image);
+        else if (image.DataFormat == CVDataFormat.CV_F64) value = sum<double>(image);
+
+        return value;
+    }
+
     private static T minValue<T>(CVImage imageIn) where T : struct, INumber<T>
     {
         Span<T> buffer = imageIn.BufferAs<T>();

@@ -2,7 +2,7 @@ using System.Numerics;
 
 namespace CVNet;
 
-public static class CVMultiply
+public static partial class CVMath
 {
     public static void Multiply<T, TV>(
         CVImage imageIn,

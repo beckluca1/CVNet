@@ -2,7 +2,7 @@ using System.Numerics;
 
 namespace CVNet;
 
-public static class CVNotEqual
+public static partial class CVMath
 {
     public static void NotEqual<T, TV>(
         CVImage imageIn,

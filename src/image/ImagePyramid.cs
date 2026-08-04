@@ -38,28 +38,28 @@ public class CVImagePyramid
         set => imageList[index] = value;
     }
 
-    public static CVImagePyramid operator +(int val, CVImagePyramid image) { return CVAdd.Add(image, val); }
-    public static CVImagePyramid operator +(double val, CVImagePyramid image) { return CVAdd.Add(image, val); }
-    public static CVImagePyramid operator +(CVImagePyramid image, int val) { return CVAdd.Add(image, val); }
-    public static CVImagePyramid operator +(CVImagePyramid image, double val) { return CVAdd.Add(image, val); }
-    public static CVImagePyramid operator +(CVImagePyramid image1, CVImagePyramid image2) { return CVAdd.Add(image1, image2); }
+    public static CVImagePyramid operator +(int val, CVImagePyramid image) { return CVMath.Add(image, val); }
+    public static CVImagePyramid operator +(double val, CVImagePyramid image) { return CVMath.Add(image, val); }
+    public static CVImagePyramid operator +(CVImagePyramid image, int val) { return CVMath.Add(image, val); }
+    public static CVImagePyramid operator +(CVImagePyramid image, double val) { return CVMath.Add(image, val); }
+    public static CVImagePyramid operator +(CVImagePyramid image1, CVImagePyramid image2) { return CVMath.Add(image1, image2); }
 
-    // public static  CVImagePyramid operator -(int val, CVImagePyramid image) { return CVSubtract.Subtract(val, image); }
-    // public static  CVImagePyramid operator -(double val, CVImagePyramid image) { return CVSubtract.Subtract(val, image); }
-    public static CVImagePyramid operator -(CVImagePyramid image, int val) { return CVSubtract.Subtract(image, val); }
-    public static CVImagePyramid operator -(CVImagePyramid image, double val) { return CVSubtract.Subtract(image, val); }
-    public static CVImagePyramid operator -(CVImagePyramid image1, CVImagePyramid image2) { return CVSubtract.Subtract(image1, image2); }
+    // public static  CVImagePyramid operator -(int val, CVImagePyramid image) { return CVMath.Subtract(val, image); }
+    // public static  CVImagePyramid operator -(double val, CVImagePyramid image) { return CVMath.Subtract(val, image); }
+    public static CVImagePyramid operator -(CVImagePyramid image, int val) { return CVMath.Subtract(image, val); }
+    public static CVImagePyramid operator -(CVImagePyramid image, double val) { return CVMath.Subtract(image, val); }
+    public static CVImagePyramid operator -(CVImagePyramid image1, CVImagePyramid image2) { return CVMath.Subtract(image1, image2); }
 
-    public static CVImagePyramid operator *(int val, CVImagePyramid image) { return CVMultiply.Multiply(image, val); }
-    public static CVImagePyramid operator *(double val, CVImagePyramid image) { return CVMultiply.Multiply(image, val); }
-    public static CVImagePyramid operator *(CVImagePyramid image, int val) { return CVMultiply.Multiply(image, val); }
-    public static CVImagePyramid operator *(CVImagePyramid image, double val) { return CVMultiply.Multiply(image, val); }
-    public static CVImagePyramid operator *(CVImagePyramid image1, CVImagePyramid image2) { return CVMultiply.Multiply(image1, image2); }
+    public static CVImagePyramid operator *(int val, CVImagePyramid image) { return CVMath.Multiply(image, val); }
+    public static CVImagePyramid operator *(double val, CVImagePyramid image) { return CVMath.Multiply(image, val); }
+    public static CVImagePyramid operator *(CVImagePyramid image, int val) { return CVMath.Multiply(image, val); }
+    public static CVImagePyramid operator *(CVImagePyramid image, double val) { return CVMath.Multiply(image, val); }
+    public static CVImagePyramid operator *(CVImagePyramid image1, CVImagePyramid image2) { return CVMath.Multiply(image1, image2); }
 
-    // public static  CVImagePyramid operator /(int val, CVImagePyramid image) { return CVDivide.Divide(val, image); }
-    // public static  CVImagePyramid operator /(double val, CVImagePyramid image) { return CVDivide.Divide(val, image); }
-    public static CVImagePyramid operator /(CVImagePyramid image, int val) { return CVDivide.Divide(image, val); }
-    public static CVImagePyramid operator /(CVImagePyramid image, double val) { return CVDivide.Divide(image, val); }
-    public static CVImagePyramid operator /(CVImagePyramid image1, CVImagePyramid image2) { return CVDivide.Divide(image1, image2); }
+    // public static  CVImagePyramid operator /(int val, CVImagePyramid image) { return CVMath.Divide(val, image); }
+    // public static  CVImagePyramid operator /(double val, CVImagePyramid image) { return CVMath.Divide(val, image); }
+    public static CVImagePyramid operator /(CVImagePyramid image, int val) { return CVMath.Divide(image, val); }
+    public static CVImagePyramid operator /(CVImagePyramid image, double val) { return CVMath.Divide(image, val); }
+    public static CVImagePyramid operator /(CVImagePyramid image1, CVImagePyramid image2) { return CVMath.Divide(image1, image2); }
 
 }

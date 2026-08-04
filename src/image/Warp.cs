@@ -1,4 +1,3 @@
-using System.Drawing.Imaging;
 using System.Numerics;
 
 namespace CVNet;
@@ -239,7 +238,7 @@ public static class CVWarp
         return WarpPerspective(image2, HInv);
     }
 
-    public static void RectifyImage(CVImage image1, CVImage image2, MatrixD K1, MatrixD K2, int hammingDistance, out CVImage image1Rect, out CVImage image2Rect)
+    public static void RectifyImage(CVImage image1, CVImage image2, MatrixD K1, MatrixD K2, VectorD d1, VectorD d2, int hammingDistance, out CVImage image1Rect, out CVImage image2Rect)
     {
         CVFeatureDetector.MatchFeaturesOrb(image1, image2, hammingDistance, out List<(int x, int y)> matchedFeatures1, out List<(int x, int y)> matchedFeatures2);
 
@@ -254,7 +253,7 @@ public static class CVWarp
 
         Console.WriteLine($"Features 1: {matchedFeatures1.Count}, 2: {matchedFeatures2.Count}");
 
-        CVCamera.StereoRectifyRansac(matchedFeatures1Vec, matchedFeatures2Vec, K1, K2, 2000, 0.0001, out MatrixD R, out VectorD t, out MatrixD R1, out MatrixD R2, out MatrixD H1, out MatrixD H2);
+        CVCamera.StereoRectifyRansac(matchedFeatures1Vec, matchedFeatures2Vec, K1, K2, d1, d2, 2000, 0.0001, out MatrixD R, out VectorD t, out MatrixD R1, out MatrixD R2, out MatrixD H1, out MatrixD H2);
 
         Console.WriteLine($"R:");
         Console.WriteLine(R);

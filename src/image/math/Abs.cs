@@ -2,7 +2,7 @@ using System.Numerics;
 
 namespace CVNet;
 
-public static class CVAbs
+public static partial class CVMath
 {
     public static void Abs<T>(
         CVImage imageIn,

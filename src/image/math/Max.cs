@@ -2,7 +2,7 @@ using System.Numerics;
 
 namespace CVNet;
 
-public static class CVMax
+public static partial class CVMath
 {
     public static void Max<T, TV>(
         CVImage imageIn,

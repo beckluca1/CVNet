@@ -2,7 +2,7 @@ using System.Numerics;
 
 namespace CVNet;
 
-public static class CVSquareRoot
+public static partial class CVMath
 {
     public static void SquareRoot<T>(
         CVImage imageIn,

@@ -1,20 +1,19 @@
-using System.Runtime.ExceptionServices;
-using MathNet.Numerics.LinearAlgebra;
-using MathNet.Numerics.LinearAlgebra.Double;
-using Microsoft.VisualBasic;
-using Microsoft.VisualStudio.TestPlatform.ObjectModel;
-
 namespace CVNet;
+
+using VectorD = MathNet.Numerics.LinearAlgebra.Vector<double>;
+using MatrixD = MathNet.Numerics.LinearAlgebra.Matrix<double>;
+using DenseVectorD = MathNet.Numerics.LinearAlgebra.Double.DenseVector;
+using DenseMatrixD = MathNet.Numerics.LinearAlgebra.Double.DenseMatrix;
 
 public struct GridFit
 {
     public bool Valid;
-    public Vector<double> Center;
-    public Vector<double> DirI;
-    public Vector<double> DirJ;
-    public Vector<double> DirII;
-    public Vector<double> DirJJ;
-    public Vector<double> DirIJ;
+    public VectorD Center;
+    public VectorD DirI;
+    public VectorD DirJ;
+    public VectorD DirII;
+    public VectorD DirJJ;
+    public VectorD DirIJ;
 }
 
 public class CVCheckerboard
@@ -53,7 +52,7 @@ public class CVCheckerboard
         return bestValues;
     }
 
-    private static (double distance, int index) getNearestCorner(List<(int x, int y, double score)> corners, HashSet<int> matchedCorners, Vector<double> position)
+    private static (double distance, int index) getNearestCorner(List<(int x, int y, double score)> corners, HashSet<int> matchedCorners, VectorD position)
     {
         double bestDistance = int.MaxValue;
         int bestIndex = 0;
@@ -83,7 +82,7 @@ public class CVCheckerboard
         if (n < 12) return;
 
         // Design matrix A (N x 5)
-        var A = DenseMatrix.Create(n, 6, 0.0);
+        var A = DenseMatrixD.Create(n, 6, 0.0);
 
         for (int k = 0; k < n; k++)
         {
@@ -99,7 +98,7 @@ public class CVCheckerboard
         }
 
         // Measurement matrix Xmat (N x 2)
-        var Xmat = DenseMatrix.Create(n, 2, 0.0);
+        var Xmat = DenseMatrixD.Create(n, 2, 0.0);
 
         for (int k = 0; k < n; k++)
         {
@@ -108,7 +107,7 @@ public class CVCheckerboard
         }
 
         // Solve A * D ≈ Xmat
-        Matrix<double> D = A.QR().Solve(Xmat);
+        MatrixD D = A.QR().Solve(Xmat);
 
         if (D.Row(1).L2Norm() < 1) return;
 
@@ -133,11 +132,11 @@ public class CVCheckerboard
 
         for (int i = -patternRadius + offsetX; i <= patternRadius + offsetX; i++)
         {
-            Vector<double> searchI = fit.Center + i * fit.DirI + i * i * fit.DirII;
+            VectorD searchI = fit.Center + i * fit.DirI + i * i * fit.DirII;
 
             for (int j = -patternRadius + offsetY; j <= patternRadius + offsetY; j++)
             {
-                Vector<double> search = searchI + j * fit.DirJ + j * j * fit.DirJJ + i * j * fit.DirIJ;
+                VectorD search = searchI + j * fit.DirJ + j * j * fit.DirJJ + i * j * fit.DirIJ;
 
                 (double distance, int index) corner = getNearestCorner(corners, matchedCorners, search);
 
@@ -169,11 +168,11 @@ public class CVCheckerboard
 
         for (int i = -patternRadius; i <= patternRadius; i++)
         {
-            Vector<double> searchI = fit.Center + i * fit.DirI + i * i * fit.DirII;
+            VectorD searchI = fit.Center + i * fit.DirI + i * i * fit.DirII;
 
             for (int j = -patternRadius; j <= patternRadius; j++)
             {
-                Vector<double> search = searchI + j * fit.DirJ + j * j * fit.DirJJ + i * j * fit.DirIJ;
+                VectorD search = searchI + j * fit.DirJ + j * j * fit.DirJJ + i * j * fit.DirIJ;
 
                 (double distance, int index) corner = getNearestCorner(corners, matchedCorners, search);
 
@@ -252,18 +251,18 @@ public class CVCheckerboard
         return new GridFit()
         {
             Valid = true,
-            Center = DenseVector.OfArray([centerX, centerY]),
-            DirI = DenseVector.OfArray([dir1.x, dir1.y]),
-            DirJ = DenseVector.OfArray([dir2.x, dir2.y]),
-            DirII = DenseVector.OfArray([0, 0]),
-            DirJJ = DenseVector.OfArray([0, 0]),
-            DirIJ = DenseVector.OfArray([0, 0]),
+            Center = DenseVectorD.OfArray([centerX, centerY]),
+            DirI = DenseVectorD.OfArray([dir1.x, dir1.y]),
+            DirJ = DenseVectorD.OfArray([dir2.x, dir2.y]),
+            DirII = DenseVectorD.OfArray([0, 0]),
+            DirJJ = DenseVectorD.OfArray([0, 0]),
+            DirIJ = DenseVectorD.OfArray([0, 0]),
         };
     }
 
-    public static List<Vector<double>> DetectCheckerboard(CVImage image, int radius, double threshold, int nonMaxSuppressionRadius, int maxPixelOffset, int patternRadius)
+    public static List<VectorD> DetectCheckerboard(CVImage image, int radius, double threshold, int nonMaxSuppressionRadius, int maxPixelOffset, int patternRadius)
     {
-        List<Vector<double>> saddlePoints = new List<Vector<double>>();
+        List<VectorD> saddlePoints = new List<VectorD>();
 
         List<(int x, int y, double score)> corners = CVCornerDetector.DetectCornerCheckerboard(image, radius, threshold, nonMaxSuppressionRadius);
 
@@ -316,16 +315,16 @@ public class CVCheckerboard
 
         List<(double x, double y, double score)> board = boardEstimate(corners, bestFit, offsetX, offsetY, patternRadius, maxPixelOffsetSquared);
 
-        for (int i = 0; i < board.Count; i++) saddlePoints.Add(DenseVector.OfArray([board[i].x, board[i].y, board[i].score]));
+        for (int i = 0; i < board.Count; i++) saddlePoints.Add(DenseVectorD.OfArray([board[i].x, board[i].y, board[i].score]));
         //for (int i = 0; i < corners.Count; i++) saddlePoints.Add(DenseVector.OfArray([corners[i].Item1, corners[i].Item2, 0.2]));
 
         Console.WriteLine($"Saddle points: {maxInliers.Count}");
-        Console.WriteLine($"Center: {bestFit.Center[0]} {bestFit.Center[1]}");
-        Console.WriteLine($"DirI: {bestFit.DirI[0]} {bestFit.DirI[1]}");
-        Console.WriteLine($"DirJ: {bestFit.DirJ[0]} {bestFit.DirJ[1]}");
-        Console.WriteLine($"DirII: {bestFit.DirII[0]} {bestFit.DirII[1]}");
-        Console.WriteLine($"DirJJ: {bestFit.DirJJ[0]} {bestFit.DirJJ[1]}");
-        Console.WriteLine($"DirIJ: {bestFit.DirIJ[0]} {bestFit.DirIJ[1]}");
+        //Console.WriteLine($"Center: {bestFit.Center[0]} {bestFit.Center[1]}");
+        //Console.WriteLine($"DirI: {bestFit.DirI[0]} {bestFit.DirI[1]}");
+        //Console.WriteLine($"DirJ: {bestFit.DirJ[0]} {bestFit.DirJ[1]}");
+        //Console.WriteLine($"DirII: {bestFit.DirII[0]} {bestFit.DirII[1]}");
+        //Console.WriteLine($"DirJJ: {bestFit.DirJJ[0]} {bestFit.DirJJ[1]}");
+        //Console.WriteLine($"DirIJ: {bestFit.DirIJ[0]} {bestFit.DirIJ[1]}");
         Console.WriteLine($"Inlier Bounds: {bestInlierBounds.Item1} {bestInlierBounds.Item2} {bestInlierBounds.Item3} {bestInlierBounds.Item4}");
         return saddlePoints;
     }

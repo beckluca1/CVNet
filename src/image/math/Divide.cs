@@ -2,7 +2,7 @@ using System.Numerics;
 
 namespace CVNet;
 
-public static class CVDivide
+public static partial class CVMath
 {
     public static void Divide<T, TV>(
         CVImage imageIn,

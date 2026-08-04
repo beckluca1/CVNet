@@ -1,6 +1,4 @@
 using System.Numerics;
-using System.Runtime.InteropServices;
-using MathNet.Numerics.Integration;
 
 namespace CVNet;
 

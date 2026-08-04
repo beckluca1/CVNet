@@ -1,6 +1,3 @@
-using System.Drawing;
-using System.Numerics;
-
 namespace CVNet;
 
 using VectorD = MathNet.Numerics.LinearAlgebra.Vector<double>;
