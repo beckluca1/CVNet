@@ -6,11 +6,52 @@ using DenseVectorD = MathNet.Numerics.LinearAlgebra.Double.DenseVector;
 
 public class CVProjection
 {
-    public static VectorD ProjectPoint(
+    public static VectorD HomographyProjectPoint(VectorD point, MatrixD homography)
+    {
+        var p = DenseVectorD.OfArray([point[0], point[1], 1.0]);
+        var r = homography * p;
+
+        if (Math.Abs(r[2]) < 1e-12)
+            return DenseVectorD.OfArray([double.NaN, double.NaN]);
+
+        double x = r[0] / r[2];
+        double y = r[1] / r[2];
+
+        return DenseVectorD.OfArray([x, y]);
+    }
+
+    public static List<VectorD> HomographyProjectPoints(List<VectorD> points, MatrixD homography)
+    {
+        List<VectorD> projectedPoints = new List<VectorD>();
+
+        foreach (VectorD point in points)
+        {
+            projectedPoints.Add(HomographyProjectPoint(point, homography));
+        }
+
+        return projectedPoints;
+    }
+
+    public static List<List<VectorD>> HomographyProjectPoints(List<List<VectorD>> points, MatrixD homography)
+    {
+        List<List<VectorD>> projectedPoints = new List<List<VectorD>>();
+
+        for (int i = 0; i < points.Count; i++)
+        {
+            projectedPoints.Add(HomographyProjectPoints(points[i], homography));
+        }
+
+        return projectedPoints;
+    }
+
+    public static VectorD IntrinsicProjectPoint(
         VectorD point,
         MatrixD K,
         VectorD distortion)
     {
+        if (Math.Abs(point[2]) < 1e-12)
+            return DenseVectorD.OfArray([double.NaN, double.NaN]);
+
         double fx = K[0, 0];
         double fy = K[1, 1];
         double cx = K[0, 2];
@@ -37,31 +78,31 @@ public class CVProjection
         return DenseVectorD.OfArray([fx * xDist + cx, fy * yDist + cy]);
     }
 
-    public static List<VectorD> ProjectPoints(List<VectorD> points, MatrixD K, VectorD distortion)
+    public static List<VectorD> IntrinsicProjectPoints(List<VectorD> points, MatrixD K, VectorD distortion)
     {
         List<VectorD> projectedPoints = new List<VectorD>();
 
         foreach (VectorD point in points)
         {
-            projectedPoints.Add(ProjectPoint(point, K, distortion));
+            projectedPoints.Add(IntrinsicProjectPoint(point, K, distortion));
         }
 
         return projectedPoints;
     }
 
-    public static List<List<VectorD>> ProjectPoints(List<List<VectorD>> points, MatrixD K, VectorD distortion)
+    public static List<List<VectorD>> IntrinsicProjectPoints(List<List<VectorD>> points, MatrixD K, VectorD distortion)
     {
         List<List<VectorD>> projectedPoints = new List<List<VectorD>>();
 
         for (int i = 0; i < points.Count; i++)
         {
-            projectedPoints.Add(ProjectPoints(points[i], K, distortion));
+            projectedPoints.Add(IntrinsicProjectPoints(points[i], K, distortion));
         }
 
         return projectedPoints;
     }
 
-    public static VectorD UnProjectPoint(VectorD pixel, MatrixD K, VectorD distortion)
+    public static VectorD IntrinsicUnProjectPoint(VectorD pixel, MatrixD K, VectorD distortion)
     {
         double fx = K[0, 0], fy = K[1, 1];
         double cx = K[0, 2], cy = K[1, 2];
@@ -98,15 +139,51 @@ public class CVProjection
         return DenseVectorD.OfArray([x, y, 1]);
     }
 
-    public static List<VectorD> UnProjectPoints(List<VectorD> points, MatrixD K, VectorD distortion)
+    public static List<VectorD> IntrinsicUnProjectPoints(List<VectorD> points, MatrixD K, VectorD distortion)
     {
         List<VectorD> projectedPoints = new List<VectorD>();
 
         foreach (VectorD point in points)
         {
-            projectedPoints.Add(UnProjectPoint(point, K, distortion));
+            projectedPoints.Add(IntrinsicUnProjectPoint(point, K, distortion));
         }
 
         return projectedPoints;
+    }
+
+    public static VectorD ExtrinsicProjectPoint(VectorD point, MatrixD R, VectorD t)
+    {
+        return R * point + t;
+    }
+
+    public static List<VectorD> ExtrinsicProjectPoints(List<VectorD> points, MatrixD R, VectorD t)
+    {
+        List<VectorD> transformedPoints = new List<VectorD>();
+
+        foreach (VectorD point in points)
+        {
+            transformedPoints.Add(ExtrinsicProjectPoint(point, R, t));
+        }
+
+        return transformedPoints;
+    }
+
+    public static VectorD ProjectPoint(VectorD point, MatrixD R, VectorD t, MatrixD K, VectorD distortion)
+    {
+        VectorD pC = ExtrinsicProjectPoint(point, R, t);
+        pC /= pC[2];
+        return IntrinsicProjectPoint(pC, K, distortion);
+    }
+
+    public static List<VectorD> ProjectPoints(List<VectorD> points, MatrixD R, VectorD t, MatrixD K, VectorD distortion)
+    {
+        List<VectorD> transformedPoints = new List<VectorD>();
+
+        foreach (VectorD point in points)
+        {
+            transformedPoints.Add(ProjectPoint(point, R, t, K, distortion));
+        }
+
+        return transformedPoints;
     }
 };

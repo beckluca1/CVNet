@@ -39,6 +39,33 @@ public class CVDescriptor
                 Descriptor[word] &= ~mask;
         }
     }
+
+    public int Distance(CVDescriptor other)
+    {
+        int distance = 0;
+
+        // Count valid words
+        for (int i = 0; i < Words; i++)
+        {
+            distance += BitOperations.PopCount(Descriptor[i] ^ other.Descriptor[i]);
+        }
+
+        // Remove padding bits from the last word
+        int unusedBits = (Words * 64) - Bits;
+
+        if (unusedBits > 0)
+        {
+            ulong mask = ulong.MaxValue >> unusedBits;
+            ulong paddedDifference = Descriptor[Words - 1] ^ other.Descriptor[other.Words - 1];
+            int oldContribution = BitOperations.PopCount(paddedDifference);
+            int newContribution = BitOperations.PopCount(paddedDifference & mask);
+
+            distance -= oldContribution;
+            distance += newContribution;
+        }
+
+        return distance;
+    }
 }
 
 class KDNode
@@ -234,35 +261,6 @@ class BinaryLSH
     }
 
 
-    private int DescriptorDistance(CVDescriptor a, CVDescriptor b)
-    {
-        int distance = 0;
-
-        // Count valid words
-        for (int i = 0; i < a.Words; i++)
-        {
-            distance += BitOperations.PopCount(a.Descriptor[i] ^ b.Descriptor[i]);
-        }
-
-        // Remove padding bits from the last word
-        int unusedBits = (a.Words * 64) - a.Bits;
-
-        if (unusedBits > 0)
-        {
-            ulong mask = ulong.MaxValue >> unusedBits;
-            ulong paddedDifference = a.Descriptor[a.Words - 1] ^ b.Descriptor[b.Words - 1];
-            int oldContribution = BitOperations.PopCount(paddedDifference);
-            int newContribution = BitOperations.PopCount(paddedDifference & mask);
-
-            distance -= oldContribution;
-            distance += newContribution;
-        }
-
-
-        return distance;
-    }
-
-
     private HashSet<int> CollectCandidates(CVDescriptor query)
     {
         HashSet<int> candidates = new();
@@ -302,7 +300,7 @@ class BinaryLSH
             if (dx * dx + dy * dy > maxSquaredDistance)
                 continue;
 
-            int distance = DescriptorDistance(query, descriptors[i]);
+            int distance = query.Distance(descriptors[i]);
             UpdateBest(i, distance, ref bestIndex, ref bestDistance, ref secondDistance);
         }
     }
@@ -322,7 +320,7 @@ class BinaryLSH
 
         for (int i = 0; i < descriptors.Count; i++)
         {
-            int distance = DescriptorDistance(query, descriptors[i]);
+            int distance = query.Distance(descriptors[i]);
             UpdateBest(i, distance, ref bestIndex, ref bestDistance, ref secondDistance);
         }
     }
@@ -964,10 +962,25 @@ public class CVFeatureDetector
             CVImage levelImage = pyramid[level].image;
             double scale = pyramid[level].scale;
 
-            List<(int, int)> fastKeypoints = Fast(levelImage, 5.0, 8);
-            List<(int, int, double)> harrisScores = CVCornerDetector.HarrisStrengthPoints(levelImage, fastKeypoints, 0.04, 3);
-            List<(int, int, double)> suppressedScores = CVCornerDetector.NonMaximumSuppressionPoints(harrisScores, 2);
-            List<(int, int)> selectedPoints = GridKeypointSelection(levelImage, suppressedScores, 8, 8, 100);
+            int levelFeatures = (int)(1000 * Math.Pow(scale, 0.3));
+
+            int desiredPerCell = 3;
+
+            int cells = Math.Max(1, (int)Math.Ceiling(Math.Sqrt(levelFeatures / (double)desiredPerCell)));
+
+            int cellsX = Math.Max(1, (int)Math.Round(cells * levelImage.Width / (double)levelImage.Height));
+            int cellsY = Math.Max(1, cells);
+
+            int perCell = Math.Max(1, (int)Math.Ceiling(levelFeatures / (double)(cellsX * cellsY)));
+
+            Console.WriteLine($"Level: {level} - Max Features: {levelFeatures} - Grid Count: {cellsX}x{cellsY}");
+            List<(int x, int y)> fastKeypoints = Fast(levelImage, 8.0, 8);
+            Console.WriteLine($"Fast Keypoints: {fastKeypoints.Count}");
+            List<(int x, int y, double)> harrisScores = CVCornerDetector.HarrisStrengthPoints(levelImage, fastKeypoints, 0.04, 3);
+            List<(int x, int y, double)> suppressedScores = CVCornerDetector.NonMaximumSuppressionPoints(harrisScores, 1);
+            Console.WriteLine($"Harris NMS Keypoints: {suppressedScores.Count}");
+            List<(int x, int y)> selectedPoints = GridKeypointSelection(levelImage, harrisScores, cellsX, cellsY, perCell);
+            Console.WriteLine($"Grid Keypoints: {selectedPoints.Count}");
 
             List<double> angles = IntensityCentroidAngles(levelImage, selectedPoints, 15);
             List<CVDescriptor> levelDescriptors = Brief(levelImage, selectedPoints, angles);
@@ -977,8 +990,8 @@ public class CVFeatureDetector
                 var d = levelDescriptors[i];
 
                 // Convert back to original coordinates
-                int x = (int)(selectedPoints[i].Item1 / scale);
-                int y = (int)(selectedPoints[i].Item2 / scale);
+                int x = (int)(selectedPoints[i].x / scale);
+                int y = (int)(selectedPoints[i].y / scale);
 
                 d.Position = (x, y);
 
@@ -1101,50 +1114,48 @@ public class CVFeatureDetector
         return descriptorImage;
     }
 
-    private static void censusFeatures<T>(CVImage image, int radius, int offsetX, int offsetY, ref List<CVDescriptor> descriptors) where T : struct, INumber<T>
+    private static void censusFeatures<T>(CVImage image, int radius, int offsetX, int y, ref List<CVDescriptor> descriptors) where T : struct, INumber<T>
     {
         Span<T> buffer = image.BufferAs<T>();
-        for (int y = radius; y < image.Height - radius; y += offsetY)
+        y = Math.Min(Math.Max(y, radius), image.Height - 1 - radius);
+        int row = y * image.Width;
+        for (int x = radius; x < image.Width - radius; x += offsetX)
         {
-            int row = y * image.Width;
-            for (int x = radius; x < image.Width - radius; x += offsetX)
+            int size = 2 * radius + 1;
+            CVDescriptor descriptor = new CVDescriptor((x, y), size * size - 1);
+            int center = row + x;
+            T centerVal = buffer[center];
+            int index = 0;
+            for (int dy = -radius; dy <= radius; dy++)
             {
-                int size = 2 * radius + 1;
-                CVDescriptor descriptor = new CVDescriptor((x, y), size * size - 1);
-                int center = row + x;
-                T centerVal = buffer[center];
-                int index = 0;
-                for (int dy = -radius; dy <= radius; dy++)
+                int srcRow = (y + dy) * image.Width;
+                for (int dx = -radius; dx <= radius; dx++)
                 {
-                    int srcRow = (y + dy) * image.Width;
-                    for (int dx = -radius; dx <= radius; dx++)
-                    {
-                        if (dy == 0 && dx == 0) continue;
-                        T pixelVal = buffer[srcRow + x + dx];
-                        descriptor[index] = pixelVal >= centerVal;
-                        index++;
-                    }
+                    if (dy == 0 && dx == 0) continue;
+                    T pixelVal = buffer[srcRow + x + dx];
+                    descriptor[index] = pixelVal >= centerVal;
+                    index++;
                 }
-
-                descriptors.Add(descriptor);
             }
+
+            descriptors.Add(descriptor);
         }
     }
 
-    public static List<CVDescriptor> CensusFeatures(CVImage image, int radius, int offsetX = 1, int offsetY = 1)
+    public static List<CVDescriptor> CensusFeatures(CVImage image, int radius, int offsetX, int y)
     {
         List<CVDescriptor> descriptors = new List<CVDescriptor>();
 
-        if (image.DataFormat == CVDataFormat.CV_U8) censusFeatures<byte>(image, radius, offsetX, offsetY, ref descriptors);
-        else if (image.DataFormat == CVDataFormat.CV_S8) censusFeatures<sbyte>(image, radius, offsetX, offsetY, ref descriptors);
-        else if (image.DataFormat == CVDataFormat.CV_U16) censusFeatures<ushort>(image, radius, offsetX, offsetY, ref descriptors);
-        else if (image.DataFormat == CVDataFormat.CV_S16) censusFeatures<short>(image, radius, offsetX, offsetY, ref descriptors);
-        else if (image.DataFormat == CVDataFormat.CV_U32) censusFeatures<uint>(image, radius, offsetX, offsetY, ref descriptors);
-        else if (image.DataFormat == CVDataFormat.CV_S32) censusFeatures<int>(image, radius, offsetX, offsetY, ref descriptors);
-        else if (image.DataFormat == CVDataFormat.CV_U64) censusFeatures<ulong>(image, radius, offsetX, offsetY, ref descriptors);
-        else if (image.DataFormat == CVDataFormat.CV_S64) censusFeatures<long>(image, radius, offsetX, offsetY, ref descriptors);
-        else if (image.DataFormat == CVDataFormat.CV_F32) censusFeatures<float>(image, radius, offsetX, offsetY, ref descriptors);
-        else if (image.DataFormat == CVDataFormat.CV_F64) censusFeatures<double>(image, radius, offsetX, offsetY, ref descriptors);
+        if (image.DataFormat == CVDataFormat.CV_U8) censusFeatures<byte>(image, radius, offsetX, y, ref descriptors);
+        else if (image.DataFormat == CVDataFormat.CV_S8) censusFeatures<sbyte>(image, radius, offsetX, y, ref descriptors);
+        else if (image.DataFormat == CVDataFormat.CV_U16) censusFeatures<ushort>(image, radius, offsetX, y, ref descriptors);
+        else if (image.DataFormat == CVDataFormat.CV_S16) censusFeatures<short>(image, radius, offsetX, y, ref descriptors);
+        else if (image.DataFormat == CVDataFormat.CV_U32) censusFeatures<uint>(image, radius, offsetX, y, ref descriptors);
+        else if (image.DataFormat == CVDataFormat.CV_S32) censusFeatures<int>(image, radius, offsetX, y, ref descriptors);
+        else if (image.DataFormat == CVDataFormat.CV_U64) censusFeatures<ulong>(image, radius, offsetX, y, ref descriptors);
+        else if (image.DataFormat == CVDataFormat.CV_S64) censusFeatures<long>(image, radius, offsetX, y, ref descriptors);
+        else if (image.DataFormat == CVDataFormat.CV_F32) censusFeatures<float>(image, radius, offsetX, y, ref descriptors);
+        else if (image.DataFormat == CVDataFormat.CV_F64) censusFeatures<double>(image, radius, offsetX, y, ref descriptors);
 
         return descriptors;
     }
@@ -1152,60 +1163,214 @@ public class CVFeatureDetector
     public static void MatchFeaturesCensus(
         CVImage image1,
         CVImage image2,
-        int hammingDistance,
         int radiusCensus,
-        int radiusMatching,
-        int offset1,
-        int offset2,
-       out List<(int x, int y)> matchedFeatures1,
+        int xOffset,
+        int yOffset,
+        out List<(int x, int y)> matchedFeatures1,
         out List<(int x, int y)> matchedFeatures2)
     {
-        List<CVDescriptor> features1 = CensusFeatures(image1, radiusCensus, offset1, (int)(offset1 * (double)image1.Height / image1.Width));
-        List<CVDescriptor> features2 = CensusFeatures(image2, radiusCensus, offset2, (int)(offset2 * (double)image2.Height / image2.Width));
-
         matchedFeatures1 = new List<(int x, int y)>();
         matchedFeatures2 = new List<(int x, int y)>();
 
-        if (features1.Count == 0 || features2.Count == 0)
-            return;
-
-        int[] best12 = new int[features1.Count];
-        int[] best21 = new int[features2.Count];
-
-        int[] dist12 = new int[features1.Count];
-        int[] dist21 = new int[features2.Count];
-
-        // Build LSH indexes
-        BinaryLSH lsh2 = new BinaryLSH(features2);
-        BinaryLSH lsh1 = new BinaryLSH(features1);
-
-        int squaredRadius = radiusMatching * radiusMatching;
-
-        // features1 -> features2
-        for (int i = 0; i < features1.Count; i++)
-            lsh2.FindBestBound(features1[i], squaredRadius, out best12[i], out dist12[i], out _);
-
-        for (int i = 0; i < features2.Count; i++)
-            lsh1.FindBestBound(features2[i], squaredRadius, out best21[i], out dist21[i], out _);
-
-        for (int i = 0; i < features1.Count; i++)
+        // Scan image line and create features
+        for (int y = 0; y < image1.Height; y += yOffset)
         {
-            int j = best12[i];
+            List<CVDescriptor> features1 = CensusFeatures(image1, radiusCensus, xOffset, y);
+            List<CVDescriptor> features2 = CensusFeatures(image2, radiusCensus, 1, y);
 
-            if (j < 0)
+            if (features1.Count == 0 || features2.Count == 0)
                 continue;
 
-            // Mutual nearest neighbor
-            if (i != best21[j])
-                continue;
+            for (int i = 0; i < features1.Count; i++)
+            {
+                int bestIndex = -1;
+                int bestDistance = int.MaxValue;
 
-            int distance = dist12[i];
-            if (distance > hammingDistance)
-                continue;
+                for (int j = 0; j < features2.Count; j++)
+                {
+                    int distance = features1[i].Distance(features2[j]);
 
-            matchedFeatures1.Add(features1[i].Position);
-            matchedFeatures2.Add(features2[j].Position);
+                    if (distance < bestDistance)
+                    {
+                        bestDistance = distance;
+                        bestIndex = j;
+                    }
+                }
+
+                matchedFeatures1.Add(features1[i].Position);
+                matchedFeatures2.Add(features2[bestIndex].Position);
+            }
         }
+    }
+
+    public static void ComputeSGBM<T>(
+        CVImage left,
+        CVImage right,
+        ref CVImage disparity,
+        int maxDisparity = 64,
+        int blockSize = 5,
+        int P1 = 10,
+        int P2 = 120) where T : struct, INumber<T>, IMinMaxValue<T>
+    {
+        Span<T> bufferLeft = left.BufferAs<T>();
+        Span<T> bufferRight = right.BufferAs<T>();
+        Span<T> bufferDisparity = disparity.BufferAs<T>();
+
+        T P1T = T.CreateChecked(P1);
+        T P2T = T.CreateChecked(P2);
+
+        int width = left.Width;
+        int height = left.Height;
+        int half = blockSize / 2;
+
+        T[,,] cost = new T[height, width, maxDisparity];
+
+        //-------------------------------------------------------
+        // Matching Cost (SAD)
+        //-------------------------------------------------------
+
+        for (int d = 0; d < maxDisparity; d++)
+        {
+            for (int y = half; y < height - half; y++)
+            {
+                for (int x = half + d; x < width - half; x++)
+                {
+                    T sad = T.Zero;
+
+                    for (int wy = -half; wy <= half; wy++)
+                    {
+                        int ly = (y + wy) * width;
+                        int ry = ly;
+
+                        for (int wx = -half; wx <= half; wx++)
+                        {
+                            T l = bufferLeft[(x + wx) + ly];
+                            T r = bufferRight[(x + wx - d) + ry];
+
+                            sad += T.Abs(l - r);
+                        }
+                    }
+
+                    cost[y, x, d] = sad;
+                }
+            }
+        }
+
+        //-------------------------------------------------------
+        // Semi-global aggregation
+        //-------------------------------------------------------
+
+        T[,,] aggregate = new T[height, width, maxDisparity];
+
+        int[,] directions =
+        {
+            { 0, 1 },
+            { 0,-1 },
+            { 1, 0 },
+            {-1, 0 }
+        };
+
+        for (int dir = 0; dir < 4; dir++)
+        {
+            int dy = directions[dir, 0];
+            int dx = directions[dir, 1];
+
+            T[,,] L = new T[height, width, maxDisparity];
+
+            int yStart = dy >= 0 ? 0 : height - 1;
+            int yEnd = dy >= 0 ? height : -1;
+            int yStep = dy >= 0 ? 1 : -1;
+
+            int xStart = dx >= 0 ? 0 : width - 1;
+            int xEnd = dx >= 0 ? width : -1;
+            int xStep = dx >= 0 ? 1 : -1;
+
+            for (int y = yStart; y != yEnd; y += yStep)
+            {
+                for (int x = xStart; x != xEnd; x += xStep)
+                {
+                    int py = y - dy;
+                    int px = x - dx;
+
+                    if (py < 0 || py >= height ||
+                        px < 0 || px >= width)
+                    {
+                        for (int d = 0; d < maxDisparity; d++)
+                            L[y, x, d] = cost[y, x, d];
+
+                        continue;
+                    }
+
+                    T prevMin = T.MaxValue;
+
+                    for (int k = 0; k < maxDisparity; k++)
+                        if (L[py, px, k] < prevMin)
+                            prevMin = L[py, px, k];
+
+                    for (int d = 0; d < maxDisparity; d++)
+                    {
+                        T best = L[py, px, d];
+
+                        if (d > 0)
+                            best = T.Min(best, L[py, px, d - 1] + P1T);
+
+                        if (d < maxDisparity - 1)
+                            best = T.Min(best, L[py, px, d + 1] + P1T);
+
+                        best = T.Min(best, prevMin + P2T);
+
+                        L[y, x, d] = cost[y, x, d] + best - prevMin;
+                        aggregate[y, x, d] += L[y, x, d];
+                    }
+                }
+            }
+        }
+
+        //-------------------------------------------------------
+        // Winner-takes-all disparity
+        //-------------------------------------------------------
+
+        for (int y = 0; y < height; y++)
+        {
+            int row = y * width;
+
+            for (int x = 0; x < width; x++)
+            {
+                T bestCost = T.MaxValue;
+                int bestDisp = 0;
+
+                for (int d = 0; d < maxDisparity; d++)
+                {
+                    if (aggregate[y, x, d] < bestCost)
+                    {
+                        bestCost = aggregate[y, x, d];
+                        bestDisp = d;
+                    }
+                }
+
+                bufferDisparity[x + row] = T.CreateChecked((bestDisp * 255) / (maxDisparity - 1));
+            }
+        }
+    }
+    public static CVImage ComputeSGBM(CVImage image1, CVImage image2, int maxDisparity = 64,
+        int blockSize = 5,
+        int P1 = 10,
+        int P2 = 120)
+    {
+        CVImage outImage = CVImage.Create(image1.Width, image1.Height, image1.DataFormat, image1.ChannelFormats);
+
+        if (image1.DataFormat == CVDataFormat.CV_U8) ComputeSGBM<byte>(image1, image2, ref outImage, maxDisparity, blockSize, P1, P2);
+        else if (image1.DataFormat == CVDataFormat.CV_S8) ComputeSGBM<sbyte>(image1, image2, ref outImage, maxDisparity, blockSize, P1, P2);
+        else if (image1.DataFormat == CVDataFormat.CV_U16) ComputeSGBM<ushort>(image1, image2, ref outImage, maxDisparity, blockSize, P1, P2);
+        else if (image1.DataFormat == CVDataFormat.CV_S16) ComputeSGBM<short>(image1, image2, ref outImage, maxDisparity, blockSize, P1, P2);
+        else if (image1.DataFormat == CVDataFormat.CV_U32) ComputeSGBM<uint>(image1, image2, ref outImage, maxDisparity, blockSize, P1, P2);
+        else if (image1.DataFormat == CVDataFormat.CV_S32) ComputeSGBM<int>(image1, image2, ref outImage, maxDisparity, blockSize, P1, P2);
+        else if (image1.DataFormat == CVDataFormat.CV_U64) ComputeSGBM<ulong>(image1, image2, ref outImage, maxDisparity, blockSize, P1, P2);
+        else if (image1.DataFormat == CVDataFormat.CV_S64) ComputeSGBM<long>(image1, image2, ref outImage, maxDisparity, blockSize, P1, P2);
+        else if (image1.DataFormat == CVDataFormat.CV_F32) ComputeSGBM<float>(image1, image2, ref outImage, maxDisparity, blockSize, P1, P2);
+        else if (image1.DataFormat == CVDataFormat.CV_F64) ComputeSGBM<double>(image1, image2, ref outImage, maxDisparity, blockSize, P1, P2);
+
+        return outImage;
     }
 
     public static List<(int, int, double)> DetectFeatureFast(

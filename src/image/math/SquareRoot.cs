@@ -4,14 +4,11 @@ namespace CVNet;
 
 public static partial class CVMath
 {
-    public static void SquareRoot<T>(
-        CVImage imageIn,
-        ref CVImage imageOut)
-        where T : unmanaged, INumber<T>
+    private static void squareRoot<T>(
+        Span<T> src,
+        Span<T> dst)
+        where T : unmanaged, IFloatingPointIeee754<T>
     {
-        Span<T> src = imageIn.BufferAs<T>();
-        Span<T> dst = imageOut.BufferAs<T>();
-
         int count = src.Length;
 
         int simdWidth = Vector<T>.Count;
@@ -28,10 +25,45 @@ public static partial class CVMath
 
         for (; i < count; i++)
         {
-            double valueD = (double)Convert.ChangeType(src[i], typeof(double));
-            double sqrtD = Math.Sqrt(valueD);
-            T sqrtT = T.CreateChecked(sqrtD);
-            dst[i] = sqrtT;
+            dst[i] = T.Sqrt(src[i]);
+        }
+    }
+
+    public static void SquareRoot<T>(
+        CVImage imageIn,
+        ref CVImage imageOut)
+        where T : unmanaged, IFloatingPointIeee754<T>
+    {
+        Span<T> src = imageIn.BufferAs<T>();
+        Span<T> dst = imageOut.BufferAs<T>();
+
+        squareRoot(src, dst);
+    }
+
+    public static void SquareRoot<T>(
+        CVImage imageIn,
+        int channel,
+        ref CVImage imageOut)
+        where T : unmanaged, IFloatingPointIeee754<T>
+    {
+        Span<T> src = imageIn.ChannelAs<T>(channel);
+        Span<T> dst = imageOut.ChannelAs<T>(channel);
+
+        squareRoot(src, dst);
+    }
+
+    public static void SquareRoot<T>(
+        CVImage imageIn,
+        int[] channels,
+        ref CVImage imageOut)
+        where T : unmanaged, IFloatingPointIeee754<T>
+    {
+        foreach (int channel in channels)
+        {
+            Span<T> src = imageIn.ChannelAs<T>(channel);
+            Span<T> dst = imageOut.ChannelAs<T>(channel);
+
+            squareRoot(src, dst);
         }
     }
 
@@ -39,26 +71,59 @@ public static partial class CVMath
     {
         CVImage outImage = CVImage.Create(image.Width, image.Height, image.DataFormat, image.ChannelFormats);
 
-        if (image.DataFormat == CVDataFormat.CV_U8) SquareRoot<byte>(image, ref outImage);
-        else if (image.DataFormat == CVDataFormat.CV_S8) SquareRoot<sbyte>(image, ref outImage);
-        else if (image.DataFormat == CVDataFormat.CV_U16) SquareRoot<ushort>(image, ref outImage);
-        else if (image.DataFormat == CVDataFormat.CV_S16) SquareRoot<short>(image, ref outImage);
-        else if (image.DataFormat == CVDataFormat.CV_U32) SquareRoot<uint>(image, ref outImage);
-        else if (image.DataFormat == CVDataFormat.CV_S32) SquareRoot<int>(image, ref outImage);
-        else if (image.DataFormat == CVDataFormat.CV_U64) SquareRoot<ulong>(image, ref outImage);
-        else if (image.DataFormat == CVDataFormat.CV_S64) SquareRoot<long>(image, ref outImage);
-        else if (image.DataFormat == CVDataFormat.CV_F32) SquareRoot<float>(image, ref outImage);
+        if (image.DataFormat == CVDataFormat.CV_F32) SquareRoot<float>(image, ref outImage);
         else if (image.DataFormat == CVDataFormat.CV_F64) SquareRoot<double>(image, ref outImage);
 
         return outImage;
     }
 
-    public static CVImagePyramid SquareRoot<T>(CVImagePyramid image) where T : struct, INumber<T>
+    public static CVImage SquareRoot(CVImage image, int channel)
+    {
+        CVImage outImage = CVImage.Create(image.Width, image.Height, image.DataFormat, image.ChannelFormats);
+
+        if (image.DataFormat == CVDataFormat.CV_F32) SquareRoot<float>(image, channel, ref outImage);
+        else if (image.DataFormat == CVDataFormat.CV_F64) SquareRoot<double>(image, channel, ref outImage);
+
+        return outImage;
+    }
+
+    public static CVImage SquareRoot(CVImage image, int[] channels)
+    {
+        CVImage outImage = CVImage.Create(image.Width, image.Height, image.DataFormat, image.ChannelFormats);
+
+        if (image.DataFormat == CVDataFormat.CV_F32) SquareRoot<float>(image, channels, ref outImage);
+        else if (image.DataFormat == CVDataFormat.CV_F64) SquareRoot<double>(image, channels, ref outImage);
+
+        return outImage;
+    }
+
+    public static CVImagePyramid SquareRoot(CVImagePyramid image)
     {
         CVImagePyramid outImage = new CVImagePyramid(image.Levels);
 
         for (int i = 0; i < image.Levels; i++)
             outImage[i] = SquareRoot(image[i]);
+
+        return outImage;
+    }
+
+    public static CVImagePyramid SquareRoot<T>(CVImagePyramid image, int channel)
+    {
+        CVImagePyramid outImage = new CVImagePyramid(image.Levels);
+
+        for (int i = 0; i < image.Levels; i++)
+            outImage[i] = SquareRoot(image[i], channel);
+
+        return outImage;
+    }
+
+
+    public static CVImagePyramid SquareRoot<T>(CVImagePyramid image, int[] channels)
+    {
+        CVImagePyramid outImage = new CVImagePyramid(image.Levels);
+
+        for (int i = 0; i < image.Levels; i++)
+            outImage[i] = SquareRoot(image[i], channels);
 
         return outImage;
     }

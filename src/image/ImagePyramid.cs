@@ -6,7 +6,7 @@ public class CVImagePyramid
 
     private Dictionary<int, CVImage> imageList;
 
-    public CVImagePyramid(CVImage image, int levels)
+    public CVImagePyramid(CVImage image, int levels, double scaling)
     {
         Levels = levels;
 

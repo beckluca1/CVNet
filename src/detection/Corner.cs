@@ -1,3 +1,4 @@
+using System.Data;
 using System.Numerics;
 
 namespace CVNet;
@@ -104,9 +105,7 @@ public class CVCornerDetector
 
                         for (int dx = -1; dx <= 1; dx++)
                         {
-                            sum +=
-                                double.CreateChecked(srcSpan[(x + dx) + srcRow]) *
-                                k[dy + 1, dx + 1];
+                            sum += double.CreateChecked(srcSpan[(x + dx) + srcRow]) * k[dy + 1, dx + 1];
                         }
                     }
                     dstSpan[x + dstRow] = sum;
@@ -434,7 +433,7 @@ public class CVCornerDetector
     private static int[] earlyChecks = [1, 5, 9, 13];
     private static int[] lateChecks = [0, 2, 3, 4, 6, 7, 8, 10, 11, 12, 14, 15];
 
-    private static void fastStrength<T>(CVImage image, double threshold, int edgeDistance, ref CVImage outImage) where T : struct, INumber<T>
+    private static void fastStrengthBinary<T>(CVImage image, double threshold, int edgeDistance, ref CVImage outImage) where T : struct, INumber<T>
     {
         T thresholdT = T.CreateChecked(threshold);
 
@@ -518,20 +517,106 @@ public class CVCornerDetector
         }
     }
 
-    public static CVImage FastStrength(CVImage image, double threshold = 5.0, int edgeDistance = 16)
+    public static CVImage FastStrengthBinary(CVImage image, double threshold = 5.0, int edgeDistance = 16)
     {
         CVImage stength = CVImage.Create(image.Width, image.Height, image.DataFormat, image.ChannelFormats);
 
-        if (image.DataFormat == CVDataFormat.CV_U8) fastStrength<byte>(image, threshold, edgeDistance, ref stength);
-        else if (image.DataFormat == CVDataFormat.CV_S8) fastStrength<sbyte>(image, threshold, edgeDistance, ref stength);
-        else if (image.DataFormat == CVDataFormat.CV_U16) fastStrength<ushort>(image, threshold, edgeDistance, ref stength);
-        else if (image.DataFormat == CVDataFormat.CV_S16) fastStrength<short>(image, threshold, edgeDistance, ref stength);
-        else if (image.DataFormat == CVDataFormat.CV_U32) fastStrength<uint>(image, threshold, edgeDistance, ref stength);
-        else if (image.DataFormat == CVDataFormat.CV_S32) fastStrength<int>(image, threshold, edgeDistance, ref stength);
-        else if (image.DataFormat == CVDataFormat.CV_U64) fastStrength<ulong>(image, threshold, edgeDistance, ref stength);
-        else if (image.DataFormat == CVDataFormat.CV_S64) fastStrength<long>(image, threshold, edgeDistance, ref stength);
-        else if (image.DataFormat == CVDataFormat.CV_F32) fastStrength<float>(image, threshold, edgeDistance, ref stength);
-        else if (image.DataFormat == CVDataFormat.CV_F64) fastStrength<double>(image, threshold, edgeDistance, ref stength);
+        if (image.DataFormat == CVDataFormat.CV_U8) fastStrengthBinary<byte>(image, threshold, edgeDistance, ref stength);
+        else if (image.DataFormat == CVDataFormat.CV_S8) fastStrengthBinary<sbyte>(image, threshold, edgeDistance, ref stength);
+        else if (image.DataFormat == CVDataFormat.CV_U16) fastStrengthBinary<ushort>(image, threshold, edgeDistance, ref stength);
+        else if (image.DataFormat == CVDataFormat.CV_S16) fastStrengthBinary<short>(image, threshold, edgeDistance, ref stength);
+        else if (image.DataFormat == CVDataFormat.CV_U32) fastStrengthBinary<uint>(image, threshold, edgeDistance, ref stength);
+        else if (image.DataFormat == CVDataFormat.CV_S32) fastStrengthBinary<int>(image, threshold, edgeDistance, ref stength);
+        else if (image.DataFormat == CVDataFormat.CV_U64) fastStrengthBinary<ulong>(image, threshold, edgeDistance, ref stength);
+        else if (image.DataFormat == CVDataFormat.CV_S64) fastStrengthBinary<long>(image, threshold, edgeDistance, ref stength);
+        else if (image.DataFormat == CVDataFormat.CV_F32) fastStrengthBinary<float>(image, threshold, edgeDistance, ref stength);
+        else if (image.DataFormat == CVDataFormat.CV_F64) fastStrengthBinary<double>(image, threshold, edgeDistance, ref stength);
+
+        return stength;
+    }
+
+    private static void fastStrength<T>(CVImage image, int edgeDistance, ref CVImage outImage) where T : struct, INumber<T>
+    {
+        Span<T> buffer = image.BufferAs<T>();
+        Span<T> dstBuffer = outImage.BufferAs<T>();
+
+        int srcPlaneSize = image.Width * image.Height;
+
+        int[] offsets = new int[16];
+        double[] differences = new double[32];
+
+        for (int c = 0; c < image.Channels; c++)
+        {
+            int channelOffset = c * srcPlaneSize;
+            for (int y = edgeDistance; y < image.Height - edgeDistance; y++)
+            {
+                int row = channelOffset + y * image.Width;
+
+                for (int i = 0; i < xOffsets.Length; i++)
+                    offsets[i] = row + xOffsets[i] + yOffsets[i] * image.Width;
+
+                for (int x = edgeDistance; x < image.Width - edgeDistance; x++)
+                {
+                    int center = row + x;
+                    double centerValue = double.CreateChecked(buffer[center]);
+
+                    for (int i = 0; i < xOffsets.Length; i++)
+                    {
+                        int index = x + offsets[i];
+                        double difference = double.CreateChecked(buffer[index]) - centerValue;
+
+                        differences[i + 00] = difference;
+                        differences[i + 16] = difference;
+                    }
+
+                    double bestBright = 0;
+                    double bestDark = 0;
+
+                    for (int start = 0; start < 16; start++)
+                    {
+                        double minBright = double.MaxValue;
+                        double minDark = double.MaxValue;
+
+                        for (int j = 0; j < 9; j++)
+                        {
+                            double d = differences[start + j];
+
+                            if (d < minBright)
+                                minBright = d;
+
+                            if (-d < minDark)
+                                minDark = -d;
+                        }
+
+                        if (minBright > bestBright)
+                            bestBright = minBright;
+
+                        if (minDark > bestDark)
+                            bestDark = minDark;
+                    }
+
+                    double score = Math.Max(bestBright, bestDark);
+
+                    dstBuffer[center] = T.CreateChecked(score);
+                }
+            }
+        }
+    }
+
+    public static CVImage FastStrength(CVImage image, int edgeDistance = 16)
+    {
+        CVImage stength = CVImage.Create(image.Width, image.Height, image.DataFormat, image.ChannelFormats);
+
+        if (image.DataFormat == CVDataFormat.CV_U8) fastStrength<byte>(image, edgeDistance, ref stength);
+        else if (image.DataFormat == CVDataFormat.CV_S8) fastStrength<sbyte>(image, edgeDistance, ref stength);
+        else if (image.DataFormat == CVDataFormat.CV_U16) fastStrength<ushort>(image, edgeDistance, ref stength);
+        else if (image.DataFormat == CVDataFormat.CV_S16) fastStrength<short>(image, edgeDistance, ref stength);
+        else if (image.DataFormat == CVDataFormat.CV_U32) fastStrength<uint>(image, edgeDistance, ref stength);
+        else if (image.DataFormat == CVDataFormat.CV_S32) fastStrength<int>(image, edgeDistance, ref stength);
+        else if (image.DataFormat == CVDataFormat.CV_U64) fastStrength<ulong>(image, edgeDistance, ref stength);
+        else if (image.DataFormat == CVDataFormat.CV_S64) fastStrength<long>(image, edgeDistance, ref stength);
+        else if (image.DataFormat == CVDataFormat.CV_F32) fastStrength<float>(image, edgeDistance, ref stength);
+        else if (image.DataFormat == CVDataFormat.CV_F64) fastStrength<double>(image, edgeDistance, ref stength);
 
         return stength;
     }

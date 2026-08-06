@@ -6,7 +6,7 @@ public class CVThreshold
 {
     public static CVImage Threshold<T>(CVImage imageIn, T threshold) where T : struct, INumber<T>
     {
-        return CVMath.Greater(imageIn, threshold);
+        return CVMath.GreaterThan(imageIn, threshold);
     }
 
     public static CVImage AdaptiveThresholdMean<T>(CVImage image, T offset, int radius) where T : struct, INumber<T>
@@ -87,7 +87,7 @@ public class CVThreshold
         for (int i = 0; i < buckets.Length; i++)
             otsuThresholds[i] = min + bucketSize * buckets[i];
 
-        outImage = CVMath.GreaterOrEqual(image, otsuThresholds);
+        outImage = CVMath.GreaterThanOrEqual(image, otsuThresholds);
     }
 
     public static CVImage OtsuThreshold(CVImage image1, int bucketCount)

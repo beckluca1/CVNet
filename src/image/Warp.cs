@@ -8,75 +8,6 @@ using DenseVectorD = MathNet.Numerics.LinearAlgebra.Double.DenseVector;
 
 public static class CVWarp
 {
-    public static MatrixD GetPerspectiveTransform(List<VectorD> src, List<VectorD> dst)
-    {
-        if (src.Count != 4 || dst.Count != 4)
-            return MatrixD.Build.DenseIdentity(3);
-
-        var A = MatrixD.Build.Dense(8, 8);
-        var b = VectorD.Build.Dense(8);
-
-        for (int i = 0; i < 4; i++)
-        {
-            double x = src[i][0];
-            double y = src[i][1];
-
-            double X = dst[i][0];
-            double Y = dst[i][1];
-
-            int r = i * 2;
-
-            // X equation
-            A[r, 0] = x;
-            A[r, 1] = y;
-            A[r, 2] = 1;
-            A[r, 3] = 0;
-            A[r, 4] = 0;
-            A[r, 5] = 0;
-            A[r, 6] = -X * x;
-            A[r, 7] = -X * y;
-
-            b[r] = X;
-
-            // Y equation
-            A[r + 1, 0] = 0;
-            A[r + 1, 1] = 0;
-            A[r + 1, 2] = 0;
-            A[r + 1, 3] = x;
-            A[r + 1, 4] = y;
-            A[r + 1, 5] = 1;
-            A[r + 1, 6] = -Y * x;
-            A[r + 1, 7] = -Y * y;
-
-            b[r + 1] = Y;
-        }
-
-        VectorD h = A.Solve(b);
-
-        return MatrixD.Build.DenseOfArray(new double[,]
-        {
-            { h[0], h[1], h[2] },
-            { h[3], h[4], h[5] },
-            { h[6], h[7], 1.0  }
-        });
-    }
-
-    public static VectorD TransformPoint(
-        VectorD point,
-        MatrixD H)
-    {
-        var p = DenseVectorD.OfArray(new[] { point[0], point[1], 1.0 });
-        var r = H * p;
-
-        if (Math.Abs(r[2]) < 1e-12)
-            return DenseVectorD.OfArray(new double[] { 0.0, 0.0 });
-
-        double x = r[0] / r[2];
-        double y = r[1] / r[2];
-
-        return DenseVectorD.OfArray(new double[] { x, y });
-    }
-
     private static void warpPerspective<T>(
         CVImage image,
         MatrixD Hinv,
@@ -202,7 +133,7 @@ public static class CVWarp
 
         CVImage imageOut = CVImage.Create(targetWidth, targetHeight, image.DataFormat, image.ChannelFormats);
 
-        H = GetPerspectiveTransform(srcPoints, dstPoints);
+        H = CVHomography.ComputeHomographyExact(srcPoints, dstPoints);
         MatrixD HInv = H.Inverse();
 
         if (image.DataFormat == CVDataFormat.CV_U8) warpPerspective<byte>(image, HInv, ref imageOut);
@@ -232,7 +163,7 @@ public static class CVWarp
             matchedFeatures2Vec.Add(DenseVectorD.OfArray([matchedFeatures2[i].x, matchedFeatures2[i].y]));
         }
 
-        MatrixD H = CVCamera.ComputeHomographyRansac(matchedFeatures1Vec, matchedFeatures2Vec, 10000, 3.0, out List<int> bestInliers);
+        MatrixD H = CVHomography.ComputeHomographyRansac(matchedFeatures1Vec, matchedFeatures2Vec, 10000, 3.0, out List<int> bestInliers, out double error);
         MatrixD HInv = H.Inverse();
 
         return WarpPerspective(image2, HInv);

@@ -484,17 +484,17 @@ public class CVImage
     public static CVImage operator /(double val, CVImage image) { return CVMath.Divide(val, image); }
     public static CVImage operator /(CVImage image1, CVImage image2) { return CVMath.Divide(image1, image2); }
 
-    public static CVImage operator <(CVImage image, int val) { return CVMath.Smaller(image, val); }
-    public static CVImage operator <(CVImage image, double val) { return CVMath.Smaller(image, val); }
-    public static CVImage operator <(int val, CVImage image) { return CVMath.GreaterOrEqual(image, val); }
-    public static CVImage operator <(double val, CVImage image) { return CVMath.GreaterOrEqual(image, val); }
-    public static CVImage operator <(CVImage image1, CVImage image2) { return CVMath.Smaller(image1, image2); }
+    public static CVImage operator <(CVImage image, int val) { return CVMath.SmallerThan(image, val); }
+    public static CVImage operator <(CVImage image, double val) { return CVMath.SmallerThan(image, val); }
+    public static CVImage operator <(int val, CVImage image) { return CVMath.GreaterThanOrEqual(image, val); }
+    public static CVImage operator <(double val, CVImage image) { return CVMath.GreaterThanOrEqual(image, val); }
+    public static CVImage operator <(CVImage image1, CVImage image2) { return CVMath.SmallerThan(image1, image2); }
 
-    public static CVImage operator >(CVImage image, int val) { return CVMath.Greater(image, val); }
-    public static CVImage operator >(CVImage image, double val) { return CVMath.Greater(image, val); }
-    public static CVImage operator >(int val, CVImage image) { return CVMath.SmallerOrEqual(image, val); }
-    public static CVImage operator >(double val, CVImage image) { return CVMath.SmallerOrEqual(image, val); }
-    public static CVImage operator >(CVImage image1, CVImage image2) { return CVMath.Greater(image1, image2); }
+    public static CVImage operator >(CVImage image, int val) { return CVMath.GreaterThan(image, val); }
+    public static CVImage operator >(CVImage image, double val) { return CVMath.GreaterThan(image, val); }
+    public static CVImage operator >(int val, CVImage image) { return CVMath.SmallerThanOrEqual(image, val); }
+    public static CVImage operator >(double val, CVImage image) { return CVMath.SmallerThanOrEqual(image, val); }
+    public static CVImage operator >(CVImage image1, CVImage image2) { return CVMath.GreaterThan(image1, image2); }
 
     public static CVImage operator ==(CVImage image, int val) { return CVMath.Equals(image, val); }
     public static CVImage operator ==(CVImage image, double val) { return CVMath.Equals(image, val); }
