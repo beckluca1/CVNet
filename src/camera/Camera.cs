@@ -287,13 +287,12 @@ public static class CVCamera
         R = Rs[index];
         t = ts[index];
 
-        Console.WriteLine("R");
-        Console.WriteLine(R);
-        Console.WriteLine("t");
-        Console.WriteLine(t);
+        // Flip direction so its consistent
+        if ((R.Transpose() * t)[0] < 0)
+            t = -t;
 
-        double meanReprojectionError = MeanReprojectionError(src, dst, R, t, K1, K2, d1, d2);
-        Console.WriteLine($"Mean reprojection error: {meanReprojectionError}");
+        // double meanReprojectionError = MeanReprojectionError(src, dst, R, t, K1, K2, d1, d2);
+        // Console.WriteLine($"Mean reprojection error: {meanReprojectionError}");
 
         return MeanSampsonError(srcNorm, dstNorm, E);
     }
@@ -331,7 +330,7 @@ public static class CVCamera
             error += dx1 * dx1 + dy1 * dy1 + dx2 * dx2 + dy2 * dy2;
         }
 
-        Console.WriteLine($"Cam1 RMS {Math.Sqrt(errorCam1 / (src.Count * 4))}, Cam2 RMS {Math.Sqrt(errorCam2 / (src.Count * 4))}");
+        // Console.WriteLine($"Cam1 RMS {Math.Sqrt(errorCam1 / (src.Count * 4))}, Cam2 RMS {Math.Sqrt(errorCam2 / (src.Count * 4))}");
 
         return Math.Sqrt(error / (src.Count * 4));
     }
@@ -465,8 +464,8 @@ public static class CVCamera
             }
         }
 
-        Console.WriteLine($"Sampson Error {bestError}");
-        Console.WriteLine($"Inliers {bestInliers.Count} / {n}");
+        // Console.WriteLine($"Sampson Error {bestError}");
+        // Console.WriteLine($"Inliers {bestInliers.Count} / {n}");
 
         if (bestInliers.Count < 8)
             throw new Exception("No valid Essential Matrix found");
@@ -482,7 +481,7 @@ public static class CVCamera
         }
 
         double inlierError = EstimateCameraPose(inlierSrc, inlierDst, K1, K2, d1, d2, out R, out t);
-        Console.WriteLine($"Final Sampson Error: {inlierError}");
+        // Console.WriteLine($"Final Sampson Error: {inlierError}");
     }
 
     public static List<VectorD> TriangulateAll(
@@ -492,18 +491,14 @@ public static class CVCamera
         MatrixD K2,
         VectorD d1,
         VectorD d2,
-        double baseline,
-        out MatrixD R,
-        out VectorD t)
+        MatrixD R,
+        VectorD t)
     {
         if (src.Count != dst.Count)
-            throw new ArgumentException(
-                "Point lists must have same length");
+            throw new ArgumentException("Point lists must have same length");
 
         List<VectorD> normalizedPixels1 = CVProjection.IntrinsicUnProjectPoints(src, K1, d1);
         List<VectorD> normalizedPixels2 = CVProjection.IntrinsicUnProjectPoints(dst, K2, d2);
-
-        EstimateCameraPose(src, dst, K1, K2, d1, d2, out R, out t);
 
         var points = new List<VectorD>();
 
@@ -511,15 +506,6 @@ public static class CVCamera
         {
             VectorD X = triangulate(R, t, normalizedPixels1[i], normalizedPixels2[i]);
             points.Add(X);
-        }
-
-        // Scale translation and reconstructed points
-        double scale = baseline / t.L2Norm();
-        t *= scale;
-
-        for (int i = 0; i < points.Count; i++)
-        {
-            points[i] *= scale;
         }
 
         return points;
@@ -562,23 +548,6 @@ public static class CVCamera
 
         R1 = Rrect;
         R2 = Rrect * R.Transpose();
-
-        Console.WriteLine("R1.Determinant():");
-        Console.WriteLine(R1.Determinant());
-        Console.WriteLine("R1.Determinant():");
-        Console.WriteLine(R2.Determinant());
-
-        var C1r = R1 * C1;
-        var C2r = Rrect * C2;
-
-        Console.WriteLine("C1r:");
-        Console.WriteLine(C1r);
-        Console.WriteLine("C2r:");
-        Console.WriteLine(C2r);
-
-        var z = R1 * DenseVectorD.OfArray([0, 0, 1]);
-        Console.WriteLine("z:");
-        Console.WriteLine(z);
 
         H1 = K1 * R1 * K1.Inverse();
         H2 = K2 * R2 * K2.Inverse();

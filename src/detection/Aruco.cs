@@ -117,8 +117,6 @@ public class CVAruco
             if (buffer[(size - 1) + i * size] == T.Zero) borderErrors++;
         }
 
-        Console.WriteLine($"borderErrors: {borderErrors}");
-
         ulong[] values = new ulong[4];
         for (int y = 1; y < size - 1; y++)
         {
@@ -137,9 +135,7 @@ public class CVAruco
         int bestId = 0;
         for (int i = 0; i < values.Length; i++)
         {
-            Console.WriteLine($"value: {values[i]}");
             int id = ClosestId(values[i], out int distance);
-            Console.WriteLine($"Id: {id} with distance {distance}");
             if (distance < closest)
             {
                 bestId = id;
@@ -148,12 +144,14 @@ public class CVAruco
             if (closest == 0) break;
         }
 
-        Console.WriteLine($"Id: {bestId}");
         contour.ID = bestId;
 
         int errors = borderErrors + closest;
 
         if (errors > 5) return false;
+
+        Console.WriteLine($"Id: {bestId}");
+
         return true;
     }
 

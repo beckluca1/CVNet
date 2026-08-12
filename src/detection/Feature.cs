@@ -1,4 +1,5 @@
 using System.Numerics;
+using Xunit.Sdk;
 
 namespace CVNet;
 
@@ -973,14 +974,10 @@ public class CVFeatureDetector
 
             int perCell = Math.Max(1, (int)Math.Ceiling(levelFeatures / (double)(cellsX * cellsY)));
 
-            Console.WriteLine($"Level: {level} - Max Features: {levelFeatures} - Grid Count: {cellsX}x{cellsY}");
             List<(int x, int y)> fastKeypoints = Fast(levelImage, 8.0, 8);
-            Console.WriteLine($"Fast Keypoints: {fastKeypoints.Count}");
             List<(int x, int y, double)> harrisScores = CVCornerDetector.HarrisStrengthPoints(levelImage, fastKeypoints, 0.04, 3);
             List<(int x, int y, double)> suppressedScores = CVCornerDetector.NonMaximumSuppressionPoints(harrisScores, 1);
-            Console.WriteLine($"Harris NMS Keypoints: {suppressedScores.Count}");
             List<(int x, int y)> selectedPoints = GridKeypointSelection(levelImage, harrisScores, cellsX, cellsY, perCell);
-            Console.WriteLine($"Grid Keypoints: {selectedPoints.Count}");
 
             List<double> angles = IntensityCentroidAngles(levelImage, selectedPoints, 15);
             List<CVDescriptor> levelDescriptors = Brief(levelImage, selectedPoints, angles);
@@ -1203,155 +1200,293 @@ public class CVFeatureDetector
         }
     }
 
+    private static readonly int[,] directionsForward = {
+        { 1, 0},
+        { 0, 1},
+        { 1, 1},
+        {-1, 1},
+    };
+
+
+    private static readonly int[,] directionsBackward = {
+        {-1, 0},
+        { 0,-1},
+        {-1,-1},
+        { 1,-1},
+    };
+
+    private static int computeBlockCost<T>(CVImage left, CVImage right, int width, int height, int x, int y, int disparity, int radius, int PInvalid) where T : struct, INumber<T>
+    {
+        Span<T> leftBuffer = left.BufferAs<T>();
+        Span<T> rightBuffer = right.BufferAs<T>();
+
+        int cost = 0;
+        int minX = Math.Max(0, x - radius);
+        int maxX = Math.Min(width - 1, x + radius);
+        int minY = Math.Max(0, y - radius);
+        int maxY = Math.Min(height - 1, y + radius);
+
+        for (int yy = minY; yy <= maxY; yy++)
+        {
+            int row = yy * width;
+            for (int xx = minX; xx <= maxX; xx++)
+            {
+                int rightX = xx - disparity;
+
+                /* * No corresponding pixel exists in the right image. */
+                if (rightX < 0 || rightX >= width)
+                    cost += PInvalid;
+                else
+                {
+                    int leftValue = int.CreateChecked(leftBuffer[row + xx]);
+                    int rightValue = int.CreateChecked(rightBuffer[row + rightX]);
+
+                    cost += Math.Abs(leftValue - rightValue);
+                }
+            }
+        }
+        return cost;
+    }
+
+    private static int getMin(Span<int> list)
+    {
+        int min = list[0];
+
+        for (int i = 1; i < list.Length; i++)
+        {
+            int element = list[i];
+            if (element < min)
+                min = element;
+        }
+
+        return min;
+    }
+
+    private static int calculateBest(Span<int> previous, int minPrevious, int maxDisparity, int disparity, int P1, int P2)
+    {
+        /* * Same disparity. */
+        int best = previous[disparity];
+
+        /* * Disparity - 1. */
+        if (disparity > 0)
+        {
+            int candidate = previous[disparity - 1] + P1;
+
+            if (candidate < best)
+                best = candidate;
+        }
+
+        /* * Disparity + 1. */
+        if (disparity + 1 < maxDisparity)
+        {
+            int candidate = previous[disparity + 1] + P1;
+
+            if (candidate < best)
+                best = candidate;
+        }
+
+        /* * Any other disparity. */
+        int largeJump = minPrevious + P2;
+
+        if (largeJump < best) best = largeJump;
+
+        return best;
+    }
+
+    private static void processForwardDirections<T>(int width, int height, CVImage[] costs, int[,] ds, int maxDisparity, int blockSize, int P1, int P2, int PInvalid, int[] aggregatedCost) where T : struct, INumber<T>
+    {
+        int directions = ds.GetLength(0);
+
+        int[] previousRow = new int[width * maxDisparity * directions];
+        int[] currentRow = new int[width * maxDisparity * directions];
+
+        for (int y = 0; y < height; y++)
+        {
+            for (int x = 0; x < width; x++)
+            {
+                int xOffset = x * maxDisparity * directions;
+
+                int pixelIndex = y * width + x;
+                int aggregateBase = pixelIndex * maxDisparity;
+
+                for (int disparity = 0; disparity < maxDisparity; disparity++)
+                {
+                    Span<T> costBuffer = costs[disparity].BufferAs<T>();
+
+                    int cost = int.CreateChecked(costBuffer[x * y * width]); // computeBlockCost<T>(left, right, width, height, x, y, disparity, blockSize, PInvalid);
+                    for (int i = 0; i < directions; i++)
+                    {
+                        int previousX = x - ds[i, 0];
+                        int previousY = y - ds[i, 1];
+
+                        int directionOffset = i * maxDisparity;
+                        int xDirectionOffset = xOffset + directionOffset;
+
+                        int currentIndex = xDirectionOffset + disparity;
+
+                        // No Previous Pixels
+                        if (previousX < 0 || previousX >= width || previousY < 0 || previousY >= height)
+                        {
+                            currentRow[currentIndex] = cost;
+                        }
+                        else
+                        {
+                            int previousXOffset = previousX * maxDisparity * directions;
+                            int startIndex = previousXOffset + directionOffset;
+
+                            Span<int> previousScores;
+                            if (ds[i, 1] == 0) previousScores = currentRow.AsSpan(startIndex, maxDisparity);
+                            else previousScores = previousRow.AsSpan(startIndex, maxDisparity);
+
+                            int minPrevious = getMin(previousScores);
+                            int best = calculateBest(previousScores, minPrevious, maxDisparity, disparity, P1, P2);
+
+                            currentRow[currentIndex] = cost + best - minPrevious;
+                        }
+
+                        aggregatedCost[aggregateBase + disparity] += currentRow[currentIndex];
+                    }
+                }
+            }
+
+            int[] temp = previousRow;
+            previousRow = currentRow;
+            currentRow = temp;
+        }
+    }
+
+    private static void processBackwardDirections<T>(int width, int height, CVImage[] costs, int[,] ds, int maxDisparity, int blockSize, int P1, int P2, int PInvalid, int[] aggregatedCost) where T : struct, INumber<T>
+    {
+        int directions = ds.GetLength(0);
+
+        int[] previousRow = new int[width * directions * maxDisparity];
+        int[] currentRow = new int[width * directions * maxDisparity];
+
+        for (int y = height - 1; y >= 0; y--)
+        {
+            for (int x = width - 1; x >= 0; x--)
+            {
+                int xOffset = x * maxDisparity * directions;
+
+                int pixelIndex = y * width + x;
+                int aggregateBase = pixelIndex * maxDisparity;
+
+                for (int disparity = 0; disparity < maxDisparity; disparity++)
+                {
+                    Span<T> costBuffer = costs[disparity].BufferAs<T>();
+
+                    int cost = int.CreateChecked(costBuffer[x * y * width]); // computeBlockCost<T>(left, right, width, height, x, y, disparity, blockSize, PInvalid);
+
+                    for (int i = 0; i < directions; i++)
+                    {
+                        int previousX = x - ds[i, 0];
+                        int previousY = y - ds[i, 1];
+
+                        int directionOffset = i * maxDisparity;
+                        int xDirectionOffset = xOffset + directionOffset;
+
+                        int currentIndex = xDirectionOffset + disparity;
+
+                        // No Previous Pixels
+                        if (previousX < 0 || previousX >= width || previousY < 0 || previousY >= height)
+                        {
+                            currentRow[currentIndex] = cost;
+                        }
+                        else
+                        {
+                            int previousXOffset = previousX * maxDisparity * directions;
+                            int startIndex = previousXOffset + directionOffset;
+
+                            Span<int> previousScores;
+                            if (ds[i, 1] == 0) previousScores = currentRow.AsSpan(startIndex, maxDisparity);
+                            else previousScores = previousRow.AsSpan(startIndex, maxDisparity);
+
+                            int minPrevious = getMin(previousScores);
+                            int best = calculateBest(previousScores, minPrevious, maxDisparity, disparity, P1, P2);
+
+                            currentRow[currentIndex] = cost + best - minPrevious;
+                        }
+
+                        aggregatedCost[aggregateBase + disparity] += currentRow[currentIndex];
+                    }
+                }
+            }
+
+            int[] temp = previousRow;
+            previousRow = currentRow;
+            currentRow = temp;
+        }
+    }
+
     public static void ComputeSGBM<T>(
         CVImage left,
         CVImage right,
         ref CVImage disparity,
-        int maxDisparity = 64,
-        int blockSize = 5,
+        int maxDisparity = 256,
+        int blockRadius = 5,
         int P1 = 10,
-        int P2 = 120) where T : struct, INumber<T>, IMinMaxValue<T>
+        int P2 = 120,
+        int PInvalid = 1000)
+        where T : struct, INumber<T>, IMinMaxValue<T>
     {
-        Span<T> bufferLeft = left.BufferAs<T>();
-        Span<T> bufferRight = right.BufferAs<T>();
-        Span<T> bufferDisparity = disparity.BufferAs<T>();
-
-        T P1T = T.CreateChecked(P1);
-        T P2T = T.CreateChecked(P2);
-
         int width = left.Width;
         int height = left.Height;
-        int half = blockSize / 2;
 
-        T[,,] cost = new T[height, width, maxDisparity];
+        CVImage[] costs = new CVImage[maxDisparity];
 
-        //-------------------------------------------------------
-        // Matching Cost (SAD)
-        //-------------------------------------------------------
-
-        for (int d = 0; d < maxDisparity; d++)
+        for (int i = 0; i < maxDisparity; i++)
         {
-            for (int y = half; y < height - half; y++)
-            {
-                for (int x = half + d; x < width - half; x++)
-                {
-                    T sad = T.Zero;
-
-                    for (int wy = -half; wy <= half; wy++)
-                    {
-                        int ly = (y + wy) * width;
-                        int ry = ly;
-
-                        for (int wx = -half; wx <= half; wx++)
-                        {
-                            T l = bufferLeft[(x + wx) + ly];
-                            T r = bufferRight[(x + wx - d) + ry];
-
-                            sad += T.Abs(l - r);
-                        }
-                    }
-
-                    cost[y, x, d] = sad;
-                }
-            }
+            CVImage shifted = CVShift.Shift(right, i, 0);
+            CVImage absoluteDifference = CVMath.Abs(left - shifted);
+            costs[i] = CVWindowing.SumWindow(absoluteDifference, blockRadius);
         }
 
-        //-------------------------------------------------------
-        // Semi-global aggregation
-        //-------------------------------------------------------
+        int[] aggregatedCost = new int[width * height * maxDisparity];
 
-        T[,,] aggregate = new T[height, width, maxDisparity];
+        processForwardDirections<T>(width, height, costs, directionsForward, maxDisparity, blockRadius, P1, P2, PInvalid, aggregatedCost);
+        processBackwardDirections<T>(width, height, costs, directionsBackward, maxDisparity, blockRadius, P1, P2, PInvalid, aggregatedCost);
 
-        int[,] directions =
-        {
-            { 0, 1 },
-            { 0,-1 },
-            { 1, 0 },
-            {-1, 0 }
-        };
-
-        for (int dir = 0; dir < 4; dir++)
-        {
-            int dy = directions[dir, 0];
-            int dx = directions[dir, 1];
-
-            T[,,] L = new T[height, width, maxDisparity];
-
-            int yStart = dy >= 0 ? 0 : height - 1;
-            int yEnd = dy >= 0 ? height : -1;
-            int yStep = dy >= 0 ? 1 : -1;
-
-            int xStart = dx >= 0 ? 0 : width - 1;
-            int xEnd = dx >= 0 ? width : -1;
-            int xStep = dx >= 0 ? 1 : -1;
-
-            for (int y = yStart; y != yEnd; y += yStep)
-            {
-                for (int x = xStart; x != xEnd; x += xStep)
-                {
-                    int py = y - dy;
-                    int px = x - dx;
-
-                    if (py < 0 || py >= height ||
-                        px < 0 || px >= width)
-                    {
-                        for (int d = 0; d < maxDisparity; d++)
-                            L[y, x, d] = cost[y, x, d];
-
-                        continue;
-                    }
-
-                    T prevMin = T.MaxValue;
-
-                    for (int k = 0; k < maxDisparity; k++)
-                        if (L[py, px, k] < prevMin)
-                            prevMin = L[py, px, k];
-
-                    for (int d = 0; d < maxDisparity; d++)
-                    {
-                        T best = L[py, px, d];
-
-                        if (d > 0)
-                            best = T.Min(best, L[py, px, d - 1] + P1T);
-
-                        if (d < maxDisparity - 1)
-                            best = T.Min(best, L[py, px, d + 1] + P1T);
-
-                        best = T.Min(best, prevMin + P2T);
-
-                        L[y, x, d] = cost[y, x, d] + best - prevMin;
-                        aggregate[y, x, d] += L[y, x, d];
-                    }
-                }
-            }
-        }
-
-        //-------------------------------------------------------
-        // Winner-takes-all disparity
-        //-------------------------------------------------------
+        Span<T> disparityBuffer = disparity.BufferAs<T>();
 
         for (int y = 0; y < height; y++)
         {
-            int row = y * width;
-
             for (int x = 0; x < width; x++)
             {
-                T bestCost = T.MaxValue;
-                int bestDisp = 0;
+                int pixelIndex = y * width + x;
+                int baseIndex = pixelIndex * maxDisparity;
+
+                int bestDisparity = -1;
+                int bestCost = int.MaxValue;
+                int secondBestCost = int.MaxValue;
 
                 for (int d = 0; d < maxDisparity; d++)
                 {
-                    if (aggregate[y, x, d] < bestCost)
+                    int cost = aggregatedCost[baseIndex + d];
+
+                    if (cost < bestCost)
                     {
-                        bestCost = aggregate[y, x, d];
-                        bestDisp = d;
+                        secondBestCost = bestCost;
+                        bestCost = cost;
+                        bestDisparity = d;
+                    }
+                    else if (cost < secondBestCost)
+                    {
+                        secondBestCost = cost;
                     }
                 }
 
-                bufferDisparity[x + row] = T.CreateChecked((bestDisp * 255) / (maxDisparity - 1));
+                if (bestDisparity < 0)
+                {
+                    disparityBuffer[pixelIndex] = T.Zero;
+                    continue;
+                }
+
+                disparityBuffer[pixelIndex] = T.CreateChecked(bestDisparity);
             }
         }
     }
+
+
     public static CVImage ComputeSGBM(CVImage image1, CVImage image2, int maxDisparity = 64,
         int blockSize = 5,
         int P1 = 10,

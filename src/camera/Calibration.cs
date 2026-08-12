@@ -538,9 +538,6 @@ public class CVCalibration
                 if (Math.Abs(relativeRotation) > 15.0 * Math.PI / 180.0) continue;
             }
 
-            Console.WriteLine(R);
-            Console.WriteLine(t);
-
             Rs.Add(R);
             ts.Add(t);
         }
