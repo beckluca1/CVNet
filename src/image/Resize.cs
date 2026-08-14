@@ -324,6 +324,17 @@ public static class CVResize
         return imageOut;
     }
 
+    public static CVImage Stretch(CVImage image,
+                                        int targetWidth,
+                                        int targetHeight,
+                                        CVInterpolationMode mode)
+    {
+        if (mode == CVInterpolationMode.CV_NEAREST) return StretchNearest(image, targetWidth, targetHeight);
+        else if (mode == CVInterpolationMode.CV_LINEAR) return StretchLinear(image, targetWidth, targetHeight);
+
+        throw new Exception("Unknown Interpolation mode");
+    }
+
     // Optimized
     private static void crop<T>(
                 CVImage imageIn,
@@ -386,7 +397,7 @@ public static class CVResize
                     CVImage image,
                     int targetWidth,
                     int targetHeight,
-                    T[] defaultValue) where T : struct, INumber<T>
+                    T defaultValue) where T : struct, INumber<T>
     {
         CVImage imageOut = CVImage.Create(targetWidth, targetHeight, image.DataFormat, image.ChannelFormats, defaultValue);
 
@@ -404,14 +415,173 @@ public static class CVResize
         return imageOut;
     }
 
-    public static CVImage Resize(CVImage image,
-                                    int targetWidth,
-                                    int targetHeight,
-                                    CV_ResizeMode resizeMode)
+    public static CVImage Crop<T>(
+                        CVImage image,
+                        int targetWidth,
+                        int targetHeight,
+                        T[] defaultValue) where T : struct, INumber<T>
     {
-        if (resizeMode == CV_ResizeMode.CV_STRETCH_NEAREST) return StretchNearest(image, targetWidth, targetHeight);
-        else if (resizeMode == CV_ResizeMode.CV_STRETCH_LINEAR) return StretchLinear(image, targetWidth, targetHeight);
-        else if (resizeMode == CV_ResizeMode.CV_CROP) return Crop(image, targetWidth, targetHeight);
+        CVImage imageOut = CVImage.Create(targetWidth, targetHeight, image.DataFormat, image.ChannelFormats, defaultValue);
+
+        if (image.DataFormat == CVDataFormat.CV_U8) crop<byte>(image, ref imageOut);
+        else if (image.DataFormat == CVDataFormat.CV_S8) crop<sbyte>(image, ref imageOut);
+        else if (image.DataFormat == CVDataFormat.CV_U16) crop<ushort>(image, ref imageOut);
+        else if (image.DataFormat == CVDataFormat.CV_S16) crop<short>(image, ref imageOut);
+        else if (image.DataFormat == CVDataFormat.CV_U32) crop<uint>(image, ref imageOut);
+        else if (image.DataFormat == CVDataFormat.CV_S32) crop<int>(image, ref imageOut);
+        else if (image.DataFormat == CVDataFormat.CV_U64) crop<ulong>(image, ref imageOut);
+        else if (image.DataFormat == CVDataFormat.CV_S64) crop<long>(image, ref imageOut);
+        else if (image.DataFormat == CVDataFormat.CV_F32) crop<float>(image, ref imageOut);
+        else if (image.DataFormat == CVDataFormat.CV_F64) crop<double>(image, ref imageOut);
+
+        return imageOut;
+    }
+
+    public static CVImage AspectCrop(
+                    CVImage image,
+                    double aspect)
+    {
+        int cropWidth = (int)(image.Height * aspect);
+        int cropHeight = image.Height;
+
+        if (cropWidth > image.Width)
+        {
+            cropWidth = image.Width;
+            cropHeight = (int)(image.Width / aspect);
+        }
+
+        return Crop(image, cropWidth, cropHeight);
+    }
+
+    public static CVImage AspectPad<T>(
+                        CVImage image,
+                        double aspect,
+                        T defaultValue) where T : struct, INumber<T>
+    {
+        int cropWidth = (int)(image.Height * aspect);
+        int cropHeight = image.Height;
+
+        if (cropWidth < image.Width)
+        {
+            cropWidth = image.Width;
+            cropHeight = (int)(image.Width / aspect);
+        }
+
+        return Crop(image, cropWidth, cropHeight, defaultValue);
+    }
+
+    public static CVImage AspectPad<T>(
+                        CVImage image,
+                        double aspect,
+                        T[] defaultValue) where T : struct, INumber<T>
+    {
+        int cropWidth = (int)(image.Height * aspect);
+        int cropHeight = image.Height;
+
+        if (cropWidth < image.Width)
+        {
+            cropWidth = image.Width;
+            cropHeight = (int)(image.Width / aspect);
+        }
+
+        return Crop(image, cropWidth, cropHeight, defaultValue);
+    }
+
+    public static CVImage AspectFitWidth(
+                        CVImage image,
+                        double aspect,
+                        CVInterpolationMode mode)
+    {
+        int stretchWidth = (int)(image.Height * aspect);
+        int stretchHeight = image.Height;
+
+        return Stretch(image, stretchWidth, stretchHeight, mode);
+    }
+
+    public static CVImage AspectFitHeight(
+                        CVImage image,
+                        double aspect,
+                        CVInterpolationMode mode)
+    {
+        int stretchWidth = image.Width;
+        int stretchHeight = (int)(image.Width / aspect);
+
+        return Stretch(image, stretchWidth, stretchHeight, mode);
+    }
+
+    public static CVImage ResizeStretch(
+                        CVImage image,
+                        int width,
+                        int height,
+                        CVInterpolationMode mode)
+    {
+        return Stretch(image, width, height, mode);
+    }
+
+    public static CVImage ResizeCrop(
+                        CVImage image,
+                        int width,
+                        int height,
+                        CVInterpolationMode mode)
+    {
+        double aspect = (double)width / height;
+
+        CVImage cropped = AspectCrop(image, aspect);
+        return Stretch(cropped, width, height, mode);
+    }
+
+    public static CVImage ResizePad<T>(
+                        CVImage image,
+                        int width,
+                        int height,
+                        CVInterpolationMode mode,
+                        T defaultValue) where T : struct, INumber<T>
+    {
+        double aspect = (double)width / height;
+
+        CVImage padded = AspectPad(image, aspect, defaultValue);
+        return Stretch(padded, width, height, mode);
+    }
+
+    public static CVImage ResizePad<T>(
+                        CVImage image,
+                        int width,
+                        int height,
+                        CVInterpolationMode mode,
+                        T[] defaultValue) where T : struct, INumber<T>
+    {
+        double aspect = (double)width / height;
+
+        CVImage padded = AspectPad(image, aspect, defaultValue);
+        return Stretch(padded, width, height, mode);
+    }
+
+    public static CVImage Resize<T>(
+                    CVImage image,
+                    int width,
+                    int height,
+                    CVResizeMode resizeMode,
+                    CVInterpolationMode interpolationMode,
+                    T[] defaultValue) where T : struct, INumber<T>
+    {
+        if (resizeMode == CVResizeMode.CV_STRETCH) return ResizeStretch(image, width, height, interpolationMode);
+        else if (resizeMode == CVResizeMode.CV_CROP) return ResizeCrop(image, width, height, interpolationMode);
+        else if (resizeMode == CVResizeMode.CV_PAD) return ResizePad(image, width, height, interpolationMode, defaultValue);
+
+        throw new Exception("Unknown Resize mode");
+    }
+
+    public static CVImage Resize<T>(
+                CVImage image,
+                int width,
+                int height,
+                CVResizeMode resizeMode,
+                CVInterpolationMode interpolationMode,
+                T defaultValue) where T : struct, INumber<T>
+    {
+        if (resizeMode == CVResizeMode.CV_STRETCH) return ResizeStretch(image, width, height, interpolationMode);
+        else if (resizeMode == CVResizeMode.CV_CROP) return ResizeCrop(image, width, height, interpolationMode);
+        else if (resizeMode == CVResizeMode.CV_PAD) return ResizePad(image, width, height, interpolationMode, defaultValue);
 
         throw new Exception("Unknown Resize mode");
     }

@@ -157,6 +157,20 @@ public static class CVHomography
         });
     }
 
+    public static MatrixD ComputeHomographyQuadExact(List<VectorD> points1, double targetWidth, double targetHeight)
+    {
+        List<VectorD> points2 =
+        [
+            DenseVectorD.OfArray([0.0, 0.0]),
+            DenseVectorD.OfArray([targetWidth - 1, 0.0]),
+            DenseVectorD.OfArray([targetWidth - 1, targetHeight - 1]),
+            DenseVectorD.OfArray([0.0, targetHeight - 1]),
+        ];
+
+        return ComputeHomographyExact(points1, points2);
+    }
+
+
     public static MatrixD ComputeHomographyExact(List<VectorD> points1, List<VectorD> points2)
     {
         if (points1.Count != 4 || points2.Count != 4)

@@ -93,23 +93,39 @@ public static class CVWarp
         return imageOut;
     }
 
+    public static CVImage WarpPerspective(CVImage image, int targetWidth, int targetHeight, MatrixD H)
+    {
+        CVImage imageOut = CVImage.Create(targetWidth, targetHeight, image.DataFormat, image.ChannelFormats);
+
+        if (image.DataFormat == CVDataFormat.CV_U8) warpPerspective<byte>(image, H, ref imageOut);
+        else if (image.DataFormat == CVDataFormat.CV_S8) warpPerspective<sbyte>(image, H, ref imageOut);
+        else if (image.DataFormat == CVDataFormat.CV_U16) warpPerspective<ushort>(image, H, ref imageOut);
+        else if (image.DataFormat == CVDataFormat.CV_S16) warpPerspective<short>(image, H, ref imageOut);
+        else if (image.DataFormat == CVDataFormat.CV_U32) warpPerspective<uint>(image, H, ref imageOut);
+        else if (image.DataFormat == CVDataFormat.CV_S32) warpPerspective<int>(image, H, ref imageOut);
+        else if (image.DataFormat == CVDataFormat.CV_U64) warpPerspective<ulong>(image, H, ref imageOut);
+        else if (image.DataFormat == CVDataFormat.CV_S64) warpPerspective<long>(image, H, ref imageOut);
+        else if (image.DataFormat == CVDataFormat.CV_F32) warpPerspective<float>(image, H, ref imageOut);
+        else if (image.DataFormat == CVDataFormat.CV_F64) warpPerspective<double>(image, H, ref imageOut);
+
+        return imageOut;
+    }
+
+    public static CVImage WarpPerspectiveQuad(CVImage image, List<VectorD> srcPoints, int targetWidth, int targetHeight, out MatrixD H)
+    {
+        H = CVHomography.ComputeHomographyQuadExact(srcPoints, targetWidth, targetHeight);
+        MatrixD HInv = H.Inverse();
+
+        return WarpPerspective(image, targetWidth, targetHeight, HInv);
+    }
+
     public static CVImage WarpPerspectiveQuad(CVImage image, List<VectorD> srcPoints, out MatrixD H)
     {
-        double widthA = Math.Sqrt(
-            Math.Pow(srcPoints[2][0] - srcPoints[3][0], 2) +
-            Math.Pow(srcPoints[2][1] - srcPoints[3][1], 2));
+        double widthA = (srcPoints[2] - srcPoints[3]).L2Norm();
+        double widthB = (srcPoints[1] - srcPoints[0]).L2Norm();
 
-        double widthB = Math.Sqrt(
-            Math.Pow(srcPoints[1][0] - srcPoints[0][0], 2) +
-            Math.Pow(srcPoints[1][1] - srcPoints[0][1], 2));
-
-        double heightA = Math.Sqrt(
-            Math.Pow(srcPoints[1][0] - srcPoints[2][0], 2) +
-            Math.Pow(srcPoints[1][1] - srcPoints[2][1], 2));
-
-        double heightB = Math.Sqrt(
-            Math.Pow(srcPoints[0][0] - srcPoints[3][0], 2) +
-            Math.Pow(srcPoints[0][1] - srcPoints[3][1], 2));
+        double heightA = (srcPoints[1] - srcPoints[2]).L2Norm();
+        double heightB = (srcPoints[0] - srcPoints[3]).L2Norm();
 
         double maxWidth = Math.Max(widthA, widthB);
         double maxHeight = Math.Max(heightA, heightB);
@@ -123,31 +139,7 @@ public static class CVWarp
         if (aspect < 1.0) targetWidth = (int)(imageSize * aspect);
         else targetHeight = (int)(imageSize / aspect);
 
-        List<VectorD> dstPoints =
-        [
-            DenseVectorD.OfArray([0.0, 0.0]),
-            DenseVectorD.OfArray([targetWidth - 1, 0.0]),
-            DenseVectorD.OfArray([targetWidth - 1, targetHeight - 1]),
-            DenseVectorD.OfArray([0.0, targetHeight - 1]),
-        ];
-
-        CVImage imageOut = CVImage.Create(targetWidth, targetHeight, image.DataFormat, image.ChannelFormats);
-
-        H = CVHomography.ComputeHomographyExact(srcPoints, dstPoints);
-        MatrixD HInv = H.Inverse();
-
-        if (image.DataFormat == CVDataFormat.CV_U8) warpPerspective<byte>(image, HInv, ref imageOut);
-        else if (image.DataFormat == CVDataFormat.CV_S8) warpPerspective<sbyte>(image, HInv, ref imageOut);
-        else if (image.DataFormat == CVDataFormat.CV_U16) warpPerspective<ushort>(image, HInv, ref imageOut);
-        else if (image.DataFormat == CVDataFormat.CV_S16) warpPerspective<short>(image, HInv, ref imageOut);
-        else if (image.DataFormat == CVDataFormat.CV_U32) warpPerspective<uint>(image, HInv, ref imageOut);
-        else if (image.DataFormat == CVDataFormat.CV_S32) warpPerspective<int>(image, HInv, ref imageOut);
-        else if (image.DataFormat == CVDataFormat.CV_U64) warpPerspective<ulong>(image, HInv, ref imageOut);
-        else if (image.DataFormat == CVDataFormat.CV_S64) warpPerspective<long>(image, HInv, ref imageOut);
-        else if (image.DataFormat == CVDataFormat.CV_F32) warpPerspective<float>(image, HInv, ref imageOut);
-        else if (image.DataFormat == CVDataFormat.CV_F64) warpPerspective<double>(image, HInv, ref imageOut);
-
-        return imageOut;
+        return WarpPerspectiveQuad(image, srcPoints, targetWidth, targetHeight, out H);
     }
 
     public static CVImage MatchImage(CVImage image1, CVImage image2, int hammingDistance)

@@ -17,7 +17,7 @@ public class CVImagePyramid
 
         for (int i = 1; i < Levels; i++)
         {
-            currentImage = CVResize.Resize(currentImage, currentImage.Width / 2, currentImage.Height / 2, CV_ResizeMode.CV_CROP);
+            currentImage = CVResize.StretchLinear(currentImage, currentImage.Width / 2, currentImage.Height / 2);
             imageList.Add(i, currentImage);
         }
     }

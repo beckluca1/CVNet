@@ -46,7 +46,7 @@ public enum CVChannel
 
 public enum CVChannelFormat
 {
-    CV_None,
+    CV_NONE,
     CV_Grayscale,
     CV_RRR,
     CV_RRR255,
@@ -86,7 +86,7 @@ public struct CVChannelFormats
 
     public CVChannelFormats(CVChannelFormat id)
     {
-        if (id == CVChannelFormat.CV_None) Channels = [CVChannel.CV_NONE];
+        if (id == CVChannelFormat.CV_NONE) Channels = [CVChannel.CV_NONE];
         else if (id == CVChannelFormat.CV_Grayscale) Channels = [CVChannel.CV_AVG_RGB];
         else if (id == CVChannelFormat.CV_RRR) Channels = [CVChannel.CV_R, CVChannel.CV_G_FROM_R, CVChannel.CV_B_FROM_R];
         else if (id == CVChannelFormat.CV_RRR255) Channels = [CVChannel.CV_R, CVChannel.CV_G_FROM_R, CVChannel.CV_B_FROM_R, CVChannel.CV_A_255];
@@ -104,13 +104,19 @@ public struct CVChannelFormats
     }
 }
 
-public enum CV_ResizeMode
+public enum CVInterpolationMode
 {
-    CV_HALF,
-    CV_TWICE,
-    CV_STRETCH_NEAREST,
-    CV_STRETCH_LINEAR,
+    CV_NONE,
+    CV_NEAREST,
+    CV_LINEAR,
+}
+
+public enum CVResizeMode
+{
+    CV_NONE,
+    CV_STRETCH,
     CV_CROP,
+    CV_PAD,
 }
 
 public class CVImage
@@ -264,7 +270,7 @@ public class CVImage
         bufferSpan.Fill(data);
     }
 
-    public static CVImage Create(int width = 0, int height = 0, CVDataFormat dataFormat = CVDataFormat.CV_NONE, CVChannelFormat channelFormat = CVChannelFormat.CV_None)
+    public static CVImage Create(int width = 0, int height = 0, CVDataFormat dataFormat = CVDataFormat.CV_NONE, CVChannelFormat channelFormat = CVChannelFormat.CV_NONE)
     {
         CVChannelFormats channelFormats = new CVChannelFormats(channelFormat);
 
@@ -384,7 +390,7 @@ public class CVImage
         return bufferOut;
     }
 
-    public static CVImage CreateSumMask(int width = 0, int height = 0, CVDataFormat dataFormat = CVDataFormat.CV_NONE, CVChannelFormat channelFormat = CVChannelFormat.CV_None)
+    public static CVImage CreateSumMask(int width = 0, int height = 0, CVDataFormat dataFormat = CVDataFormat.CV_NONE, CVChannelFormat channelFormat = CVChannelFormat.CV_NONE)
     {
         return CreateSumMask(width, height, dataFormat, new CVChannelFormats(channelFormat));
     }

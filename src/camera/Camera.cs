@@ -481,7 +481,141 @@ public static class CVCamera
         }
 
         double inlierError = EstimateCameraPose(inlierSrc, inlierDst, K1, K2, d1, d2, out R, out t);
+
         // Console.WriteLine($"Final Sampson Error: {inlierError}");
+    }
+
+    public static void EstimateCameraPoseRansac5Point(
+        List<VectorD> camera1Points,
+        List<VectorD> camera2Points,
+        MatrixD K1,
+        MatrixD K2,
+        VectorD d1,
+        VectorD d2,
+        int iterations,
+        double thresholdPixels,
+        out MatrixD R,
+        out VectorD t,
+        out List<int> bestInliers)
+    {
+        R =
+            DenseMatrixD.CreateIdentity(3);
+
+        t =
+            DenseVectorD.OfArray([0, 0, 0]);
+
+        bestInliers =
+            new List<int>();
+
+        if (camera1Points.Count != camera2Points.Count)
+            throw new ArgumentException(
+                "Point lists must have same length.");
+
+        if (camera1Points.Count < 5)
+            throw new ArgumentException(
+                "At least 5 correspondences are required.");
+
+        // ------------------------------------------------------------
+        // 1. Pixel -> calibrated normalized coordinates
+        // ------------------------------------------------------------
+
+        List<VectorD> p1 =
+            CVProjection.IntrinsicUnProjectPoints(
+                camera1Points,
+                K1,
+                d1);
+
+        List<VectorD> p2 =
+            CVProjection.IntrinsicUnProjectPoints(
+                camera2Points,
+                K2,
+                d2);
+
+        // ------------------------------------------------------------
+        // 2. Pixel threshold -> normalized Sampson threshold
+        // ------------------------------------------------------------
+
+        double focal =
+            0.5 * (K1[0, 0] + K1[1, 1]);
+
+        double normalizedThreshold =
+            thresholdPixels / focal;
+
+        double sampsonThreshold =
+            normalizedThreshold *
+            normalizedThreshold;
+
+        // ------------------------------------------------------------
+        // 3. 5-point RANSAC
+        // ------------------------------------------------------------
+
+        bool success =
+            CVHomographySolver.EstimateEssentialRansac(
+                p1,
+                p2,
+                iterations,
+                sampsonThreshold,
+                0.999,
+                out MatrixD E,
+                out bestInliers);
+
+        if (!success)
+            throw new Exception(
+                "5-point RANSAC failed.");
+
+        if (bestInliers.Count < 5)
+            throw new Exception(
+                "Not enough inliers.");
+
+        // ------------------------------------------------------------
+        // 4. Refine E using all RANSAC inliers
+        // ------------------------------------------------------------
+
+        List<VectorD> inlierP1 = new();
+        List<VectorD> inlierP2 = new();
+
+        foreach (int i in bestInliers)
+        {
+            inlierP1.Add(p1[i]);
+            inlierP2.Add(p2[i]);
+        }
+
+        E =
+            EstimateEssential(
+                inlierP1,
+                inlierP2);
+
+        E =
+            EnforceEssential(E);
+
+        // ------------------------------------------------------------
+        // 5. Decompose E
+        // ------------------------------------------------------------
+
+        DecomposeEssential(
+            E,
+            out List<MatrixD> rotations,
+            out List<VectorD> translations);
+
+        // ------------------------------------------------------------
+        // 6. Select the correct R/t using cheirality
+        // ------------------------------------------------------------
+
+        int pose =
+            SelectPose(
+                rotations,
+                translations,
+                inlierP1,
+                inlierP2);
+
+        R = rotations[pose];
+        t = translations[pose];
+
+        // IMPORTANT:
+        //
+        // DO NOT independently flip t.
+        //
+        // R and t are a coupled solution.
     }
 
     public static List<VectorD> TriangulateAll(
