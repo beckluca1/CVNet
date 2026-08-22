@@ -270,4 +270,36 @@ public static class CVResizeTransformation
 
         throw new Exception("Unknown Resize mode");
     }
+
+    public static VectorD ResizeStretchTransformation(
+        CVStretchTransform transform,
+        VectorD pointIn)
+    {
+        return ResizeStretchTransformation(transform.SourceWidth, transform.SourceHeight, transform.TargetWidth, transform.TargetHeight, pointIn);
+    }
+
+    public static VectorD ResizeCropTransformation(
+        CVCropTransform transform,
+        VectorD pointIn)
+    {
+        return ResizeCropTransformation(transform.SourceWidth, transform.SourceHeight, transform.TargetWidth, transform.TargetHeight, pointIn);
+    }
+
+    public static VectorD ResizePadTransformation(
+        CVPadTransform transform,
+        VectorD pointIn)
+    {
+        return ResizePadTransformation(transform.SourceWidth, transform.SourceHeight, transform.TargetWidth, transform.TargetHeight, pointIn);
+    }
+
+    public static VectorD ResizeTransformation(
+            CVRectTransform transform,
+            VectorD pointIn)
+    {
+        if (transform is CVStretchTransform stretchTransform) return ResizeStretchTransformation(stretchTransform, pointIn);
+        else if (transform is CVCropTransform cropTransform) return ResizeCropTransformation(cropTransform, pointIn);
+        else if (transform is CVPadTransform padTransform) return ResizePadTransformation(padTransform, pointIn);
+
+        throw new Exception("Unknown Resize mode");
+    }
 }

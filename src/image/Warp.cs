@@ -1,4 +1,5 @@
 using System.Numerics;
+using MathNet.Numerics.LinearAlgebra;
 
 namespace CVNet;
 
@@ -75,24 +76,6 @@ public static class CVWarp
         }
     }
 
-    public static CVImage WarpPerspective(CVImage image, MatrixD H)
-    {
-        CVImage imageOut = CVImage.Create(image.Width, image.Height, image.DataFormat, image.ChannelFormats);
-
-        if (image.DataFormat == CVDataFormat.CV_U8) warpPerspective<byte>(image, H, ref imageOut);
-        else if (image.DataFormat == CVDataFormat.CV_S8) warpPerspective<sbyte>(image, H, ref imageOut);
-        else if (image.DataFormat == CVDataFormat.CV_U16) warpPerspective<ushort>(image, H, ref imageOut);
-        else if (image.DataFormat == CVDataFormat.CV_S16) warpPerspective<short>(image, H, ref imageOut);
-        else if (image.DataFormat == CVDataFormat.CV_U32) warpPerspective<uint>(image, H, ref imageOut);
-        else if (image.DataFormat == CVDataFormat.CV_S32) warpPerspective<int>(image, H, ref imageOut);
-        else if (image.DataFormat == CVDataFormat.CV_U64) warpPerspective<ulong>(image, H, ref imageOut);
-        else if (image.DataFormat == CVDataFormat.CV_S64) warpPerspective<long>(image, H, ref imageOut);
-        else if (image.DataFormat == CVDataFormat.CV_F32) warpPerspective<float>(image, H, ref imageOut);
-        else if (image.DataFormat == CVDataFormat.CV_F64) warpPerspective<double>(image, H, ref imageOut);
-
-        return imageOut;
-    }
-
     public static CVImage WarpPerspective(CVImage image, int targetWidth, int targetHeight, MatrixD H)
     {
         CVImage imageOut = CVImage.Create(targetWidth, targetHeight, image.DataFormat, image.ChannelFormats);
@@ -109,6 +92,11 @@ public static class CVWarp
         else if (image.DataFormat == CVDataFormat.CV_F64) warpPerspective<double>(image, H, ref imageOut);
 
         return imageOut;
+    }
+
+    public static CVImage WarpPerspective(CVImage image, MatrixD H)
+    {
+        return WarpPerspective(image, image.Width, image.Height, H);
     }
 
     public static CVImage WarpPerspectiveQuad(CVImage image, List<VectorD> srcPoints, int targetWidth, int targetHeight, out MatrixD H)
@@ -140,6 +128,43 @@ public static class CVWarp
         else targetHeight = (int)(imageSize / aspect);
 
         return WarpPerspectiveQuad(image, srcPoints, targetWidth, targetHeight, out H);
+    }
+
+    public static CVImage WarpPerspectiveQuad(CVImage image, List<VectorD> srcPoints, int targetWidth, int targetHeight, out CVTransform transform)
+    {
+        MatrixD H = CVHomography.ComputeHomographyQuadExact(srcPoints, targetWidth, targetHeight);
+
+        transform = new CVWarpTransform()
+        {
+            Warp = H,
+        };
+
+        MatrixD HInv = H.Inverse();
+
+        return WarpPerspective(image, targetWidth, targetHeight, HInv);
+    }
+
+    public static CVImage WarpPerspectiveQuad(CVImage image, List<VectorD> srcPoints, out CVTransform transform)
+    {
+        double widthA = (srcPoints[2] - srcPoints[3]).L2Norm();
+        double widthB = (srcPoints[1] - srcPoints[0]).L2Norm();
+
+        double heightA = (srcPoints[1] - srcPoints[2]).L2Norm();
+        double heightB = (srcPoints[0] - srcPoints[3]).L2Norm();
+
+        double maxWidth = Math.Max(widthA, widthB);
+        double maxHeight = Math.Max(heightA, heightB);
+
+        double aspect = maxWidth / maxHeight;
+
+        double imageSize = Math.Min(image.Width, image.Height);
+        int targetWidth = (int)imageSize;
+        int targetHeight = (int)imageSize;
+
+        if (aspect < 1.0) targetWidth = (int)(imageSize * aspect);
+        else targetHeight = (int)(imageSize / aspect);
+
+        return WarpPerspectiveQuad(image, srcPoints, targetWidth, targetHeight, out transform);
     }
 
     public static CVImage MatchImage(CVImage image1, CVImage image2, int hammingDistance)

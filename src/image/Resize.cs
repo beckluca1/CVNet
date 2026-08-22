@@ -585,4 +585,119 @@ public static class CVResize
 
         throw new Exception("Unknown Resize mode");
     }
+
+    public static CVImage ResizeStretch(
+                        CVImage image,
+                        int width,
+                        int height,
+                        CVInterpolationMode mode,
+                        out CVTransform transform)
+    {
+        transform = new CVStretchTransform()
+        {
+            SourceWidth = image.Width,
+            SourceHeight = image.Height,
+            TargetWidth = width,
+            TargetHeight = height,
+        };
+
+        return Stretch(image, width, height, mode);
+    }
+
+    public static CVImage ResizeCrop(
+                        CVImage image,
+                        int width,
+                        int height,
+                        CVInterpolationMode mode,
+                        out CVTransform transform)
+    {
+        transform = new CVCropTransform()
+        {
+            SourceWidth = image.Width,
+            SourceHeight = image.Height,
+            TargetWidth = width,
+            TargetHeight = height,
+        };
+
+        double aspect = (double)width / height;
+
+        CVImage cropped = AspectCrop(image, aspect);
+        return Stretch(cropped, width, height, mode);
+    }
+
+    public static CVImage ResizePad<T>(
+                        CVImage image,
+                        int width,
+                        int height,
+                        CVInterpolationMode mode,
+                        T defaultValue,
+                        out CVTransform transform) where T : struct, INumber<T>
+    {
+        transform = new CVPadTransform()
+        {
+            SourceWidth = image.Width,
+            SourceHeight = image.Height,
+            TargetWidth = width,
+            TargetHeight = height,
+        };
+
+        double aspect = (double)width / height;
+
+        CVImage padded = AspectPad(image, aspect, defaultValue);
+        return Stretch(padded, width, height, mode);
+    }
+
+    public static CVImage ResizePad<T>(
+                        CVImage image,
+                        int width,
+                        int height,
+                        CVInterpolationMode mode,
+                        T[] defaultValue,
+                        out CVTransform transform) where T : struct, INumber<T>
+    {
+        transform = new CVPadTransform()
+        {
+            SourceWidth = image.Width,
+            SourceHeight = image.Height,
+            TargetWidth = width,
+            TargetHeight = height,
+        };
+
+        double aspect = (double)width / height;
+
+        CVImage padded = AspectPad(image, aspect, defaultValue);
+        return Stretch(padded, width, height, mode);
+    }
+
+    public static CVImage Resize<T>(
+                    CVImage image,
+                    int width,
+                    int height,
+                    CVResizeMode resizeMode,
+                    CVInterpolationMode interpolationMode,
+                    T[] defaultValue,
+                    out CVTransform transform) where T : struct, INumber<T>
+    {
+        if (resizeMode == CVResizeMode.CV_STRETCH) return ResizeStretch(image, width, height, interpolationMode, out transform);
+        else if (resizeMode == CVResizeMode.CV_CROP) return ResizeCrop(image, width, height, interpolationMode, out transform);
+        else if (resizeMode == CVResizeMode.CV_PAD) return ResizePad(image, width, height, interpolationMode, defaultValue, out transform);
+
+        throw new Exception("Unknown Resize mode");
+    }
+
+    public static CVImage Resize<T>(
+                CVImage image,
+                int width,
+                int height,
+                CVResizeMode resizeMode,
+                CVInterpolationMode interpolationMode,
+                T defaultValue,
+                out CVTransform transform) where T : struct, INumber<T>
+    {
+        if (resizeMode == CVResizeMode.CV_STRETCH) return ResizeStretch(image, width, height, interpolationMode, out transform);
+        else if (resizeMode == CVResizeMode.CV_CROP) return ResizeCrop(image, width, height, interpolationMode, out transform);
+        else if (resizeMode == CVResizeMode.CV_PAD) return ResizePad(image, width, height, interpolationMode, defaultValue, out transform);
+
+        throw new Exception("Unknown Resize mode");
+    }
 }

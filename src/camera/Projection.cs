@@ -12,12 +12,12 @@ public class CVProjection
         var r = homography * p;
 
         if (Math.Abs(r[2]) < 1e-12)
-            return DenseVectorD.OfArray([double.NaN, double.NaN]);
+            return DenseVectorD.OfArray([double.NaN, double.NaN, double.NaN]);
 
         double x = r[0] / r[2];
         double y = r[1] / r[2];
 
-        return DenseVectorD.OfArray([x, y]);
+        return DenseVectorD.OfArray([x, y, 1.0]);
     }
 
     public static List<VectorD> HomographyProjectPoints(List<VectorD> points, MatrixD homography)
@@ -50,7 +50,7 @@ public class CVProjection
         VectorD distortion)
     {
         if (Math.Abs(point[2]) < 1e-12)
-            return DenseVectorD.OfArray([double.NaN, double.NaN]);
+            return DenseVectorD.OfArray([double.NaN, double.NaN, double.NaN]);
 
         double fx = K[0, 0];
         double fy = K[1, 1];
@@ -75,7 +75,7 @@ public class CVProjection
         double xDist = x * radial + 2 * p1 * x * y + p2 * (r2 + 2 * x * x);
         double yDist = y * radial + p1 * (r2 + 2 * y * y) + 2 * p2 * x * y;
 
-        return DenseVectorD.OfArray([fx * xDist + cx, fy * yDist + cy]);
+        return DenseVectorD.OfArray([fx * xDist + cx, fy * yDist + cy, 1]);
     }
 
     public static List<VectorD> IntrinsicProjectPoints(List<VectorD> points, MatrixD K, VectorD distortion)
@@ -153,7 +153,8 @@ public class CVProjection
 
     public static VectorD ExtrinsicProjectPoint(VectorD point, MatrixD R, VectorD t)
     {
-        return R * point + t;
+        VectorD pC = R * point + t;
+        return pC / pC[2];
     }
 
     public static List<VectorD> ExtrinsicProjectPoints(List<VectorD> points, MatrixD R, VectorD t)
@@ -171,7 +172,6 @@ public class CVProjection
     public static VectorD ProjectPoint(VectorD point, MatrixD R, VectorD t, MatrixD K, VectorD distortion)
     {
         VectorD pC = ExtrinsicProjectPoint(point, R, t);
-        pC /= pC[2];
         return IntrinsicProjectPoint(pC, K, distortion);
     }
 

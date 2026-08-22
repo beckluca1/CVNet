@@ -975,11 +975,11 @@ public class CVFeatureDetector
             int perCell = Math.Max(1, (int)Math.Ceiling(levelFeatures / (double)(cellsX * cellsY)));
 
             List<(int x, int y)> fastKeypoints = Fast(levelImage, 8.0, 8);
-            List<(int x, int y, double)> harrisScores = CVCornerDetector.HarrisStrengthPoints(levelImage, fastKeypoints, 0.04, 3);
+            List<(int x, int y, double)> harrisScores = CVCornerDetector.HarrisStrengthPoints(levelImage, fastKeypoints, 0.04, 2);
             List<(int x, int y, double)> suppressedScores = CVCornerDetector.NonMaximumSuppressionPoints(harrisScores, 1);
             List<(int x, int y)> selectedPoints = GridKeypointSelection(levelImage, harrisScores, cellsX, cellsY, perCell);
 
-            List<double> angles = IntensityCentroidAngles(levelImage, selectedPoints, 15);
+            List<double> angles = IntensityCentroidAngles(levelImage, selectedPoints, 7);
             List<CVDescriptor> levelDescriptors = Brief(levelImage, selectedPoints, angles);
 
             for (int i = 0; i < levelDescriptors.Count; i++)

@@ -182,13 +182,12 @@ public class CVHomographySolver
         return r;
     }
 
-    private static List<MatrixD> EstimateEssential5Point(
-    IReadOnlyList<VectorD> p1,
-    IReadOnlyList<VectorD> p2)
+    public static List<MatrixD> EstimateEssential5Point(
+        List<VectorD> p1,
+        List<VectorD> p2)
     {
         if (p1.Count != 5 || p2.Count != 5)
-            throw new ArgumentException(
-                "The 5-point solver requires exactly 5 correspondences.");
+            throw new ArgumentException("The 5-point solver requires exactly 5 correspondences.");
 
         // ------------------------------------------------------------
         // 1. Build the 5x9 epipolar constraint matrix
