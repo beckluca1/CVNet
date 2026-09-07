@@ -41,6 +41,69 @@ public class CVProcessing
         return value;
     }
 
+    private static T sumNonZero<T>(CVImage imageIn, out int count) where T : struct, INumber<T>
+    {
+        Span<T> buffer = imageIn.BufferAs<T>();
+
+        int length = buffer.Length;
+
+        if (length == 0)
+            throw new ArgumentException("Buffer is empty");
+
+        T sum = T.Zero;
+        count = 0;
+
+        for (int i = 0; i < length; i++)
+        {
+            if(buffer[i] == T.Zero) continue;
+
+            count++;
+
+            sum += buffer[i];
+        }
+
+        return sum;
+    }
+
+    public static double SumNonZero(CVImage image, out int count)
+    {
+        double value = 0.0;
+        count = 0;
+
+        if (image.DataFormat == CVDataFormat.CV_U8) value = sumNonZero<byte>(image, out count);
+        else if (image.DataFormat == CVDataFormat.CV_S8) value = sumNonZero<sbyte>(image, out count);
+        else if (image.DataFormat == CVDataFormat.CV_U16) value = sumNonZero<ushort>(image, out count);
+        else if (image.DataFormat == CVDataFormat.CV_S16) value = sumNonZero<short>(image, out count);
+        else if (image.DataFormat == CVDataFormat.CV_U32) value = sumNonZero<uint>(image, out count);
+        else if (image.DataFormat == CVDataFormat.CV_S32) value = sumNonZero<int>(image, out count);
+        else if (image.DataFormat == CVDataFormat.CV_U64) value = sumNonZero<ulong>(image, out count);
+        else if (image.DataFormat == CVDataFormat.CV_S64) value = sumNonZero<long>(image, out count);
+        else if (image.DataFormat == CVDataFormat.CV_F32) value = sumNonZero<float>(image, out count);
+        else if (image.DataFormat == CVDataFormat.CV_F64) value = sumNonZero<double>(image, out count);
+
+        return value;
+    }
+
+    public static double Average(CVImage image)
+    {
+        double sum = Sum(image);
+
+        sum /= image.Width * image.Height;
+
+        return sum;
+    }
+
+    public static double AverageNonZero(CVImage image)
+    {
+        double sum = SumNonZero(image, out int count);
+
+        if(count == 0) return 0;
+
+        sum /= count;
+
+        return sum;
+    }
+
     private static T minValue<T>(CVImage imageIn) where T : struct, INumber<T>
     {
         Span<T> buffer = imageIn.BufferAs<T>();
