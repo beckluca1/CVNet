@@ -26,6 +26,9 @@ public enum CVChannel
     CV_G,
     CV_B,
     CV_A,
+    CV_Y,
+    CV_U,
+    CV_V,
 
     // Placeholders
 
@@ -42,6 +45,12 @@ public enum CVChannel
     CV_G_FROM_R,
     CV_B_FROM_R,
     CV_A_FROM_R,
+    CV_Y_FROM_RGB,
+    CV_U_FROM_RGB,
+    CV_V_FROM_RGB,
+    CV_R_FROM_YUV,
+    CV_G_FROM_YUV,
+    CV_B_FROM_YUV,
 }
 
 public enum CVChannelFormat
@@ -61,6 +70,12 @@ public enum CVChannelFormat
     CV_BGR255,
     CV_ABGR,
     CV_255BGR,
+    CV_YUV,
+    CV_YUV_FROM_RGB,
+    CV_RGB_FROM_YUV,
+    CV_RGB255_FROM_YUV,
+    CV_BGR_FROM_YUV,
+    CV_BGR255_FROM_YUV,
 }
 
 public struct CVChannelFormats
@@ -101,7 +116,13 @@ public struct CVChannelFormats
         else if (id == CVChannelFormat.CV_BGR255) Channels = [CVChannel.CV_B, CVChannel.CV_G, CVChannel.CV_R, CVChannel.CV_A_255];
         else if (id == CVChannelFormat.CV_ABGR) Channels = [CVChannel.CV_A, CVChannel.CV_B, CVChannel.CV_G, CVChannel.CV_R];
         else if (id == CVChannelFormat.CV_255BGR) Channels = [CVChannel.CV_A_255, CVChannel.CV_B, CVChannel.CV_G, CVChannel.CV_R];
-    }
+        else if (id == CVChannelFormat.CV_YUV) Channels = [CVChannel.CV_Y, CVChannel.CV_U, CVChannel.CV_V];
+        else if (id == CVChannelFormat.CV_YUV_FROM_RGB) Channels = [CVChannel.CV_Y_FROM_RGB, CVChannel.CV_U_FROM_RGB, CVChannel.CV_V_FROM_RGB];
+        else if (id == CVChannelFormat.CV_RGB_FROM_YUV) Channels = [CVChannel.CV_R_FROM_YUV, CVChannel.CV_G_FROM_YUV, CVChannel.CV_B_FROM_YUV];
+        else if (id == CVChannelFormat.CV_RGB255_FROM_YUV) Channels = [CVChannel.CV_R_FROM_YUV, CVChannel.CV_G_FROM_YUV, CVChannel.CV_B_FROM_YUV, CVChannel.CV_A_255];
+        else if (id == CVChannelFormat.CV_BGR_FROM_YUV) Channels = [CVChannel.CV_B_FROM_YUV, CVChannel.CV_G_FROM_YUV, CVChannel.CV_R_FROM_YUV];
+        else if (id == CVChannelFormat.CV_BGR255_FROM_YUV) Channels = [CVChannel.CV_B_FROM_YUV, CVChannel.CV_G_FROM_YUV, CVChannel.CV_R_FROM_YUV, CVChannel.CV_A_255];
+   }
 }
 
 public enum CVInterpolationMode

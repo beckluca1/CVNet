@@ -231,6 +231,18 @@ public class CVConvert
                 image.ChannelFormats.Channels[i] = CVChannel.CV_B;
             else if (image.ChannelFormats.Channels[i] == CVChannel.CV_A_FROM_R)
                 image.ChannelFormats.Channels[i] = CVChannel.CV_A;
+            else if (image.ChannelFormats.Channels[i] == CVChannel.CV_Y_FROM_RGB)
+                image.ChannelFormats.Channels[i] = CVChannel.CV_Y;
+            else if (image.ChannelFormats.Channels[i] == CVChannel.CV_U_FROM_RGB)
+                image.ChannelFormats.Channels[i] = CVChannel.CV_U;
+            else if (image.ChannelFormats.Channels[i] == CVChannel.CV_V_FROM_RGB)
+                image.ChannelFormats.Channels[i] = CVChannel.CV_V;
+            else if (image.ChannelFormats.Channels[i] == CVChannel.CV_R_FROM_YUV)
+                image.ChannelFormats.Channels[i] = CVChannel.CV_R;
+            else if (image.ChannelFormats.Channels[i] == CVChannel.CV_G_FROM_YUV)
+                image.ChannelFormats.Channels[i] = CVChannel.CV_G;
+            else if (image.ChannelFormats.Channels[i] == CVChannel.CV_B_FROM_YUV)
+                image.ChannelFormats.Channels[i] = CVChannel.CV_B;
         }
     }
 
@@ -313,6 +325,87 @@ public class CVConvert
             {
                 CVImage rChannel = ExtractChannel(image, CVChannel.CV_R);
                 CopyChannel(rChannel, imageOut, 0, i);
+            }
+            else if (imageOut.ChannelFormats.Channels[i] == CVChannel.CV_Y_FROM_RGB)
+            {
+                CVImage floatImage = ConvertDataFormat(image, CVDataFormat.CV_F32);
+
+                CVImage rChannel = ExtractChannel(floatImage, CVChannel.CV_R);
+                CVImage gChannel = ExtractChannel(floatImage, CVChannel.CV_G);
+                CVImage bChannel = ExtractChannel(floatImage, CVChannel.CV_B);
+
+                CVImage yChannel = 0.257 * rChannel + 0.504 * gChannel + 0.098 * bChannel +  16;
+                CVImage yConverted = ConvertDataFormat(yChannel, image.DataFormat);
+
+                CopyChannel(yConverted, imageOut, 0, i);
+            }
+            else if (imageOut.ChannelFormats.Channels[i] == CVChannel.CV_U_FROM_RGB)
+            {
+                CVImage floatImage = ConvertDataFormat(image, CVDataFormat.CV_F32);
+
+                CVImage rChannel = ExtractChannel(floatImage, CVChannel.CV_R);
+                CVImage gChannel = ExtractChannel(floatImage, CVChannel.CV_G);
+                CVImage bChannel = ExtractChannel(floatImage, CVChannel.CV_B);
+
+                CVImage uChannel = -0.148 * rChannel - 0.291 * gChannel + 0.439 * bChannel + 128;
+                CVImage uConverted = ConvertDataFormat(uChannel, image.DataFormat);
+
+                CopyChannel(uConverted, imageOut, 0, i);
+            }
+            else if (imageOut.ChannelFormats.Channels[i] == CVChannel.CV_V_FROM_RGB)
+            {
+                CVImage floatImage = ConvertDataFormat(image, CVDataFormat.CV_F32);
+
+                CVImage rChannel = ExtractChannel(floatImage, CVChannel.CV_R);
+                CVImage gChannel = ExtractChannel(floatImage, CVChannel.CV_G);
+                CVImage bChannel = ExtractChannel(floatImage, CVChannel.CV_B);
+
+                CVImage vChannel = 0.439 * rChannel - 0.368 * gChannel - 0.071 * bChannel + 128;
+                CVImage vConverted = ConvertDataFormat(vChannel, image.DataFormat);
+
+                CopyChannel(vConverted, imageOut, 0, i);
+            }
+            else if (imageOut.ChannelFormats.Channels[i] == CVChannel.CV_R_FROM_YUV)
+            {
+                CVImage floatImage = ConvertDataFormat(image, CVDataFormat.CV_F32);
+
+                CVImage yChannel = ExtractChannel(floatImage, CVChannel.CV_Y);
+                CVImage uChannel = ExtractChannel(floatImage, CVChannel.CV_U);
+                CVImage vChannel = ExtractChannel(floatImage, CVChannel.CV_V);
+
+                CVImage rChannel = 1.164 * (yChannel - 16) + 1.596 * (vChannel - 128);
+                rChannel = CVMath.Clamp(rChannel, 0, 255);
+                CVImage rConverted = ConvertDataFormat(rChannel, image.DataFormat);
+
+                CopyChannel(rConverted, imageOut, 0, i);
+            }
+            else if (imageOut.ChannelFormats.Channels[i] == CVChannel.CV_G_FROM_YUV)
+            {
+                CVImage floatImage = ConvertDataFormat(image, CVDataFormat.CV_F32);
+
+                CVImage yChannel = ExtractChannel(floatImage, CVChannel.CV_Y);
+                CVImage uChannel = ExtractChannel(floatImage, CVChannel.CV_U);
+                CVImage vChannel = ExtractChannel(floatImage, CVChannel.CV_V);
+
+                CVImage gChannel = 1.164 * (yChannel - 16) - 0.392 * (uChannel - 128) - 0.813 * (vChannel - 128);
+                gChannel = CVMath.Clamp(gChannel, 0, 255);
+                CVImage gConverted = ConvertDataFormat(gChannel, image.DataFormat);
+
+                CopyChannel(gConverted, imageOut, 0, i);
+            }
+            else if (imageOut.ChannelFormats.Channels[i] == CVChannel.CV_B_FROM_YUV)
+            {
+                CVImage floatImage = ConvertDataFormat(image, CVDataFormat.CV_F32);
+
+                CVImage yChannel = ExtractChannel(floatImage, CVChannel.CV_Y);
+                CVImage uChannel = ExtractChannel(floatImage, CVChannel.CV_U);
+                CVImage vChannel = ExtractChannel(floatImage, CVChannel.CV_V);
+
+                CVImage bChannel = 1.164 * (yChannel - 16) + 2.017 * (uChannel - 128);
+                bChannel = CVMath.Clamp(bChannel, 0, 255);
+                CVImage bConverted = ConvertDataFormat(bChannel, image.DataFormat);
+
+                CopyChannel(bConverted, imageOut, 0, i);
             }
             else if (imageOut.ChannelFormats.Channels[i] == CVChannel.CV_A_ZERO)
                 FillChannel(imageOut, i, 0);
