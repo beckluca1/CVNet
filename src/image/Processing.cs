@@ -700,4 +700,45 @@ public class CVProcessing
     {
         return BitOperations.PopCount(a ^ b);
     }
+
+    private static void transpose<T>(CVImage image, ref CVImage outImage) where T : struct, INumber<T>
+    {
+        int width  = image.Width;
+        int height = image.Height;
+
+        Span<T> src = image.BufferAs<T>();
+        Span<T> dst = outImage.BufferAs<T>();
+
+        for(int c=0;c<image.Channels;c++)
+        {
+            int channelOffset = c * width * height;
+
+            for (int y = 0; y < height; y++)
+            {
+                int srcOffset = channelOffset + y * width;
+                int dstOffset = channelOffset + y;
+
+                for (int x = 0; x < width; x++)
+                    dst[dstOffset + x * height] = src[srcOffset + x];
+            }
+        }
+    }
+
+    public static CVImage Transpose(CVImage image)
+    {
+        CVImage outImage = CVImage.Create(image.Height, image.Width, image.DataFormat, image.ChannelFormats);
+
+        if (image.DataFormat == CVDataFormat.CV_U8) transpose<byte>(image, ref outImage);
+        else if (image.DataFormat == CVDataFormat.CV_S8) transpose<sbyte>(image, ref outImage);
+        else if (image.DataFormat == CVDataFormat.CV_U16) transpose<ushort>(image, ref outImage);
+        else if (image.DataFormat == CVDataFormat.CV_S16) transpose<short>(image, ref outImage);
+        else if (image.DataFormat == CVDataFormat.CV_U32) transpose<uint>(image, ref outImage);
+        else if (image.DataFormat == CVDataFormat.CV_S32) transpose<int>(image, ref outImage);
+        else if (image.DataFormat == CVDataFormat.CV_U64) transpose<ulong>(image, ref outImage);
+        else if (image.DataFormat == CVDataFormat.CV_S64) transpose<long>(image, ref outImage);
+        else if (image.DataFormat == CVDataFormat.CV_F32) transpose<float>(image, ref outImage);
+        else if (image.DataFormat == CVDataFormat.CV_F64) transpose<double>(image, ref outImage);
+
+        return outImage;
+    }
 }
