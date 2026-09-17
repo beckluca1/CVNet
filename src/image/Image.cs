@@ -196,6 +196,12 @@ public class CVImage
         return BufferAs<T>().Slice(channel * WidthHeight, WidthHeight);
     }
 
+    public T PixelAs<T>(int x, int y, int channel) where T : struct, INumber<T>
+    {
+        Span<T> buffer = BufferAs<T>();
+        return buffer[x + y * Width + channel * Width * Height];
+    }
+
     private void InitPlanar<T>(T[] data)
     {
         Buffer.BlockCopy(data, 0, buffer, 0, bufferSize);

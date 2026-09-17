@@ -45,20 +45,14 @@ public class CVProcessing
     {
         Span<T> buffer = imageIn.BufferAs<T>();
 
-        int length = buffer.Length;
-
-        if (length == 0)
-            throw new ArgumentException("Buffer is empty");
-
         T sum = T.Zero;
         count = 0;
 
-        for (int i = 0; i < length; i++)
+        for (int i = 0; i < buffer.Length; i++)
         {
             if(buffer[i] == T.Zero) continue;
 
             count++;
-
             sum += buffer[i];
         }
 
@@ -84,7 +78,7 @@ public class CVProcessing
         return value;
     }
 
-    public static double Average(CVImage image)
+    public static double Mean(CVImage image)
     {
         double sum = Sum(image);
 
@@ -93,7 +87,7 @@ public class CVProcessing
         return sum;
     }
 
-    public static double AverageNonZero(CVImage image)
+    public static double MeanNonZero(CVImage image)
     {
         double sum = SumNonZero(image, out int count);
 
@@ -102,6 +96,64 @@ public class CVProcessing
         sum /= count;
 
         return sum;
+    }
+
+    public static double Median(CVImage image, int discretization)
+    {
+        int pixelCount = image.Width * image.Height;
+        CVImage histogram = Histogram(image, discretization, out double min, out _, out double bucketSize);
+
+        int target = (pixelCount + 1) / 2;
+        int cumulative = 0;
+        int medianBucket = 0;
+
+        Span<int> histogramBuffer = histogram.BufferAs<int>();
+
+        for (int i = 0; i < histogram.Width; i++)
+        {
+            cumulative += histogramBuffer[i];
+
+            if (cumulative >= target)
+            {
+                medianBucket = i;
+                break;
+            }
+        }
+
+        double median = min + medianBucket * bucketSize;
+
+        return median;
+    }
+
+    public static double MedianNonZero(CVImage image, int discretization)
+    {
+        int pixelCount = image.Width * image.Height;
+        CVImage histogram = Histogram(image, discretization, out double min, out _, out double bucketSize);
+
+        Span<int> histogramBuffer = histogram.BufferAs<int>();
+
+        int target = (pixelCount + 1) / 2;
+
+        if(min == 0.0)
+            target += histogramBuffer[0] / 2;
+
+        int cumulative = 0;
+        int medianBucket = 0;
+
+        for (int i = 0; i < histogram.Width; i++)
+        {
+            cumulative += histogramBuffer[i];
+
+            if (cumulative >= target)
+            {
+                medianBucket = i;
+                break;
+            }
+        }
+
+        double median = min + medianBucket * bucketSize;
+
+        return median;
     }
 
     private static T minValue<T>(CVImage imageIn) where T : struct, INumber<T>
@@ -428,6 +480,28 @@ public class CVProcessing
         int bucket = Convert.ToInt32((double.CreateChecked(valD) - min) / bucketSize);
 
         return bucket;
+    }
+
+    private static double getPixel<T>(CVImage image, int x, int y, int channel) where T : struct, INumber<T>
+    {
+        T pixelValue = image.PixelAs<T>(x, y, channel);
+        return double.CreateChecked(pixelValue);
+    }
+
+    public static double GetPixel(CVImage image, int x, int y, int channel)
+    {
+        if (image.DataFormat == CVDataFormat.CV_U8) return getPixel<byte>(image, x, y, channel);
+        else if (image.DataFormat == CVDataFormat.CV_S8) return getPixel<sbyte>(image, x, y, channel);
+        else if (image.DataFormat == CVDataFormat.CV_U16) return getPixel<ushort>(image, x, y, channel);
+        else if (image.DataFormat == CVDataFormat.CV_S16) return getPixel<short>(image, x, y, channel);
+        else if (image.DataFormat == CVDataFormat.CV_U32) return getPixel<uint>(image, x, y, channel);
+        else if (image.DataFormat == CVDataFormat.CV_S32) return getPixel<int>(image, x, y, channel);
+        else if (image.DataFormat == CVDataFormat.CV_U64) return getPixel<ulong>(image, x, y, channel);
+        else if (image.DataFormat == CVDataFormat.CV_S64) return getPixel<long>(image, x, y, channel);
+        else if (image.DataFormat == CVDataFormat.CV_F32) return getPixel<float>(image, x, y, channel);
+        else if (image.DataFormat == CVDataFormat.CV_F64) return getPixel<double>(image, x, y, channel);
+
+        return 0.0;
     }
 
     public static void getPixels<T, TV>(CVImage image, TV value, ref List<(int, int)> pixelListOut) where T : struct, INumber<T> where TV : struct, INumber<TV>
