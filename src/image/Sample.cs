@@ -36,7 +36,8 @@ public static class CVSample
 
     public static List<double> SampleCircular(CVImage image, int sampleX, int sampleY, int radius)
     {
-        List<double> sampleOut = new List<double>((int)(4 * radius * radius));
+        int size = 2 * radius + 1;
+        List<double> sampleOut = new List<double>(size * size);
 
         if (image.DataFormat == CVDataFormat.CV_U8) sampleCircular<byte>(image, sampleX, sampleY, radius, ref sampleOut);
         else if (image.DataFormat == CVDataFormat.CV_S8) sampleCircular<sbyte>(image, sampleX, sampleY, radius, ref sampleOut);
@@ -124,7 +125,8 @@ public static class CVSample
 
     public static List<double> SampleSquare(CVImage image, int sampleX, int sampleY, int radius)
     {
-        List<double> sampleOut = new List<double>((int)(4 * radius * radius));
+        int size = 2 * radius + 1;
+        List<double> sampleOut = new List<double>(size * size);
 
         if (image.DataFormat == CVDataFormat.CV_U8) sampleSquare<byte>(image, sampleX, sampleY, radius, ref sampleOut);
         else if (image.DataFormat == CVDataFormat.CV_S8) sampleSquare<sbyte>(image, sampleX, sampleY, radius, ref sampleOut);
