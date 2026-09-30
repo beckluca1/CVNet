@@ -42,7 +42,7 @@ public static class CVSample
     public static double Median(List<double> samples)
     {
         if (samples.Count == 0)
-            throw new Exception("No samples exist");
+            return double.NaN;
 
         var values = new List<double>(samples);
 
@@ -133,14 +133,12 @@ public static class CVSample
     public static double MedianCircular(CVImage image, int sampleX, int sampleY, int radius)
     {
         List<double> samples = SampleCircular(image, sampleX, sampleY, radius);
-        if (samples.Count == 0) throw new Exception("No samples exist");
         return Median(samples);
     }
 
     public static double MedianCircular(CVImage image, int sampleX, int sampleY, int radius, out double medianAbsoluteDeviation)
     {
         List<double> samples = SampleCircular(image, sampleX, sampleY, radius);
-        if (samples.Count == 0) throw new Exception("No samples exist");
         double median = Median(samples);
         medianAbsoluteDeviation = MedianAbsoluteDifference(samples, median);
         return median;
@@ -150,7 +148,6 @@ public static class CVSample
     {
         List<double> samples = SampleCircular(image, sampleX, sampleY, radius);
         List<double> filteredSamples = FilterList(samples, min, max);
-        if (filteredSamples.Count == 0) throw new Exception("No samples exist");
         return Median(filteredSamples);
     }
 
@@ -203,7 +200,6 @@ public static class CVSample
     public static double MedianSquare(CVImage image, int sampleX, int sampleY, int radius)
     {
         List<double> samples = SampleSquare(image, sampleX, sampleY, radius);
-        if (samples.Count == 0) throw new Exception("No samples exist");
         return Median(samples);
     }
 
@@ -220,7 +216,6 @@ public static class CVSample
     {
         List<double> samples = SampleSquare(image, sampleX, sampleY, radius);
         List<double> filteredSamples = FilterList(samples, min, max);
-        if (filteredSamples.Count == 0) throw new Exception("No samples exist");
         return Median(filteredSamples);
     }
 

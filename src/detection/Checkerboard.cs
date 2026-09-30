@@ -260,14 +260,14 @@ public class CVCheckerboard
         };
     }
 
-    public static List<VectorD> DetectCheckerboard(CVImage image, int radius, double threshold, int nonMaxSuppressionRadius, int maxPixelOffset, int patternRadius)
+    public static List<VectorD> DetectCheckerboard(CVImage image, int radius, double threshold, int nonMaxSuppressionRadius, int maxPixelOffset, int patternRadius, out List<double> confidences)
     {
         List<VectorD> saddlePoints = new List<VectorD>();
+        confidences = new List<double>();
 
         List<(int x, int y, double score)> corners = CVCornerDetector.DetectCornerCheckerboard(image, radius, threshold, nonMaxSuppressionRadius);
 
         List<(int i, int j, int index)> maxInliers = new List<(int i, int j, int index)>();
-        (int, int, int, int) bestInlierBounds = (0, 0, 0, 0);
         double bestError = double.MaxValue;
         GridFit bestFit = new();
 
@@ -284,7 +284,6 @@ public class CVCheckerboard
             if (inliers.Count > maxInliers.Count || (inliers.Count == maxInliers.Count && error < bestError))
             {
                 maxInliers = inliers;
-                bestInlierBounds = inlierBounds;
                 bestFit = fit;
                 bestError = error;
             }
@@ -295,37 +294,14 @@ public class CVCheckerboard
         int offsetX = 0;
         int offsetY = 0;
 
-        /*if (bestInlierBounds.Item1 == -4 && bestInlierBounds.Item3 == 3)
-            offsetX -= 1;
-        if (bestInlierBounds.Item1 == -3 && bestInlierBounds.Item3 == 4)
-            offsetX += 1;
-        if (bestInlierBounds.Item2 == -4 && bestInlierBounds.Item4 == 3)
-            offsetY -= 1;
-        if (bestInlierBounds.Item2 == -3 && bestInlierBounds.Item4 == 4)
-            offsetY += 1;
-
-        if (bestInlierBounds.Item1 == -4 && bestInlierBounds.Item3 == 2)
-            offsetX -= 2;
-        if (bestInlierBounds.Item1 == -2 && bestInlierBounds.Item3 == 4)
-            offsetX += 2;
-        if (bestInlierBounds.Item2 == -4 && bestInlierBounds.Item4 == 2)
-            offsetY -= 2;
-        if (bestInlierBounds.Item2 == -2 && bestInlierBounds.Item4 == 4)
-            offsetY += 2;*/
-
         List<(double x, double y, double score)> board = boardEstimate(corners, bestFit, offsetX, offsetY, patternRadius, maxPixelOffsetSquared);
 
-        for (int i = 0; i < board.Count; i++) saddlePoints.Add(DenseVectorD.OfArray([board[i].x, board[i].y, board[i].score]));
-        //for (int i = 0; i < corners.Count; i++) saddlePoints.Add(DenseVector.OfArray([corners[i].Item1, corners[i].Item2, 0.2]));
+        for (int i = 0; i < board.Count; i++)
+        {
+            saddlePoints.Add(DenseVectorD.OfArray([board[i].x, board[i].y]));
+            confidences.Add(board[i].score);
+        }
 
-        Console.WriteLine($"Saddle points: {maxInliers.Count}");
-        //Console.WriteLine($"Center: {bestFit.Center[0]} {bestFit.Center[1]}");
-        //Console.WriteLine($"DirI: {bestFit.DirI[0]} {bestFit.DirI[1]}");
-        //Console.WriteLine($"DirJ: {bestFit.DirJ[0]} {bestFit.DirJ[1]}");
-        //Console.WriteLine($"DirII: {bestFit.DirII[0]} {bestFit.DirII[1]}");
-        //Console.WriteLine($"DirJJ: {bestFit.DirJJ[0]} {bestFit.DirJJ[1]}");
-        //Console.WriteLine($"DirIJ: {bestFit.DirIJ[0]} {bestFit.DirIJ[1]}");
-        Console.WriteLine($"Inlier Bounds: {bestInlierBounds.Item1} {bestInlierBounds.Item2} {bestInlierBounds.Item3} {bestInlierBounds.Item4}");
         return saddlePoints;
     }
 }
