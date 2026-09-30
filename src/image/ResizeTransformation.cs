@@ -135,7 +135,12 @@ public static class CVResizeTransformation
         int targetHeight,
         VectorD pointIn)
     {
-        return DenseVectorD.OfArray([pointIn[0] * targetWidth / currentWidth, pointIn[1] * targetHeight / currentHeight]);
+        if (pointIn.Count == 2)
+            return DenseVectorD.OfArray([pointIn[0] * targetWidth / currentWidth, pointIn[1] * targetHeight / currentHeight]);
+        else if (pointIn.Count == 3)
+            return DenseVectorD.OfArray([pointIn[0] * targetWidth / currentWidth, pointIn[1] * targetHeight / currentHeight, pointIn[2]]);
+        else
+            throw new ArgumentException($"Unsupported vector size {pointIn.Count}");
     }
 
     // Optimized
@@ -149,7 +154,12 @@ public static class CVResizeTransformation
         double dx = (currentWidth - targetWidth) / 2.0;
         double dy = (currentHeight - targetHeight) / 2.0;
 
-        return DenseVectorD.OfArray([pointIn[0] - dx, pointIn[1] - dy]);
+        if (pointIn.Count == 2)
+            return DenseVectorD.OfArray([pointIn[0] - dx, pointIn[1] - dy]);
+        else if (pointIn.Count == 3)
+            return DenseVectorD.OfArray([pointIn[0] - dx, pointIn[1] - dy, pointIn[2]]);
+        else
+            throw new ArgumentException($"Unsupported vector size {pointIn.Count}");
     }
 
     public static VectorD AspectCropTransformation(

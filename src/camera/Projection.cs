@@ -17,7 +17,12 @@ public class CVProjection
         double x = r[0] / r[2];
         double y = r[1] / r[2];
 
-        return DenseVectorD.OfArray([x, y, 1.0]);
+        if (point.Count == 2)
+            return DenseVectorD.OfArray([x, y, 1.0]);
+        else if (point.Count == 3)
+            return DenseVectorD.OfArray([x, y, point[2]]);
+        else
+            throw new ArgumentException($"Unsupported vector size {point.Count}");
     }
 
     public static List<VectorD> HomographyProjectPoints(List<VectorD> points, MatrixD homography)
