@@ -4,6 +4,75 @@ namespace CVNet;
 
 public static class CVSample
 {
+    private static int Partition(List<double> values, int left, int right)
+    {
+        double pivotValue = values[right];
+        int store = left;
+
+        for (int i = left; i < right; i++)
+        {
+            if (values[i] < pivotValue)
+            {
+                (values[store], values[i]) = (values[i], values[store]);
+                store++;
+            }
+        }
+
+        (values[store], values[right]) = (values[right], values[store]);
+
+        return store;
+    }
+
+    private static void QuickSelect(List<double> values, int left, int right, int k)
+    {
+        while (left < right)
+        {
+            int pivot = Partition(values, left, right);
+
+            if (pivot == k)
+                return;
+
+            if (k < pivot)
+                right = pivot - 1;
+            else
+                left = pivot + 1;
+        }
+    }
+
+    public static double Median(List<double> samples)
+    {
+        if (samples.Count == 0)
+            throw new Exception("No samples exist");
+
+        var values = new List<double>(samples);
+
+        int middle = values.Count / 2;
+
+        QuickSelect(values, 0, values.Count - 1, middle);
+
+        if (values.Count % 2 != 0)
+            return values[middle];
+
+        double upper = values[middle];
+
+        QuickSelect(values, 0, middle - 1, middle - 1);
+
+        return (values[middle - 1] + upper) / 2.0;
+    }
+
+    public static List<double> FilterList(List<double> samples, double min, double max)
+    {
+        List<double> filteredSamples = new List<double>();
+
+        foreach (double value in samples)
+        {
+            if (value >= min && value <= max)
+                filteredSamples.Add(value);
+        }
+
+        return filteredSamples;
+    }
+
     private static void sampleCircular<T>(CVImage imageIn, int sampleX, int sampleY, int radius, ref List<double> sampleOut) where T : struct, INumber<T>
     {
         Span<T> buffer = imageIn.BufferAs<T>();
@@ -29,8 +98,6 @@ public static class CVSample
                 sampleOut.Add(double.CreateChecked(buffer[x + y * imageIn.Width]));
             }
         }
-
-        sampleOut.Sort();
     }
 
 
@@ -53,54 +120,47 @@ public static class CVSample
         return sampleOut;
     }
 
+    public static double MedianAbsoluteDifference(List<double> samples, double value)
+    {
+        List<double> differences = new List<double>();
+
+        foreach (double sample in samples)
+            differences.Add(Math.Abs(sample - value));
+
+        return Median(differences);
+    }
+
     public static double MedianCircular(CVImage image, int sampleX, int sampleY, int radius)
     {
         List<double> samples = SampleCircular(image, sampleX, sampleY, radius);
-
         if (samples.Count == 0) throw new Exception("No samples exist");
-
-        return samples[samples.Count / 2];
+        return Median(samples);
     }
 
-    public static double FilteredMedian(List<double> samples, double min, double max)
+    public static double MedianCircular(CVImage image, int sampleX, int sampleY, int radius, out double medianAbsoluteDeviation)
     {
-        int indexMin = 0;
-        int highIndexMin = samples.Count;
-
-        while (indexMin < highIndexMin)
-        {
-            int mid = indexMin + (highIndexMin - indexMin) / 2;
-
-            if (samples[mid] < min)
-                indexMin = mid + 1;
-            else
-                highIndexMin = mid;
-        }
-
-        int indexMax = 0;
-        int highIndexMax = samples.Count;
-
-        while (indexMax < highIndexMax)
-        {
-            int mid = indexMax + (highIndexMax - indexMax) / 2;
-
-            if (samples[mid] <= max)
-                indexMax = mid + 1;
-            else
-                highIndexMax = mid;
-        }
-
-        int count = indexMax - indexMin;
-        if (count <= 0) throw new Exception("No samples exist");
-
-        return samples[indexMin + count / 2];
+        List<double> samples = SampleCircular(image, sampleX, sampleY, radius);
+        if (samples.Count == 0) throw new Exception("No samples exist");
+        double median = Median(samples);
+        medianAbsoluteDeviation = MedianAbsoluteDifference(samples, median);
+        return median;
     }
 
     public static double FilteredMedianCircular(CVImage image, int sampleX, int sampleY, int radius, double min, double max)
     {
         List<double> samples = SampleCircular(image, sampleX, sampleY, radius);
+        List<double> filteredSamples = FilterList(samples, min, max);
+        if (filteredSamples.Count == 0) throw new Exception("No samples exist");
+        return Median(filteredSamples);
+    }
 
-        return FilteredMedian(samples, min, max);
+    public static double FilteredMedianCircular(CVImage image, int sampleX, int sampleY, int radius, double min, double max, out double medianAbsoluteDeviation)
+    {
+        List<double> samples = SampleCircular(image, sampleX, sampleY, radius);
+        List<double> filteredSamples = FilterList(samples, min, max);
+        double median = Median(filteredSamples);
+        medianAbsoluteDeviation = MedianAbsoluteDifference(filteredSamples, median);
+        return median;
     }
 
     private static void sampleSquare<T>(CVImage imageIn, int sampleX, int sampleY, int radius, ref List<double> sampleOut) where T : struct, INumber<T>
@@ -118,8 +178,6 @@ public static class CVSample
                 sampleOut.Add(double.CreateChecked(buffer[x + y * imageIn.Width]));
             }
         }
-
-        sampleOut.Sort();
     }
 
 
@@ -145,16 +203,33 @@ public static class CVSample
     public static double MedianSquare(CVImage image, int sampleX, int sampleY, int radius)
     {
         List<double> samples = SampleSquare(image, sampleX, sampleY, radius);
-
         if (samples.Count == 0) throw new Exception("No samples exist");
+        return Median(samples);
+    }
 
-        return samples[samples.Count / 2];
+    public static double MedianSquare(CVImage image, int sampleX, int sampleY, int radius, out double medianAbsoluteDeviation)
+    {
+        List<double> samples = SampleSquare(image, sampleX, sampleY, radius);
+        if (samples.Count == 0) throw new Exception("No samples exist");
+        double median = Median(samples);
+        medianAbsoluteDeviation = MedianAbsoluteDifference(samples, median);
+        return median;
     }
 
     public static double FilteredMedianSquare(CVImage image, int sampleX, int sampleY, int radius, double min, double max)
     {
         List<double> samples = SampleSquare(image, sampleX, sampleY, radius);
+        List<double> filteredSamples = FilterList(samples, min, max);
+        if (filteredSamples.Count == 0) throw new Exception("No samples exist");
+        return Median(filteredSamples);
+    }
 
-        return FilteredMedian(samples, min, max);
+    public static double FilteredMedianSquare(CVImage image, int sampleX, int sampleY, int radius, double min, double max, out double medianAbsoluteDeviation)
+    {
+        List<double> samples = SampleSquare(image, sampleX, sampleY, radius);
+        List<double> filteredSamples = FilterList(samples, min, max);
+        double median = Median(filteredSamples);
+        medianAbsoluteDeviation = MedianAbsoluteDifference(filteredSamples, median);
+        return median;
     }
 }
