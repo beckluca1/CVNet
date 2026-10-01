@@ -186,6 +186,45 @@ public static partial class CVCamera
         return points;
     }
 
+    public static List<VectorD> TriangulateAllFilter(
+            List<VectorD> src,
+            List<VectorD> dst,
+            MatrixD K1,
+            MatrixD K2,
+            VectorD d1,
+            VectorD d2,
+            MatrixD R,
+            VectorD t,
+            double threshold,
+            out List<VectorD> srcOut,
+            out List<VectorD> dstOut)
+    {
+        if (src.Count != dst.Count)
+            throw new ArgumentException("Point lists must have same length");
+
+        srcOut = new List<VectorD>();
+        dstOut = new List<VectorD>();
+
+        List<VectorD> normalizedPixels1 = CVProjection.IntrinsicUnProjectPoints(src, K1, d1);
+        List<VectorD> normalizedPixels2 = CVProjection.IntrinsicUnProjectPoints(dst, K2, d2);
+
+        var points = new List<VectorD>();
+
+        for (int i = 0; i < normalizedPixels1.Count; i++)
+        {
+            VectorD X = NormalizedTriangulate(R, t, normalizedPixels1[i], normalizedPixels2[i]);
+            double error = NormalizedReprojectionError(src[i], dst[i], X, R, t, K1, K2, d1, d2);
+            if (error < threshold)
+            {
+                srcOut.Add(src[i]);
+                dstOut.Add(dst[i]);
+                points.Add(X);
+            }
+        }
+
+        return points;
+    }
+
     public static void StereoRectify(
         MatrixD K1,
         MatrixD K2,

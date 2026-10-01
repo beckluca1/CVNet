@@ -197,6 +197,35 @@ public static partial class CVCamera
         return (errorCam1 + errorCam2) * 0.5;
     }
 
+    public static double NormalizedReprojectionError(
+            VectorD pixelPoint1,
+            VectorD pixelPoint2,
+            VectorD worldPoint1,
+            MatrixD R,
+            VectorD t,
+            MatrixD K1,
+            MatrixD K2,
+            VectorD d1,
+            VectorD d2)
+    {
+        VectorD worldPoint2 = R * worldPoint1 + t;
+
+        // Point behind one camera
+        if (worldPoint1[2] <= 10e-5) return double.NaN;
+        if (worldPoint2[2] <= 10e-5) return double.NaN;
+
+        VectorD p1 = CVProjection.ProjectPoint(worldPoint1, DenseMatrixD.CreateIdentity(3), DenseVectorD.OfArray([0, 0, 0]), K1, d1);
+        VectorD p2 = CVProjection.ProjectPoint(worldPoint1, R, t, K2, d2);
+
+        double dx1 = p1[0] - pixelPoint1[0];
+        double dy1 = p1[1] - pixelPoint1[1];
+        double dx2 = p2[0] - pixelPoint2[0];
+        double dy2 = p2[1] - pixelPoint2[1];
+        double errorCam1 = Math.Sqrt(dx1 * dx1 + dy1 * dy1);
+        double errorCam2 = Math.Sqrt(dx2 * dx2 + dy2 * dy2);
+        return (errorCam1 + errorCam2) * 0.5;
+    }
+
     public static double NormalizedMeanReprojectionError(
         List<VectorD> pixelPoints1,
         List<VectorD> pixelPoints2,
