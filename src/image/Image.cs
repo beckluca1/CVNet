@@ -122,7 +122,7 @@ public struct CVChannelFormats
         else if (id == CVChannelFormat.CV_RGB255_FROM_YUV) Channels = [CVChannel.CV_R_FROM_YUV, CVChannel.CV_G_FROM_YUV, CVChannel.CV_B_FROM_YUV, CVChannel.CV_A_255];
         else if (id == CVChannelFormat.CV_BGR_FROM_YUV) Channels = [CVChannel.CV_B_FROM_YUV, CVChannel.CV_G_FROM_YUV, CVChannel.CV_R_FROM_YUV];
         else if (id == CVChannelFormat.CV_BGR255_FROM_YUV) Channels = [CVChannel.CV_B_FROM_YUV, CVChannel.CV_G_FROM_YUV, CVChannel.CV_R_FROM_YUV, CVChannel.CV_A_255];
-   }
+    }
 }
 
 public enum CVInterpolationMode
@@ -132,10 +132,9 @@ public enum CVInterpolationMode
     CV_LINEAR,
 }
 
-public enum CVResizeMode
+public enum CVAspectMode
 {
     CV_NONE,
-    CV_STRETCH,
     CV_CROP,
     CV_PAD,
 }

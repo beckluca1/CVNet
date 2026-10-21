@@ -11,10 +11,14 @@ public static class CVWarp
 {
     private static void warpPerspective<T>(
         CVImage image,
-        MatrixD Hinv,
+        MatrixD H,
         ref CVImage imageOut)
         where T : unmanaged, INumber<T>
     {
+        // Needs the inverse matrix because its calculating the source pixel 
+        // while iterating over target pixels
+        MatrixD Hinv = H.Inverse();
+
         Span<T> src = image.BufferAs<T>();
         Span<T> dst = imageOut.BufferAs<T>();
 
@@ -94,20 +98,46 @@ public static class CVWarp
         return imageOut;
     }
 
+    // Keep Image dimensions
     public static CVImage WarpPerspective(CVImage image, MatrixD H)
     {
         return WarpPerspective(image, image.Width, image.Height, H);
     }
 
-    public static CVImage WarpPerspectiveQuad(CVImage image, List<VectorD> srcPoints, int targetWidth, int targetHeight, out MatrixD H)
+    public static CVImage WarpPerspective(CVImage image, MatrixD H, out CVWarpTransform transform)
+    {
+        transform = new CVWarpTransform(image.Width, image.Height, image.Width, image.Height, H);
+        return WarpPerspective(image, image.Width, image.Height, H);
+    }
+
+    public static CVImage WarpPerspective(CVImage image, MatrixD H, ref CVTransformList transforms)
+    {
+        transforms.Transforms.Add(new CVWarpTransform(image.Width, image.Height, image.Width, image.Height, H));
+        return WarpPerspective(image, image.Width, image.Height, H);
+    }
+
+    // Set new image dimensions
+    public static CVImage WarpPerspective(CVImage image, List<VectorD> srcPoints, int targetWidth, int targetHeight, out MatrixD H)
     {
         H = CVHomography.ComputeHomographyQuadExact(srcPoints, targetWidth, targetHeight);
-        MatrixD HInv = H.Inverse();
-
-        return WarpPerspective(image, targetWidth, targetHeight, HInv);
+        return WarpPerspective(image, targetWidth, targetHeight, H);
     }
 
-    public static CVImage WarpPerspectiveQuad(CVImage image, List<VectorD> srcPoints, out MatrixD H)
+    public static CVImage WarpPerspective(CVImage image, List<VectorD> srcPoints, int targetWidth, int targetHeight, out MatrixD H, out CVWarpTransform transform)
+    {
+        H = CVHomography.ComputeHomographyQuadExact(srcPoints, targetWidth, targetHeight);
+        transform = new CVWarpTransform(image.Width, image.Height, image.Width, image.Height, H);
+        return WarpPerspective(image, targetWidth, targetHeight, H);
+    }
+
+    public static CVImage WarpPerspective(CVImage image, List<VectorD> srcPoints, int targetWidth, int targetHeight, out MatrixD H, ref CVTransformList transforms)
+    {
+        H = CVHomography.ComputeHomographyQuadExact(srcPoints, targetWidth, targetHeight);
+        transforms.Transforms.Add(new CVWarpTransform(image.Width, image.Height, image.Width, image.Height, H));
+        return WarpPerspective(image, targetWidth, targetHeight, H);
+    }
+
+    public static void GetQuadMaxDimensions(int imageWidth, int imageHeight, List<VectorD> srcPoints, out int targetWidth, out int targetHeight)
     {
         double widthA = (srcPoints[2] - srcPoints[3]).L2Norm();
         double widthB = (srcPoints[1] - srcPoints[0]).L2Norm();
@@ -120,51 +150,31 @@ public static class CVWarp
 
         double aspect = maxWidth / maxHeight;
 
-        double imageSize = Math.Min(image.Width, image.Height);
-        int targetWidth = (int)imageSize;
-        int targetHeight = (int)imageSize;
+        int imageSize = Math.Min(imageWidth, imageHeight);
+        targetWidth = imageSize;
+        targetHeight = imageSize;
 
         if (aspect < 1.0) targetWidth = (int)(imageSize * aspect);
         else targetHeight = (int)(imageSize / aspect);
-
-        return WarpPerspectiveQuad(image, srcPoints, targetWidth, targetHeight, out H);
     }
 
-    public static CVImage WarpPerspectiveQuad(CVImage image, List<VectorD> srcPoints, int targetWidth, int targetHeight, out CVTransform transform)
+    // Compute image dimensions from max source extend
+    public static CVImage WarpPerspective(CVImage image, List<VectorD> srcPoints, out MatrixD H)
     {
-        MatrixD H = CVHomography.ComputeHomographyQuadExact(srcPoints, targetWidth, targetHeight);
-
-        transform = new CVWarpTransform()
-        {
-            Warp = H,
-        };
-
-        MatrixD HInv = H.Inverse();
-
-        return WarpPerspective(image, targetWidth, targetHeight, HInv);
+        GetQuadMaxDimensions(image.Width, image.Height, srcPoints, out int targetWidth, out int targetHeight);
+        return WarpPerspective(image, srcPoints, targetWidth, targetHeight, out H);
     }
 
-    public static CVImage WarpPerspectiveQuad(CVImage image, List<VectorD> srcPoints, out CVTransform transform)
+    public static CVImage WarpPerspective(CVImage image, List<VectorD> srcPoints, out MatrixD H, out CVWarpTransform transform)
     {
-        double widthA = (srcPoints[2] - srcPoints[3]).L2Norm();
-        double widthB = (srcPoints[1] - srcPoints[0]).L2Norm();
+        GetQuadMaxDimensions(image.Width, image.Height, srcPoints, out int targetWidth, out int targetHeight);
+        return WarpPerspective(image, srcPoints, targetWidth, targetHeight, out H, out transform);
+    }
 
-        double heightA = (srcPoints[1] - srcPoints[2]).L2Norm();
-        double heightB = (srcPoints[0] - srcPoints[3]).L2Norm();
-
-        double maxWidth = Math.Max(widthA, widthB);
-        double maxHeight = Math.Max(heightA, heightB);
-
-        double aspect = maxWidth / maxHeight;
-
-        double imageSize = Math.Min(image.Width, image.Height);
-        int targetWidth = (int)imageSize;
-        int targetHeight = (int)imageSize;
-
-        if (aspect < 1.0) targetWidth = (int)(imageSize * aspect);
-        else targetHeight = (int)(imageSize / aspect);
-
-        return WarpPerspectiveQuad(image, srcPoints, targetWidth, targetHeight, out transform);
+    public static CVImage WarpPerspective(CVImage image, List<VectorD> srcPoints, out MatrixD H, ref CVTransformList transforms)
+    {
+        GetQuadMaxDimensions(image.Width, image.Height, srcPoints, out int targetWidth, out int targetHeight);
+        return WarpPerspective(image, srcPoints, targetWidth, targetHeight, out H, ref transforms);
     }
 
     public static CVImage MatchImage(CVImage image1, CVImage image2, int hammingDistance)
@@ -181,9 +191,7 @@ public static class CVWarp
         }
 
         MatrixD H = CVHomography.ComputeHomographyRansac(matchedFeatures1Vec, matchedFeatures2Vec, 10000, 3.0, out List<int> bestInliers, out double error);
-        MatrixD HInv = H.Inverse();
-
-        return WarpPerspective(image2, HInv);
+        return WarpPerspective(image2, H);
     }
 
     public static void RectifyImage(CVImage image1, CVImage image2, MatrixD K1, MatrixD K2, VectorD d1, VectorD d2, int hammingDistance, out CVImage image1Rect, out CVImage image2Rect)

@@ -4,124 +4,6 @@ namespace CVNet;
 
 public static class CVResize
 {
-    private static void half<T>(CVImage imageIn, ref CVImage imageOut)
-    where T : struct, INumber<T>
-    {
-        Span<T> src = imageIn.BufferAs<T>();
-        Span<T> dst = imageOut.BufferAs<T>();
-
-        int outW = imageOut.Width;
-        int outH = imageOut.Height;
-
-        int dstAddRow = outW;
-        int srcAddRow = outW * 4;
-
-        int planeSize = outW * outH;
-
-        for (int c = 0; c < imageIn.Channels; c++)
-        {
-            int srcPlane = c * planeSize * 4;
-            int dstPlane = c * planeSize;
-
-            int srcRow = srcPlane;
-            int dstRow = dstPlane;
-
-            for (int y = 0; y < outH; y++)
-            {
-                int s = srcRow;
-                int d = dstRow;
-
-                for (int x = 0; x < outW; x++)
-                {
-                    dst[d] = src[s];
-                    d += 1;
-                    s += 2;
-                }
-
-                srcRow += srcAddRow;
-                dstRow += dstAddRow;
-            }
-        }
-    }
-
-    public static CVImage Half(
-            CVImage image)
-    {
-        CVImage imageOut = CVImage.Create(image.Width / 2, image.Height / 2, image.DataFormat, image.ChannelFormats);
-
-        if (image.DataFormat == CVDataFormat.CV_U8) half<byte>(image, ref imageOut);
-        else if (image.DataFormat == CVDataFormat.CV_S8) half<sbyte>(image, ref imageOut);
-        else if (image.DataFormat == CVDataFormat.CV_U16) half<ushort>(image, ref imageOut);
-        else if (image.DataFormat == CVDataFormat.CV_S16) half<short>(image, ref imageOut);
-        else if (image.DataFormat == CVDataFormat.CV_U32) half<uint>(image, ref imageOut);
-        else if (image.DataFormat == CVDataFormat.CV_S32) half<int>(image, ref imageOut);
-        else if (image.DataFormat == CVDataFormat.CV_U64) half<ulong>(image, ref imageOut);
-        else if (image.DataFormat == CVDataFormat.CV_S64) half<long>(image, ref imageOut);
-        else if (image.DataFormat == CVDataFormat.CV_F32) half<float>(image, ref imageOut);
-        else if (image.DataFormat == CVDataFormat.CV_F64) half<double>(image, ref imageOut);
-
-        return imageOut;
-    }
-
-    private static void twice<T>(CVImage imageIn, ref CVImage imageOut)
-        where T : struct, INumber<T>
-    {
-        Span<T> src = imageIn.BufferAs<T>();
-        Span<T> dst = imageOut.BufferAs<T>();
-
-        int inW = imageIn.Width;
-        int inH = imageIn.Height;
-
-        int dstAddRow = inW * 4;
-        int srcAddRow = inW;
-
-        int planeSize = inW * inH;
-
-        for (int c = 0; c < imageIn.Channels; c++)
-        {
-            int srcPlane = c * planeSize;
-            int dstPlane = c * planeSize * 4;
-
-            int srcRow = srcPlane;
-            int dstRow = dstPlane;
-
-            for (int y = 0; y < inH; y++)
-            {
-                int s = srcRow;
-                int d = dstRow;
-
-                for (int x = 0; x < inW; x++)
-                {
-                    dst[d] = src[s];
-                    d += 2;
-                    s += 1;
-                }
-
-                srcRow += srcAddRow;
-                dstRow += dstAddRow;
-            }
-        }
-    }
-
-    public static CVImage Twice(
-            CVImage image)
-    {
-        CVImage imageOut = CVImage.Create(image.Width * 2, image.Height * 2, image.DataFormat, image.ChannelFormats);
-
-        if (image.DataFormat == CVDataFormat.CV_U8) twice<byte>(image, ref imageOut);
-        else if (image.DataFormat == CVDataFormat.CV_S8) twice<sbyte>(image, ref imageOut);
-        else if (image.DataFormat == CVDataFormat.CV_U16) twice<ushort>(image, ref imageOut);
-        else if (image.DataFormat == CVDataFormat.CV_S16) twice<short>(image, ref imageOut);
-        else if (image.DataFormat == CVDataFormat.CV_U32) twice<uint>(image, ref imageOut);
-        else if (image.DataFormat == CVDataFormat.CV_S32) twice<int>(image, ref imageOut);
-        else if (image.DataFormat == CVDataFormat.CV_U64) twice<ulong>(image, ref imageOut);
-        else if (image.DataFormat == CVDataFormat.CV_S64) twice<long>(image, ref imageOut);
-        else if (image.DataFormat == CVDataFormat.CV_F32) twice<float>(image, ref imageOut);
-        else if (image.DataFormat == CVDataFormat.CV_F64) twice<double>(image, ref imageOut);
-
-        return imageOut;
-    }
-
     // Optimized
     private static void stretchNearest<T>(
         CVImage imageIn,
@@ -324,10 +206,11 @@ public static class CVResize
         return imageOut;
     }
 
-    public static CVImage Stretch(CVImage image,
-                                        int targetWidth,
-                                        int targetHeight,
-                                        CVInterpolationMode mode)
+    public static CVImage Stretch(
+        CVImage image,
+        int targetWidth,
+        int targetHeight,
+        CVInterpolationMode mode)
     {
         if (mode == CVInterpolationMode.CV_NEAREST) return StretchNearest(image, targetWidth, targetHeight);
         else if (mode == CVInterpolationMode.CV_LINEAR) return StretchLinear(image, targetWidth, targetHeight);
@@ -335,10 +218,34 @@ public static class CVResize
         throw new Exception("Unknown Interpolation mode");
     }
 
+    public static CVImage Stretch(
+        CVImage image,
+        int targetWidth,
+        int targetHeight,
+        CVInterpolationMode mode,
+        out CVStretchTransform transform)
+    {
+        transform = new CVStretchTransform(image.Width, image.Height, targetWidth, targetHeight, mode);
+        return Stretch(image, targetWidth, targetHeight, mode);
+    }
+
+    public static CVImage Stretch(
+        CVImage image,
+        int targetWidth,
+        int targetHeight,
+        CVInterpolationMode mode,
+        ref CVTransformList transforms)
+    {
+        transforms.Transforms.Add(new CVStretchTransform(image.Width, image.Height, targetWidth, targetHeight, mode));
+        return Stretch(image, targetWidth, targetHeight, mode);
+    }
+
+
     // Optimized
-    private static void crop<T>(
-                CVImage imageIn,
-                ref CVImage imageOut) where T : struct, INumber<T>
+    private static void centerCopy<T>(
+        CVImage imageIn,
+        ref CVImage imageOut
+    ) where T : struct, INumber<T>
     {
         Span<T> bufferSpanIn = imageIn.BufferAs<T>();
         Span<T> bufferSpanOut = imageOut.BufferAs<T>();
@@ -372,332 +279,261 @@ public static class CVResize
         }
     }
 
-    public static CVImage Crop(
-                CVImage image,
-                int targetWidth,
-                int targetHeight)
+    public static CVImage CenterCopy(
+        CVImage image,
+        int targetWidth,
+        int targetHeight
+    )
     {
         CVImage imageOut = CVImage.Create(targetWidth, targetHeight, image.DataFormat, image.ChannelFormats);
 
-        if (image.DataFormat == CVDataFormat.CV_U8) crop<byte>(image, ref imageOut);
-        else if (image.DataFormat == CVDataFormat.CV_S8) crop<sbyte>(image, ref imageOut);
-        else if (image.DataFormat == CVDataFormat.CV_U16) crop<ushort>(image, ref imageOut);
-        else if (image.DataFormat == CVDataFormat.CV_S16) crop<short>(image, ref imageOut);
-        else if (image.DataFormat == CVDataFormat.CV_U32) crop<uint>(image, ref imageOut);
-        else if (image.DataFormat == CVDataFormat.CV_S32) crop<int>(image, ref imageOut);
-        else if (image.DataFormat == CVDataFormat.CV_U64) crop<ulong>(image, ref imageOut);
-        else if (image.DataFormat == CVDataFormat.CV_S64) crop<long>(image, ref imageOut);
-        else if (image.DataFormat == CVDataFormat.CV_F32) crop<float>(image, ref imageOut);
-        else if (image.DataFormat == CVDataFormat.CV_F64) crop<double>(image, ref imageOut);
+        if (image.DataFormat == CVDataFormat.CV_U8) centerCopy<byte>(image, ref imageOut);
+        else if (image.DataFormat == CVDataFormat.CV_S8) centerCopy<sbyte>(image, ref imageOut);
+        else if (image.DataFormat == CVDataFormat.CV_U16) centerCopy<ushort>(image, ref imageOut);
+        else if (image.DataFormat == CVDataFormat.CV_S16) centerCopy<short>(image, ref imageOut);
+        else if (image.DataFormat == CVDataFormat.CV_U32) centerCopy<uint>(image, ref imageOut);
+        else if (image.DataFormat == CVDataFormat.CV_S32) centerCopy<int>(image, ref imageOut);
+        else if (image.DataFormat == CVDataFormat.CV_U64) centerCopy<ulong>(image, ref imageOut);
+        else if (image.DataFormat == CVDataFormat.CV_S64) centerCopy<long>(image, ref imageOut);
+        else if (image.DataFormat == CVDataFormat.CV_F32) centerCopy<float>(image, ref imageOut);
+        else if (image.DataFormat == CVDataFormat.CV_F64) centerCopy<double>(image, ref imageOut);
 
         return imageOut;
     }
 
-    public static CVImage Crop<T>(
-                    CVImage image,
-                    int targetWidth,
-                    int targetHeight,
-                    T defaultValue) where T : struct, INumber<T>
+    public static CVImage CenterCopy(
+        CVImage image,
+        int targetWidth,
+        int targetHeight,
+        out CVCenterCopyTransform transform)
+    {
+        transform = new CVCenterCopyTransform(image.Width, image.Height, targetWidth, targetHeight);
+        return CenterCopy(image, targetWidth, targetHeight);
+    }
+
+    public static CVImage CenterCopy(
+        CVImage image,
+        int targetWidth,
+        int targetHeight,
+        ref CVTransformList transforms)
+    {
+        transforms.Transforms.Add(new CVCenterCopyTransform(image.Width, image.Height, targetWidth, targetHeight));
+        return CenterCopy(image, targetWidth, targetHeight);
+    }
+
+    public static CVImage CenterCopy<T>(
+        CVImage image,
+        int targetWidth,
+        int targetHeight,
+        T defaultValue
+    ) where T : struct, INumber<T>
     {
         CVImage imageOut = CVImage.Create(targetWidth, targetHeight, image.DataFormat, image.ChannelFormats, defaultValue);
 
-        if (image.DataFormat == CVDataFormat.CV_U8) crop<byte>(image, ref imageOut);
-        else if (image.DataFormat == CVDataFormat.CV_S8) crop<sbyte>(image, ref imageOut);
-        else if (image.DataFormat == CVDataFormat.CV_U16) crop<ushort>(image, ref imageOut);
-        else if (image.DataFormat == CVDataFormat.CV_S16) crop<short>(image, ref imageOut);
-        else if (image.DataFormat == CVDataFormat.CV_U32) crop<uint>(image, ref imageOut);
-        else if (image.DataFormat == CVDataFormat.CV_S32) crop<int>(image, ref imageOut);
-        else if (image.DataFormat == CVDataFormat.CV_U64) crop<ulong>(image, ref imageOut);
-        else if (image.DataFormat == CVDataFormat.CV_S64) crop<long>(image, ref imageOut);
-        else if (image.DataFormat == CVDataFormat.CV_F32) crop<float>(image, ref imageOut);
-        else if (image.DataFormat == CVDataFormat.CV_F64) crop<double>(image, ref imageOut);
+        if (image.DataFormat == CVDataFormat.CV_U8) centerCopy<byte>(image, ref imageOut);
+        else if (image.DataFormat == CVDataFormat.CV_S8) centerCopy<sbyte>(image, ref imageOut);
+        else if (image.DataFormat == CVDataFormat.CV_U16) centerCopy<ushort>(image, ref imageOut);
+        else if (image.DataFormat == CVDataFormat.CV_S16) centerCopy<short>(image, ref imageOut);
+        else if (image.DataFormat == CVDataFormat.CV_U32) centerCopy<uint>(image, ref imageOut);
+        else if (image.DataFormat == CVDataFormat.CV_S32) centerCopy<int>(image, ref imageOut);
+        else if (image.DataFormat == CVDataFormat.CV_U64) centerCopy<ulong>(image, ref imageOut);
+        else if (image.DataFormat == CVDataFormat.CV_S64) centerCopy<long>(image, ref imageOut);
+        else if (image.DataFormat == CVDataFormat.CV_F32) centerCopy<float>(image, ref imageOut);
+        else if (image.DataFormat == CVDataFormat.CV_F64) centerCopy<double>(image, ref imageOut);
 
         return imageOut;
     }
 
-    public static CVImage Crop<T>(
-                        CVImage image,
-                        int targetWidth,
-                        int targetHeight,
-                        T[] defaultValue) where T : struct, INumber<T>
+    public static CVImage CenterCopy<T>(
+        CVImage image,
+        int targetWidth,
+        int targetHeight,
+        T defaultValue,
+        out CVCenterCopyTransform transform
+    ) where T : struct, INumber<T>
+    {
+        transform = new CVCenterCopyTransform(image.Width, image.Height, targetWidth, targetHeight);
+        return CenterCopy(image, targetWidth, targetHeight, defaultValue);
+    }
+
+    public static CVImage CenterCopy<T>(
+        CVImage image,
+        int targetWidth,
+        int targetHeight,
+        T defaultValue,
+        ref CVTransformList transforms
+    ) where T : struct, INumber<T>
+    {
+        transforms.Transforms.Add(new CVCenterCopyTransform(image.Width, image.Height, targetWidth, targetHeight));
+        return CenterCopy(image, targetWidth, targetHeight, defaultValue);
+    }
+
+    public static CVImage CenterCopy<T>(
+        CVImage image,
+        int targetWidth,
+        int targetHeight,
+        T[] defaultValue
+    ) where T : struct, INumber<T>
     {
         CVImage imageOut = CVImage.Create(targetWidth, targetHeight, image.DataFormat, image.ChannelFormats, defaultValue);
 
-        if (image.DataFormat == CVDataFormat.CV_U8) crop<byte>(image, ref imageOut);
-        else if (image.DataFormat == CVDataFormat.CV_S8) crop<sbyte>(image, ref imageOut);
-        else if (image.DataFormat == CVDataFormat.CV_U16) crop<ushort>(image, ref imageOut);
-        else if (image.DataFormat == CVDataFormat.CV_S16) crop<short>(image, ref imageOut);
-        else if (image.DataFormat == CVDataFormat.CV_U32) crop<uint>(image, ref imageOut);
-        else if (image.DataFormat == CVDataFormat.CV_S32) crop<int>(image, ref imageOut);
-        else if (image.DataFormat == CVDataFormat.CV_U64) crop<ulong>(image, ref imageOut);
-        else if (image.DataFormat == CVDataFormat.CV_S64) crop<long>(image, ref imageOut);
-        else if (image.DataFormat == CVDataFormat.CV_F32) crop<float>(image, ref imageOut);
-        else if (image.DataFormat == CVDataFormat.CV_F64) crop<double>(image, ref imageOut);
+        if (image.DataFormat == CVDataFormat.CV_U8) centerCopy<byte>(image, ref imageOut);
+        else if (image.DataFormat == CVDataFormat.CV_S8) centerCopy<sbyte>(image, ref imageOut);
+        else if (image.DataFormat == CVDataFormat.CV_U16) centerCopy<ushort>(image, ref imageOut);
+        else if (image.DataFormat == CVDataFormat.CV_S16) centerCopy<short>(image, ref imageOut);
+        else if (image.DataFormat == CVDataFormat.CV_U32) centerCopy<uint>(image, ref imageOut);
+        else if (image.DataFormat == CVDataFormat.CV_S32) centerCopy<int>(image, ref imageOut);
+        else if (image.DataFormat == CVDataFormat.CV_U64) centerCopy<ulong>(image, ref imageOut);
+        else if (image.DataFormat == CVDataFormat.CV_S64) centerCopy<long>(image, ref imageOut);
+        else if (image.DataFormat == CVDataFormat.CV_F32) centerCopy<float>(image, ref imageOut);
+        else if (image.DataFormat == CVDataFormat.CV_F64) centerCopy<double>(image, ref imageOut);
 
         return imageOut;
     }
 
-    public static CVImage AspectCrop(
-                    CVImage image,
-                    double aspect)
+    public static CVImage CenterCopy<T>(
+        CVImage image,
+        int targetWidth,
+        int targetHeight,
+        T[] defaultValue,
+        out CVCenterCopyTransform transform
+    ) where T : struct, INumber<T>
     {
-        int cropWidth = (int)(image.Height * aspect);
-        int cropHeight = image.Height;
+        transform = new CVCenterCopyTransform(image.Width, image.Height, targetWidth, targetHeight);
+        return CenterCopy(image, targetWidth, targetHeight, defaultValue);
+    }
 
-        if (cropWidth > image.Width)
+    public static CVImage CenterCopy<T>(
+        CVImage image,
+        int targetWidth,
+        int targetHeight,
+        T[] defaultValue,
+        ref CVTransformList transforms
+    ) where T : struct, INumber<T>
+    {
+        transforms.Transforms.Add(new CVCenterCopyTransform(image.Width, image.Height, targetWidth, targetHeight));
+        return CenterCopy(image, targetWidth, targetHeight, defaultValue);
+    }
+
+    public static void GetAspectCropDimensions(
+        int imageWidth,
+        int imageHeight,
+        double aspect,
+        out int cropWidth,
+        out int cropHeight
+    )
+    {
+        cropWidth = (int)(imageHeight * aspect);
+        cropHeight = imageHeight;
+
+        if (cropWidth > imageWidth)
         {
-            cropWidth = image.Width;
-            cropHeight = (int)(image.Width / aspect);
+            cropWidth = imageWidth;
+            cropHeight = (int)(imageWidth / aspect);
         }
-
-        return Crop(image, cropWidth, cropHeight);
     }
 
-    public static CVImage AspectPad<T>(
-                        CVImage image,
-                        double aspect,
-                        T defaultValue) where T : struct, INumber<T>
+    public static void GetAspectPadDimensions(
+        int imageWidth,
+        int imageHeight,
+        double aspect,
+        out int padWidth,
+        out int padHeight
+    )
     {
-        int cropWidth = (int)(image.Height * aspect);
-        int cropHeight = image.Height;
+        padWidth = (int)(imageHeight * aspect);
+        padHeight = imageHeight;
 
-        if (cropWidth < image.Width)
+        if (padWidth < imageWidth)
         {
-            cropWidth = image.Width;
-            cropHeight = (int)(image.Width / aspect);
+            padWidth = imageWidth;
+            padHeight = (int)(imageWidth / aspect);
         }
-
-        return Crop(image, cropWidth, cropHeight, defaultValue);
     }
 
-    public static CVImage AspectPad<T>(
-                        CVImage image,
-                        double aspect,
-                        T[] defaultValue) where T : struct, INumber<T>
+    public static CVImage AspectCrop(CVImage image, double aspect)
     {
-        int cropWidth = (int)(image.Height * aspect);
-        int cropHeight = image.Height;
-
-        if (cropWidth < image.Width)
-        {
-            cropWidth = image.Width;
-            cropHeight = (int)(image.Width / aspect);
-        }
-
-        return Crop(image, cropWidth, cropHeight, defaultValue);
+        GetAspectCropDimensions(image.Width, image.Height, aspect, out int targetWidth, out int targetHeight);
+        return CenterCopy(image, targetWidth, targetHeight);
     }
 
-    public static CVImage AspectFitWidth(
-                        CVImage image,
-                        double aspect,
-                        CVInterpolationMode mode)
+    public static CVImage AspectCrop(CVImage image, double aspect, out CVITransform transform)
     {
-        int stretchWidth = (int)(image.Height * aspect);
-        int stretchHeight = image.Height;
-
-        return Stretch(image, stretchWidth, stretchHeight, mode);
+        GetAspectCropDimensions(image.Width, image.Height, aspect, out int targetWidth, out int targetHeight);
+        transform = new CVAspectCropTransform(image.Width, image.Height, targetWidth, targetHeight);
+        return CenterCopy(image, targetWidth, targetHeight);
     }
 
-    public static CVImage AspectFitHeight(
-                        CVImage image,
-                        double aspect,
-                        CVInterpolationMode mode)
+    public static CVImage AspectCrop(CVImage image, double aspect, ref CVTransformList transforms)
     {
-        int stretchWidth = image.Width;
-        int stretchHeight = (int)(image.Width / aspect);
-
-        return Stretch(image, stretchWidth, stretchHeight, mode);
+        GetAspectCropDimensions(image.Width, image.Height, aspect, out int targetWidth, out int targetHeight);
+        transforms.Transforms.Add(new CVAspectCropTransform(image.Width, image.Height, targetWidth, targetHeight));
+        return CenterCopy(image, targetWidth, targetHeight);
     }
 
-    public static CVImage ResizeStretch(
-                        CVImage image,
-                        int width,
-                        int height,
-                        CVInterpolationMode mode)
+    public static CVImage AspectPad(CVImage image, double aspect)
     {
-        return Stretch(image, width, height, mode);
+        GetAspectPadDimensions(image.Width, image.Height, aspect, out int targetWidth, out int targetHeight);
+        return CenterCopy(image, targetWidth, targetHeight);
     }
 
-    public static CVImage ResizeCrop(
-                        CVImage image,
-                        int width,
-                        int height,
-                        CVInterpolationMode mode)
+    public static CVImage AspectPad(CVImage image, double aspect, out CVITransform transform)
     {
-        double aspect = (double)width / height;
-
-        CVImage cropped = AspectCrop(image, aspect);
-        return Stretch(cropped, width, height, mode);
+        GetAspectPadDimensions(image.Width, image.Height, aspect, out int targetWidth, out int targetHeight);
+        transform = new CVAspectPadTransform(image.Width, image.Height, targetWidth, targetHeight);
+        return CenterCopy(image, targetWidth, targetHeight);
     }
 
-    public static CVImage ResizePad<T>(
-                        CVImage image,
-                        int width,
-                        int height,
-                        CVInterpolationMode mode,
-                        T defaultValue) where T : struct, INumber<T>
+    public static CVImage AspectPad(CVImage image, double aspect, ref CVTransformList transforms)
     {
-        double aspect = (double)width / height;
-
-        CVImage padded = AspectPad(image, aspect, defaultValue);
-        return Stretch(padded, width, height, mode);
+        GetAspectPadDimensions(image.Width, image.Height, aspect, out int targetWidth, out int targetHeight);
+        transforms.Transforms.Add(new CVAspectPadTransform(image.Width, image.Height, targetWidth, targetHeight));
+        return CenterCopy(image, targetWidth, targetHeight);
     }
 
-    public static CVImage ResizePad<T>(
-                        CVImage image,
-                        int width,
-                        int height,
-                        CVInterpolationMode mode,
-                        T[] defaultValue) where T : struct, INumber<T>
+    public static CVImage Aspect(CVImage image, double aspect, CVAspectMode mode)
     {
-        double aspect = (double)width / height;
+        if (mode == CVAspectMode.CV_CROP)
+            return AspectCrop(image, aspect);
+        else if (mode == CVAspectMode.CV_PAD)
+            return AspectPad(image, aspect);
 
-        CVImage padded = AspectPad(image, aspect, defaultValue);
-        return Stretch(padded, width, height, mode);
+        throw new Exception("Unknown Aspect mode");
     }
 
-    public static CVImage Resize<T>(
-                    CVImage image,
-                    int width,
-                    int height,
-                    CVResizeMode resizeMode,
-                    CVInterpolationMode interpolationMode,
-                    T[] defaultValue) where T : struct, INumber<T>
+    public static CVImage Aspect(CVImage image, double aspect, CVAspectMode mode, out CVITransform transform)
     {
-        if (resizeMode == CVResizeMode.CV_STRETCH) return ResizeStretch(image, width, height, interpolationMode);
-        else if (resizeMode == CVResizeMode.CV_CROP) return ResizeCrop(image, width, height, interpolationMode);
-        else if (resizeMode == CVResizeMode.CV_PAD) return ResizePad(image, width, height, interpolationMode, defaultValue);
+        if (mode == CVAspectMode.CV_CROP)
+            return AspectCrop(image, aspect, out transform);
+        else if (mode == CVAspectMode.CV_PAD)
+            return AspectPad(image, aspect, out transform);
 
-        throw new Exception("Unknown Resize mode");
+        throw new Exception("Unknown Aspect mode");
     }
 
-    public static CVImage Resize<T>(
-                CVImage image,
-                int width,
-                int height,
-                CVResizeMode resizeMode,
-                CVInterpolationMode interpolationMode,
-                T defaultValue) where T : struct, INumber<T>
+    public static CVImage Aspect(CVImage image, double aspect, CVAspectMode mode, ref CVTransformList transforms)
     {
-        if (resizeMode == CVResizeMode.CV_STRETCH) return ResizeStretch(image, width, height, interpolationMode);
-        else if (resizeMode == CVResizeMode.CV_CROP) return ResizeCrop(image, width, height, interpolationMode);
-        else if (resizeMode == CVResizeMode.CV_PAD) return ResizePad(image, width, height, interpolationMode, defaultValue);
+        if (mode == CVAspectMode.CV_CROP)
+            return AspectCrop(image, aspect, ref transforms);
+        else if (mode == CVAspectMode.CV_PAD)
+            return AspectPad(image, aspect, ref transforms);
 
-        throw new Exception("Unknown Resize mode");
+        throw new Exception("Unknown Aspect mode");
     }
 
-    public static CVImage ResizeStretch(
-                        CVImage image,
-                        int width,
-                        int height,
-                        CVInterpolationMode mode,
-                        out CVTransform transform)
+    public static CVImage AspectStretch(CVImage image, CVAspectMode aspectMode, int targetWidth, int targetHeight, CVInterpolationMode interpolationMode)
     {
-        transform = new CVStretchTransform()
-        {
-            SourceWidth = image.Width,
-            SourceHeight = image.Height,
-            TargetWidth = width,
-            TargetHeight = height,
-        };
+        double aspect = (double)targetWidth / targetHeight;
 
-        return Stretch(image, width, height, mode);
+        CVImage tempImage = Aspect(image, aspect, aspectMode);
+        return Stretch(tempImage, targetWidth, targetHeight, interpolationMode);
     }
 
-    public static CVImage ResizeCrop(
-                        CVImage image,
-                        int width,
-                        int height,
-                        CVInterpolationMode mode,
-                        out CVTransform transform)
+    public static CVImage AspectStretch(CVImage image, CVAspectMode aspectMode, int targetWidth, int targetHeight, CVInterpolationMode interpolationMode, ref CVTransformList transforms)
     {
-        transform = new CVCropTransform()
-        {
-            SourceWidth = image.Width,
-            SourceHeight = image.Height,
-            TargetWidth = width,
-            TargetHeight = height,
-        };
+        double aspect = (double)targetWidth / targetHeight;
 
-        double aspect = (double)width / height;
-
-        CVImage cropped = AspectCrop(image, aspect);
-        return Stretch(cropped, width, height, mode);
-    }
-
-    public static CVImage ResizePad<T>(
-                        CVImage image,
-                        int width,
-                        int height,
-                        CVInterpolationMode mode,
-                        T defaultValue,
-                        out CVTransform transform) where T : struct, INumber<T>
-    {
-        transform = new CVPadTransform()
-        {
-            SourceWidth = image.Width,
-            SourceHeight = image.Height,
-            TargetWidth = width,
-            TargetHeight = height,
-        };
-
-        double aspect = (double)width / height;
-
-        CVImage padded = AspectPad(image, aspect, defaultValue);
-        return Stretch(padded, width, height, mode);
-    }
-
-    public static CVImage ResizePad<T>(
-                        CVImage image,
-                        int width,
-                        int height,
-                        CVInterpolationMode mode,
-                        T[] defaultValue,
-                        out CVTransform transform) where T : struct, INumber<T>
-    {
-        transform = new CVPadTransform()
-        {
-            SourceWidth = image.Width,
-            SourceHeight = image.Height,
-            TargetWidth = width,
-            TargetHeight = height,
-        };
-
-        double aspect = (double)width / height;
-
-        CVImage padded = AspectPad(image, aspect, defaultValue);
-        return Stretch(padded, width, height, mode);
-    }
-
-    public static CVImage Resize<T>(
-                    CVImage image,
-                    int width,
-                    int height,
-                    CVResizeMode resizeMode,
-                    CVInterpolationMode interpolationMode,
-                    T[] defaultValue,
-                    out CVTransform transform) where T : struct, INumber<T>
-    {
-        if (resizeMode == CVResizeMode.CV_STRETCH) return ResizeStretch(image, width, height, interpolationMode, out transform);
-        else if (resizeMode == CVResizeMode.CV_CROP) return ResizeCrop(image, width, height, interpolationMode, out transform);
-        else if (resizeMode == CVResizeMode.CV_PAD) return ResizePad(image, width, height, interpolationMode, defaultValue, out transform);
-
-        throw new Exception("Unknown Resize mode");
-    }
-
-    public static CVImage Resize<T>(
-                CVImage image,
-                int width,
-                int height,
-                CVResizeMode resizeMode,
-                CVInterpolationMode interpolationMode,
-                T defaultValue,
-                out CVTransform transform) where T : struct, INumber<T>
-    {
-        if (resizeMode == CVResizeMode.CV_STRETCH) return ResizeStretch(image, width, height, interpolationMode, out transform);
-        else if (resizeMode == CVResizeMode.CV_CROP) return ResizeCrop(image, width, height, interpolationMode, out transform);
-        else if (resizeMode == CVResizeMode.CV_PAD) return ResizePad(image, width, height, interpolationMode, defaultValue, out transform);
-
-        throw new Exception("Unknown Resize mode");
+        CVImage tempImage = Aspect(image, aspect, aspectMode, ref transforms);
+        return Stretch(tempImage, targetWidth, targetHeight, interpolationMode, ref transforms);
     }
 }
